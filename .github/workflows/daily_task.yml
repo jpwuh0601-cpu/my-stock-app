@@ -1,23 +1,18 @@
-# 這是檔案內容，不是終端機指令
-name: Daily Stock Analysis
+name: Daily Auto Stock Analysis
 on:
   schedule:
-    - cron: '30 08 * * *'
+    - cron: '0 8 * * 1-5' # 台灣時間 16:00 (收盤後)
   workflow_dispatch:
 jobs:
-  build:
+  run-worker:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with: 
-          python-version: '3.9'
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-      - name: Run Automation Task
-        run: python main_task.py
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with: {python-version: '3.9'}
+      - run: pip install yfinance openai requests
+      - name: Run worker
         env:
-          LINE_ACCESS_TOKEN: ${{ secrets.LINE_ACCESS_TOKEN }}
-          USER_ID: ${{ secrets.USER_ID }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+        run: python worker.py
