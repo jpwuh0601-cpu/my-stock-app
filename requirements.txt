@@ -1,4 +1,7 @@
-streamlit
 yfinance
-plotly
 pandas
+pandas_ta
+openai
+line-bot-sdk
+requests
+beautifulsoup4
