@@ -1,39 +1,49 @@
 import os
 import yfinance as yf
 import requests
-from openai import OpenAI
 
-# 安全讀取環境變數 (GitHub Actions 會提供)
-api_key = os.environ.get("OPENAI_API_KEY")
+# 1. 安全讀取 LINE Token (GitHub Actions 需設定)
 line_token = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN")
 
-client = OpenAI(api_key=api_key)
+if not line_token:
+    print("錯誤：缺少 LINE_CHANNEL_ACCESS_TOKEN，請檢查 GitHub Secrets 設定。")
+    exit(1)
 
-def run_auto_analysis(ticker="2330.TW"):
-    # 抓取數據
+def run_auto_monitor(ticker="2330.TW"):
+    # 2. 抓取數據 (不使用 AI，僅做數據計算)
     df = yf.download(ticker, period="1mo", progress=False)
     
     if df.empty:
+        print(f"無法取得 {ticker} 的數據")
         return
 
-    # 計算技術指標
+    # 3. 計算技術指標
+    # 將數據轉為 float 確保計算準確
     sma_20 = df['Close'].rolling(window=20).mean().iloc[-1].item()
     last_price = df['Close'].iloc[-1].item()
     
-    # 讓 AI 根據數據分析
-    prompt = f"股票 {ticker}, 最新價 {last_price:.2f}, 20日均線 {sma_20:.2f}。請從技術面分析其趨勢，並給出買賣觀點。"
+    # 4. 判斷多空狀態 (簡單邏輯)
+    status = "多頭趨勢 (價格高於均線)" if last_price > sma_20 else "空頭趨勢 (價格低於均線)"
     
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}]
+    # 5. 製作監控報告
+    msg = (
+        f"\n【每日股價監控】\n"
+        f"標的: {ticker}\n"
+        f"最新價: {last_price:.2f}\n"
+        f"20日均線: {sma_20:.2f}\n"
+        f"目前狀態: {status}"
     )
-    analysis_text = response.choices[0].message.content
     
-    # 發送至 LINE
-    msg = f"\n【智能投資管家報告】\n標的: {ticker}\n最新價: {last_price:.2f}\n20日均線: {sma_20:.2f}\n\n分析建議:\n{analysis_text}"
-    requests.post("https://notify-api.line.me/api/notify", 
-                  headers={"Authorization": f"Bearer {line_token}"}, 
-                  data={"message": msg})
+    # 6. 發送至 LINE
+    headers = {"Authorization": f"Bearer {line_token}"}
+    response = requests.post("https://notify-api.line.me/api/notify", 
+                             headers=headers, 
+                             data={"message": msg})
+    
+    if response.status_code == 200:
+        print(f"{ticker} 監控報告已成功發送至 LINE！")
+    else:
+        print(f"發送失敗，錯誤碼: {response.status_code}")
 
 if __name__ == "__main__":
-    run_auto_analysis("2330.TW")
+    run_auto_monitor("2330.TW")
