@@ -1,112 +1,65 @@
 import streamlit as st
 import yfinance as yf
+import pandas as pd
+import pandas_ta as ta
+import openai
+from linebot import LineBotApi
 import plotly.graph_objects as go
-from datetime import datetime
+import os
 
-# 頁面設定
-st.set_page_config(
-    page_title="全球危機監控",
-    layout="wide"
-)
+# 使用 try-except 區塊來處理可能缺失的 Secrets，這比直接存取更安全
+try:
+    openai.api_key = st.secrets["OPENAI_API_KEY"]
+    LINE_CHANNEL_ACCESS_TOKEN = st.secrets["LINE_CHANNEL_ACCESS_TOKEN"]
+    # 如果有 LINE_CHANNEL_SECRET 也建議一起加入
+except Exception as e:
+    st.error(f"Secrets 設定錯誤，請確保在 Streamlit Cloud Settings 中有正確填入: {e}")
+    st.stop()
 
-# 標題
-st.title("🌍 全球股市危機監控 APP")
+st.set_page_config(page_title="股票分析助手", layout="wide")
+st.title("📈 股票分析與即時監控助手")
 
-st.markdown("即時監控全球市場、VIX恐慌與AI風險")
+st.sidebar.header("設定參數")
+ticker = st.sidebar.text_input("輸入股票代號 (例如: 2330.TW)", value="2330.TW")
+start_date = st.sidebar.date_input("開始日期", pd.to_datetime("2023-01-01"))
+end_date = st.sidebar.date_input("結束日期", pd.to_datetime("today"))
 
-# 股票代碼
-symbols = {
-    "台股加權": "^TWII",
-    "道瓊工業": "^DJI",
-    "NASDAQ": "^IXIC",
-    "標普500": "^GSPC",
-    "費城半導體": "^SOX",
-    "VIX恐慌": "^VIX",
-    "黃金": "GC=F"
-}
-
-# 建立欄位
-cols = st.columns(len(symbols))
-
-# 顯示數據
-i = 0
-
-for name, ticker in symbols.items():
-
+@st.cache_data
+def get_stock_data(ticker, start, end):
     try:
-        data = yf.Ticker(ticker).history(period="2d")
+        data = yf.download(ticker, start=start, end=end)
+        return data
+    except Exception as e:
+        return None
 
-        latest = data["Close"].iloc[-1]
-        previous = data["Close"].iloc[-2]
+if st.sidebar.button("分析股票"):
+    with st.spinner("正在抓取數據與運算..."):
+        df = get_stock_data(ticker, start_date, end_date)
+        
+        if df is not None and not df.empty:
+            st.write(f"顯示 {ticker} 的歷史走勢")
+            
+            # 使用 Plotly 繪製股價圖
+            fig = go.Figure(data=[go.Candlestick(x=df.index,
+                            open=df['Open'],
+                            high=df['High'],
+                            low=df['Low'],
+                            close=df['Close'])])
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # 簡單計算技術指標 (pandas-ta)
+            df.ta.rsi(append=True)
+            st.write("技術指標數據 (RSI):", df.tail())
+        else:
+            st.error("無法取得數據，請檢查股票代號是否正確。")
 
-        change = latest - previous
-        percent = (change / previous) * 100
-
-        with cols[i]:
-            st.metric(
-                label=name,
-                value=f"{latest:.2f}",
-                delta=f"{change:.2f} ({percent:.2f}%)"
-            )
-
-        i += 1
-
-    except:
-        with cols[i]:
-            st.error(f"{name} 讀取失敗")
-        i += 1
-
-# VIX 分析
-st.subheader("🚨 市場風險分析")
-
-try:
-    vix = yf.Ticker("^VIX").history(period="1d")["Close"].iloc[-1]
-
-    if vix < 20:
-        st.success("市場情緒穩定")
-
-    elif vix < 30:
-        st.warning("市場開始出現恐慌")
-
-    else:
-        st.error("⚠️ 高風險警報：市場恐慌升高")
-
-except:
-    st.error("VIX 資料讀取失敗")
-
-# NASDAQ 圖表
-st.subheader("📈 NASDAQ 近六個月走勢")
-
-try:
-    nasdaq = yf.Ticker("^IXIC").history(period="6mo")
-
-    fig = go.Figure()
-
-    fig.add_trace(go.Scatter(
-        x=nasdaq.index,
-        y=nasdaq["Close"],
-        mode='lines',
-        name='NASDAQ'
-    ))
-
-    fig.update_layout(height=500)
-
-    st.plotly_chart(fig, use_container_width=True)
-
-except:
-    st.error("NASDAQ 圖表讀取失敗")
-
-# 防禦建議
-st.subheader("🛡️ 防禦策略")
-
-st.info("""
-目前建議：
-
-- 保持現金部位
-- 注意 VIX 是否突破 30
-- 留意 AI 類股修正
-- 避免高槓桿股票
-""")
-
-# 更新時間
-st.caption(f"更新時間：{datetime.now()}")
+def get_ai_summary(ticker_data):
+    # 此處整合 OpenAI 的邏輯
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": f"分析這支股票: {ticker}"}]
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"AI 分析發生錯誤: {e}"
