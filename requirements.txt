@@ -1,9 +1,10 @@
 streamlit==1.35.0
+yfinance==0.2.40
 pandas==2.2.2
 numpy==1.26.4
-plotly==5.22.0
-yfinance==0.2.40
+pandas-ta==0.3.14b0
+openai==1.35.10
+line-bot-sdk==3.11.0
 requests==2.32.3
 beautifulsoup4==4.12.3
 lxml==5.2.2
-openai==1.35.10
