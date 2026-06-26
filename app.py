@@ -7,13 +7,12 @@ import plotly.graph_objects as go
 # 1. 頁面配置
 st.set_page_config(page_title="股票分析助手", layout="wide")
 
-# 2. 安全讀取 Secrets
+# 2. 安全讀取 Secrets (金鑰存放在 Streamlit Cloud Settings)
 try:
+    # 這裡會自動從您在 Streamlit Cloud 設定的 Secrets 中讀取
     client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-    # 這裡若需使用 LINE 功能，請確保也設定在 Secrets 中
-    line_token = st.secrets.get("LINE_CHANNEL_ACCESS_TOKEN", "")
 except Exception as e:
-    st.error("Secrets 設定異常，請至 Streamlit Cloud 設定 (Settings -> Secrets)。")
+    st.error("系統偵測到 Secrets 設定異常，請至 Streamlit Cloud 設定 (Settings -> Secrets)。")
     st.stop()
 
 st.title("📈 股票分析與即時監控助手")
@@ -24,7 +23,7 @@ ticker = st.sidebar.text_input("輸入股票代號 (例如: 2330.TW)", value="23
 start_date = st.sidebar.date_input("開始日期", pd.to_datetime("2023-01-01"))
 end_date = st.sidebar.date_input("結束日期", pd.to_datetime("today"))
 
-# 4. 強效資料抓取函數 (加入 timeout 與快取)
+# 4. 強效資料抓取函數 (已移除 pandas_ta)
 @st.cache_data(ttl=3600)
 def get_stock_data(ticker, start, end):
     try:
@@ -52,7 +51,7 @@ if st.sidebar.button("開始分析"):
         if df is not None and not df.empty:
             st.subheader(f"{ticker} 走勢分析")
             
-            # 使用 Plotly 繪製
+            # 使用 Plotly 繪製蠟燭圖
             fig = go.Figure(data=[go.Candlestick(x=df.index,
                             open=df['Open'],
                             high=df['High'],
@@ -60,7 +59,7 @@ if st.sidebar.button("開始分析"):
                             close=df['Close'])])
             st.plotly_chart(fig, use_container_width=True)
             
-            # 顯示原始數據尾部
+            # 顯示原始數據摘要
             st.write("最新收盤數據:", df.tail())
             
             # AI 觀點
