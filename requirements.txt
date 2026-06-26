@@ -6,3 +6,4 @@ openai
 line-bot-sdk
 requests
 beautifulsoup4
+# 暫時移除 rich，讓 Streamlit 自動處理其相依性
