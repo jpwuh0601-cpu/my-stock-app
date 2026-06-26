@@ -1,0 +1,23 @@
+# 這是檔案內容，不是終端機指令
+name: Daily Stock Analysis
+on:
+  schedule:
+    - cron: '30 08 * * *'
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with: 
+          python-version: '3.9'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run Automation Task
+        run: python main_task.py
+        env:
+          LINE_ACCESS_TOKEN: ${{ secrets.LINE_ACCESS_TOKEN }}
+          USER_ID: ${{ secrets.USER_ID }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
