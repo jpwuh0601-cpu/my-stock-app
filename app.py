@@ -1,16 +1,14 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
-import pandas_ta as ta
 from openai import OpenAI
 import plotly.graph_objects as go
 
-# 1. 頁面配置 (必須放在第一行)
+# 1. 頁面配置
 st.set_page_config(page_title="股票分析助手", layout="wide")
 
-# 2. 安全讀取 Secrets (請確保在 Streamlit Cloud 設定中已填入這兩個鍵)
+# 2. 安全讀取 Secrets
 try:
-    # 建立 OpenAI 客戶端 (使用最新版 1.0.0+ 語法)
     client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
     line_token = st.secrets["LINE_CHANNEL_ACCESS_TOKEN"]
 except Exception as e:
@@ -25,7 +23,7 @@ ticker = st.sidebar.text_input("輸入股票代號 (例如: 2330.TW)", value="23
 start_date = st.sidebar.date_input("開始日期", pd.to_datetime("2023-01-01"))
 end_date = st.sidebar.date_input("結束日期", pd.to_datetime("today"))
 
-# 4. 資料抓取函數 (加入快取以提升效能)
+# 4. 資料抓取函數
 @st.cache_data
 def get_stock_data(ticker, start, end):
     try:
@@ -34,7 +32,7 @@ def get_stock_data(ticker, start, end):
     except Exception as e:
         return None
 
-# 5. AI 分析函數 (修正為新版語法)
+# 5. AI 分析函數
 def get_ai_summary(ticker_name):
     try:
         response = client.chat.completions.create(
@@ -61,9 +59,8 @@ if st.sidebar.button("開始分析"):
                             close=df['Close'])])
             st.plotly_chart(fig, use_container_width=True)
             
-            # 技術指標計算
-            df.ta.rsi(append=True)
-            st.write("最新技術指標 (RSI):", df.tail())
+            # 顯示原始數據摘要
+            st.write("最新股價數據:", df.tail())
             
             # AI 總結
             st.subheader("AI 專家觀點")
