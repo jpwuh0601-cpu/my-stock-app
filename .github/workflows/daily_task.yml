@@ -2,7 +2,7 @@ name: Daily Auto Stock Analysis
 on:
   schedule:
     - cron: '0 8 * * 1-5' # 台灣時間 16:00 (收盤後)
-  workflow_dispatch:
+  workflow_dispatch: # 允許您在 GitHub 頁面手動觸發
 jobs:
   run-worker:
     runs-on: ubuntu-latest
