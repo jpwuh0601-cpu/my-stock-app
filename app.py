@@ -9,26 +9,23 @@ st.set_page_config(page_title="股市 AI 決策系統", layout="wide")
 st.title("📊 專業股市 AI 決策系統")
 
 # 輸入區塊
-ticker = st.text_input("輸入股票代號 (例如 2330.TW)", "2330.TW")
+ticker_input = st.text_input("輸入股票代號 (例如 2330.TW)", "2330.TW")
 
-# 自動處理台股代號補全
+# 整理代號格式
+ticker = ticker_input.strip().upper()
 if ticker.isdigit():
     ticker = f"{ticker}.TW"
 
-# 建立一個簡單的佔位符來處理邏輯，避免介面卡死
 if st.button("查詢分析"):
-    # 使用 try-except 包裹整個抓取流程，確保即使網路失敗也能顯示錯誤訊息而非轉圈圈
-    try:
-        with st.spinner("正在連線至市場數據庫..."):
-            # 強制延遲，避免過度請求
-            time.sleep(1)
+    with st.spinner(f"正在為您連線至 Yahoo Finance 獲取 {ticker} 資料..."):
+        try:
+            # 使用 download 方法，這比 Ticker.history 更不容易被封鎖
+            # 加入 auto_adjust=True 取得調整後價格
+            df = yf.download(ticker, period="1mo", auto_adjust=True, progress=False)
             
-            # 使用更簡潔的歷史資料抓取方式
-            # 這裡不使用 progress=False 的變體，以防環境不支援
-            df = yf.Ticker(ticker).history(period="1mo")
-            
-            if df is None or df.empty:
-                st.error(f"無法取得代號 {ticker} 的資料，請確認輸入是否正確。")
+            if df.empty:
+                st.error(f"無法取得代號 {ticker} 的資料。")
+                st.write("除錯建議：請確認代號是否為 Yahoo Finance 格式（台股請加 .TW），或稍候 5 分鐘再試。")
             else:
                 # 取得最新收盤價與計算 MA20
                 current_price = float(df['Close'].iloc[-1])
@@ -44,10 +41,10 @@ if st.button("查詢分析"):
                 
                 # 更新狀態給 AI 使用
                 st.session_state['stock_data_summary'] = f"股票: {ticker}, 最新收盤價: {current_price}, 20日均線: {ma20}, 趨勢: {trend}"
-                st.success("資料分析完成！")
+                st.success("資料抓取成功！")
                 
-    except Exception as e:
-        st.error(f"連線失敗: {e}")
+        except Exception as e:
+            st.error(f"連線失敗，請稍後再試。系統錯誤代碼: {e}")
 
 # AI 分析區塊
 st.markdown("---")
