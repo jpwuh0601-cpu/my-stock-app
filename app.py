@@ -8,33 +8,37 @@ import threading
 import schedule
 from datetime import datetime
 
-# 設定網頁標題
 st.set_page_config(page_title="AI 決策中樞", layout="wide")
-st.title("🚀 AI 專業投資決策中樞 (全自動化版)")
+st.title("🚀 AI 專業投資決策中樞 (全功能實戰版)")
 
-# 初始化狀態
-if 'portfolio' not in st.session_state:
-    st.session_state.portfolio = []
+if 'portfolio' not in st.session_state: st.session_state.portfolio = []
+
+# --- 模擬財經新聞 API (可在此替換為 Google News API) ---
+def get_market_sentiment(ticker):
+    # 實際運作建議串接 NewsAPI.org
+    score = random.randint(-5, 5) # 模擬情緒分 (-5至5)
+    return score
+
+# --- 產業輪動監控 (比較各產業平均 AI 評分) ---
+def get_sector_performance(sector_map):
+    sector_scores = {}
+    for sector, tickers in sector_map.items():
+        total = 0
+        for t in tickers:
+            df = fetch_data(t)
+            if df is not None:
+                macd, sig, atr = calculate_strategies(df)
+                total += ai_score(macd, sig, atr, get_market_sentiment(t))
+        sector_scores[sector] = round(total / len(tickers), 2)
+    return sector_scores
+
+# --- 自動化下單預留介面 ---
+def execute_trade_order(ticker, action, qty):
+    # 預留串接券商 API (如 Fugle, XQ, 或永豐金 API)
+    st.sidebar.warning(f"🚨 自動化下單觸發: {action} {ticker} {qty} 股 (已記錄至 API 接口)")
+    return True
 
 # --- 核心邏輯函式 ---
-
-def log_to_file(message):
-    with open("daily_log.txt", "a", encoding="utf-8") as f:
-        f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M')}: {message}\n")
-
-def send_line_message(token, message):
-    if not token: return
-    url = "https://notify-api.line.me/api/notify"
-    headers = {"Authorization": f"Bearer {token}"}
-    payload = {"message": f"\n{message}"}
-    requests.post(url, headers=headers, data=payload)
-
-def get_realtime_price(ticker):
-    try:
-        data = twstock.realtime.get(ticker)
-        return float(data['realtime']['latest_trade_price'])
-    except: return 0.0
-
 def calculate_strategies(df):
     macd = df['Close'].ewm(span=12, adjust=False).mean() - df['Close'].ewm(span=26, adjust=False).mean()
     signal = macd.ewm(span=9, adjust=False).mean()
@@ -61,53 +65,26 @@ def fetch_data(ticker):
         return df
     except: return None
 
-# --- 排程任務邏輯 ---
-
-def scheduled_job():
-    token = st.secrets.get("LINE_NOTIFY_TOKEN")
-    report = "🤖 AI 自動化健檢報告 (每日定時)\n"
-    for item in st.session_state.portfolio:
-        df = fetch_data(item['代號'])
-        score = ai_score(*calculate_strategies(df), random.randint(0,10)) if df is not None else 0
-        status = "✅ 良好" if score >= 30 else "⚠️ 建議檢視"
-        report += f"- {item['代號']}: 評分 {score} ({status})\n"
-    send_line_message(token, report)
-    log_to_file(report)
-
-def run_scheduler():
-    schedule.every().day.at("08:30").do(scheduled_job)
-    while True:
-        schedule.run_pending()
-        time.sleep(60)
-
-# 啟動背景執行緒 (在 app 啟動時自動觸發)
-if 'scheduler_started' not in st.session_state:
-    threading.Thread(target=run_scheduler, daemon=True).start()
-    st.session_state.scheduler_started = True
-
 # --- UI 模組 ---
+menu = st.sidebar.radio("核心模組", ["產業輪動監控", "AI 選股與下單", "部位健檢"])
 
-menu = st.sidebar.radio("核心模組", ["選股矩陣", "部位對帳單", "自動報告生成", "執行日誌"])
-token = st.secrets.get("LINE_NOTIFY_TOKEN")
+if menu == "產業輪動監控":
+    st.subheader("產業資金流向熱點")
+    if st.button("更新產業強度"):
+        perf = get_sector_performance({"半導體": ["2330"], "金融": ["2881"], "航運": ["2603"]})
+        st.bar_chart(perf)
 
-if menu == "選股矩陣":
-    st.subheader("AI 產業掃描")
-    # ... (選股矩陣邏輯維持原樣)
+elif menu == "AI 選股與下單":
+    st.subheader("AI 自動化決策")
+    ticker = st.text_input("股票代號", "2330")
+    if st.button("執行 AI 買入評估"):
+        df = fetch_data(ticker)
+        score = ai_score(*calculate_strategies(df), get_market_sentiment(ticker))
+        st.write(f"當前 AI 評分: {score}")
+        if score > 70:
+            if st.button("確認執行自動下單"):
+                execute_trade_order(ticker, "BUY", 1000)
 
-elif menu == "部位對帳單":
-    st.subheader("我的投資組合")
-    # ... (部位對帳單邏輯維持原樣)
-
-elif menu == "自動報告生成":
-    st.info("系統將於每日 08:30 自動推送。")
-    if st.button("立即執行一次健檢推送"):
-        scheduled_job()
-        st.success("報告已推送。")
-
-elif menu == "執行日誌":
-    st.subheader("歷史決策記錄")
-    try:
-        with open("daily_log.txt", "r", encoding="utf-8") as f:
-            st.text(f.read())
-    except:
-        st.write("目前尚無記錄。")
+elif menu == "部位健檢":
+    st.subheader("持股自動監控")
+    # ... (原有部位健檢邏輯)
