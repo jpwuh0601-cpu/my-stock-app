@@ -30,14 +30,14 @@ def fetch_data(ticker):
         return None
 
 def send_line_notify(token, message):
-    """發送 LINE 通知"""
+    """發送 LINE Notify 推送通知"""
     url = "https://notify-api.line.me/api/notify"
     headers = {"Authorization": f"Bearer {token}"}
     payload = {"message": message}
     return requests.post(url, headers=headers, data=payload)
 
 # 側邊欄導航
-menu = st.sidebar.radio("AI 決策核心", ["個股儀表板", "AI 選股與指標", "黑天鵝警示系統", "LINE 通知設定"])
+menu = st.sidebar.radio("AI 決策核心", ["個股儀表板", "AI 選股與指標", "黑天鵝警示系統", "LINE 通知與 Bot 設定"])
 
 if menu == "個股儀表板":
     ticker = st.text_input("輸入台股代號", "2330.TW")
@@ -68,19 +68,18 @@ elif menu == "AI 選股與指標":
 
 elif menu == "黑天鵝警示系統":
     st.warning("⚠️ 黑天鵝警示：系統監控異常波動中")
-    # 範例邏輯：若 MA20 跌幅超過一定標準則警示
     st.table(pd.DataFrame({"警示類別": ["量價背離", "極端波動"], "狀態": ["正常", "監控中"]}))
 
-elif menu == "LINE 通知設定":
-    st.subheader("📱 LINE Notify 綁定")
-    token = st.text_input("輸入 LINE Notify Token", type="password")
-    msg = st.text_input("測試訊息內容", "這是來自 AI 系統的測試通知")
-    if st.button("發送測試通知"):
-        if token:
-            res = send_line_notify(token, msg)
-            if res.status_code == 200:
-                st.success("通知已成功發送！")
-            else:
-                st.error("發送失敗，請確認 Token 是否正確。")
-        else:
-            st.warning("請輸入有效的 Token。")
+elif menu == "LINE 通知與 Bot 設定":
+    st.subheader("📱 LINE 服務整合設定")
+    
+    with st.expander("LINE Notify 推送設定 (接收警示用)"):
+        notify_token = st.text_input("LINE Notify Token", type="password")
+        if st.button("發送測試通知"):
+            if notify_token:
+                res = send_line_notify(notify_token, "這是測試推播")
+                st.success("通知發送狀態：" + str(res.status_code))
+    
+    with st.expander("LINE Messaging API 設定 (互動機器人用)"):
+        channel_access_token = st.text_input("Channel Access Token", type="password")
+        st.caption("此 Token 用於實現雙向互動功能，設定後即可進行對話開發。")
