@@ -46,9 +46,9 @@ def handle_line_webhook(request_json, channel_token):
             data = fetch_data(ticker)
             if data is not None:
                 price = round(data['收盤價'].iloc[-1], 2)
-                reply_text = f"代號 {ticker} 最新收盤價為 {price}"
+                reply_text = f"💡 代號 {ticker} 最新收盤價為 {price}\n📊 20日均線: {round(data['MA20'].iloc[-1], 2)}\n📈 RSI: {round(data['RSI'].iloc[-1], 2)}"
             else:
-                reply_text = "找不到該股票代號，請確認輸入格式 (例如 2330.TW)"
+                reply_text = "⚠️ 找不到該股票代號，請確認輸入格式 (例如 2330.TW)"
             
             # 回覆訊息給 LINE
             reply_token = event["replyToken"]
@@ -114,5 +114,8 @@ elif menu == "LINE 通知與 Bot 設定":
     with st.expander("LINE Messaging API 設定"):
         channel_token = st.text_input("Channel Access Token", type="password")
         webhook_url = st.text_input("Webhook URL (公開連結)")
-        st.caption("設定後可用於雙向互動式查詢 (例如輸入代號即時取得股價)。")
-        st.info("系統已準備好 Webhook 處理邏輯，請將此應用部署至公開雲端 (如 Streamlit Cloud) 以取得 Webhook URL。")
+        st.caption("設定後可用於雙向互動式查詢。")
+        
+        # 模擬測試 Webhook
+        if st.button("模擬測試 Webhook"):
+            st.info("系統已準備好回應邏輯，您只需在 LINE Developers Console 填入部署後的 Webhook URL 即可。")
