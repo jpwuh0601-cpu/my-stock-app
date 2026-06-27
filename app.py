@@ -4,10 +4,12 @@ import pandas as pd
 import time
 import random
 import requests
+import matplotlib.pyplot as plt
+import io
 
 # 設定網頁標題
 st.set_page_config(page_title="股市 AI 決策系統", layout="wide")
-st.title("📊 專業台股 AI 決策系統 (含自動化回測)")
+st.title("📊 專業台股 AI 決策系統 (含趨勢圖表通知)")
 
 # 產業與代號映射表
 SECTOR_MAP = {
@@ -29,11 +31,29 @@ def fetch_chips(ticker):
     except:
         return None
 
-# MACD 簡易回測邏輯 (統計金叉買入的獲利潛力)
+# 發送帶有圖表的 LINE 通知
+def send_line_notify_with_chart(token, message, df):
+    url = "https://notify-api.line.me/api/notify"
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    # 繪製圖表
+    plt.figure(figsize=(10, 5))
+    plt.plot(df.index[-30:], df['MACD'].iloc[-30:], label='MACD')
+    plt.plot(df.index[-30:], df['Signal'].iloc[-30:], label='Signal')
+    plt.title("Recent MACD Trend")
+    plt.legend()
+    
+    img_buf = io.BytesIO()
+    plt.savefig(img_buf, format='png')
+    img_buf.seek(0)
+    
+    payload = {"message": message}
+    files = {"imageFile": img_buf}
+    requests.post(url, headers=headers, data=payload, files=files)
+
+# MACD 簡易回測邏輯
 def perform_backtest(df):
-    """計算 MACD 黃金交叉後 5 日的平均漲跌幅"""
     df['Signal_Cross'] = (df['MACD'] > df['Signal']) & (df['MACD'].shift(1) <= df['Signal'].shift(1))
-    # 簡化回測：找出黃金交叉日後 5 日的報酬率
     returns = []
     for i in range(len(df)):
         if df['Signal_Cross'].iloc[i] and i + 5 < len(df):
@@ -63,6 +83,7 @@ def fetch_data(ticker):
 
 # 介面
 menu = st.sidebar.radio("AI 決策核心", ["個股儀表板", "產業選股矩陣", "LINE 通知設定"])
+token = st.secrets.get("LINE_NOTIFY_TOKEN")
 
 if menu == "個股儀表板":
     ticker = st.text_input("輸入股票代號 (例如 2330)", "2330")
@@ -72,36 +93,30 @@ if menu == "個股儀表板":
         if data is not None:
             st.subheader(f"{ticker} 技術指標")
             st.line_chart(data[['Close', 'MA20']])
-            if chips is not None:
-                st.subheader("籌碼面統計")
-                st.dataframe(chips)
+            # 發送測試圖表通知
+            if st.button("發送測試通知至 LINE"):
+                if token:
+                    send_line_notify_with_chart(token, f"測試報告: {ticker} 最新 MACD 趨勢", data)
+                    st.success("通知已送出")
+                else:
+                    st.error("請先設定 Token")
         else:
             st.error("資料獲取失敗。")
 
 elif menu == "產業選股矩陣":
     sector = st.selectbox("選擇產業類別", list(SECTOR_MAP.keys()))
-    if st.button("開始產業掃描與回測"):
+    if st.button("開始產業掃描"):
         results = []
-        tickers = SECTOR_MAP[sector]
-        progress_bar = st.progress(0)
-        
-        for i, t in enumerate(tickers):
+        for t in SECTOR_MAP[sector]:
             df = fetch_data(t)
             if df is not None:
                 win_rate = perform_backtest(df)
                 results.append({
                     "代號": t, 
                     "RSI": round(df['RSI'].iloc[-1], 2),
-                    "MACD 狀態": '強勢' if df['MACD'].iloc[-1] > df['Signal'].iloc[-1] else '弱勢',
                     "回測參考(5日平均績效%)": win_rate
                 })
-            progress_bar.progress((i + 1) / len(tickers))
-        
-        if results:
-            st.subheader(f"{sector} 掃描結果 (含回測)")
-            st.table(pd.DataFrame(results))
-        else:
-            st.warning("無資料。")
+        st.table(pd.DataFrame(results))
 
 elif menu == "LINE 通知設定":
     st.header("系統提示")
