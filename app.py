@@ -5,13 +5,13 @@ import random
 import requests
 import plotly.express as px
 
-#st.set_page_config(page_title="AI 決策中樞", layout="wide")
-st.title("🚀 AI 專業投資決策中樞 (部位管理版)")
+st.set_page_config(page_title="AI 決策中樞", layout="wide")
+st.title("🚀 AI 專業投資決策中樞 (部位管理與 AI 健檢)")
 
 if 'portfolio' not in st.session_state:
     st.session_state.portfolio = []
 
-#SECTOR_MAP = {
+SECTOR_MAP = {
     "半導體": ["2330", "2454", "2303", "3034"],
     "金融股": ["2881", "2882", "2886"],
     "營建股": ["2548", "2504", "5522"]
@@ -49,7 +49,7 @@ def fetch_data(ticker):
         return df
     except: return None
 
-#menu = st.sidebar.radio("核心模組", ["選股矩陣", "部位對帳單", "自動報告生成"])
+menu = st.sidebar.radio("核心模組", ["選股矩陣", "部位對帳單", "自動報告生成"])
 
 if menu == "選股矩陣":
     sector = st.selectbox("選擇產業", list(SECTOR_MAP.keys()))
@@ -64,8 +64,8 @@ if menu == "選股矩陣":
                 results.append({"代號": t, "AI 評分": score})
         st.table(pd.DataFrame(results))
 
-#elif menu == "部位對帳單":
-    st.subheader("我的投資組合")
+elif menu == "部位對帳單":
+    st.subheader("我的投資組合與 AI 健檢")
     with st.form("add_stock"):
         c1, c2, c3 = st.columns(3)
         ticker = c1.text_input("股票代號", "2330")
@@ -75,11 +75,30 @@ if menu == "選股矩陣":
             st.session_state.portfolio.append({"代號": ticker, "股數": qty, "成本": price})
     
     if st.session_state.portfolio:
-        pf_df = pd.DataFrame(st.session_state.portfolio)
-        current_prices = [get_realtime_price(t) for t in pf_df['代號']]
-        pf_df['現價'] = current_prices
-        pf_df['損益'] = (pf_df['現價'] - pf_df['成本']) * pf_df['股數']
+        pf_data = []
+        for item in st.session_state.portfolio:
+            price = get_realtime_price(item['代號'])
+            df = fetch_data(item['代號'])
+            score = 0
+            if df is not None:
+                macd, signal, atr = calculate_strategies(df)
+                score = ai_score(macd, signal, atr, random.randint(0, 10))
+            
+            pnl = (price - item['成本']) * item['股數']
+            pf_data.append({
+                "代號": item['代號'], "現價": price, "成本": item['成本'], 
+                "損益": pnl, "AI 健檢評分": score
+            })
+        
+        pf_df = pd.DataFrame(pf_data)
         st.table(pf_df)
+        
+        if st.button("執行部位風險健檢"):
+            alerts = pf_df[pf_df['AI 健檢評分'] < 30]
+            if not alerts.empty:
+                st.warning(f"檢測到以下部位評分過低，建議調整: {alerts['代號'].tolist()}")
+            else:
+                st.success("目前所有部位狀態良好。")
 
 elif menu == "自動報告生成":
     if st.button("觸發自動化報告"):
