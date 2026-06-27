@@ -47,7 +47,7 @@ if menu == "個股儀表板":
             st.metric("最新收盤價", f"{round(data['收盤價'].iloc[-1], 2)}")
             st.line_chart(data[['收盤價', 'MA20']])
             st.write("### 🧠 GPT 新聞與指標解讀")
-            st.info("串接 OpenAI API 後，此處將顯示 AI 對該股的技術面與市場情緒報告。")
+            st.info("串接 OpenAI/OpenRouter API 後，此處將顯示 AI 對該股的技術面與市場情緒報告。")
         else:
             st.error("無法取得資料。")
 
@@ -67,19 +67,30 @@ elif menu == "AI 選股與指標":
             st.write("目前無符合條件的個股。")
 
 elif menu == "黑天鵝警示系統":
-    st.warning("⚠️ 黑天鵝警示：系統監控異常波動中")
-    st.table(pd.DataFrame({"警示類別": ["量價背離", "極端波動"], "狀態": ["正常", "監控中"]}))
+    st.warning("⚠️ 黑天鵝監控中心：自動化警示設定")
+    target_ticker = st.text_input("監控代號", "2330.TW")
+    notify_token = st.text_input("LINE Notify Token (接收警示)", type="password")
+    
+    if st.button("啟動自動監控"):
+        data = fetch_data(target_ticker)
+        if data is not None:
+            rsi = data['RSI'].iloc[-1]
+            if rsi < 30:
+                msg = f"【黑天鵝警示】{target_ticker} 觸發超賣訊號，當前 RSI: {round(rsi, 2)}"
+                if notify_token:
+                    send_line_notify(notify_token, msg)
+                    st.success(f"已發送警示通知至 LINE: {msg}")
+                else:
+                    st.error("請先設定 LINE Notify Token")
+            else:
+                st.info(f"當前狀態正常 (RSI: {round(rsi, 2)})")
 
 elif menu == "LINE 通知與 Bot 設定":
     st.subheader("📱 LINE 服務整合設定")
+    with st.expander("LINE Notify 設定"):
+        st.write("用於接收黑天鵝警示推送。")
     
-    with st.expander("LINE Notify 推送設定 (接收警示用)"):
-        notify_token = st.text_input("LINE Notify Token", type="password")
-        if st.button("發送測試通知"):
-            if notify_token:
-                res = send_line_notify(notify_token, "這是測試推播")
-                st.success("通知發送狀態：" + str(res.status_code))
-    
-    with st.expander("LINE Messaging API 設定 (互動機器人用)"):
-        channel_access_token = st.text_input("Channel Access Token", type="password")
-        st.caption("此 Token 用於實現雙向互動功能，設定後即可進行對話開發。")
+    with st.expander("LINE Messaging API 設定"):
+        channel_token = st.text_input("Channel Access Token", type="password")
+        webhook_url = st.text_input("Webhook URL (公開連結)")
+        st.caption("設定後可用於雙向互動式查詢 (例如輸入代號即時取得股價)。")
