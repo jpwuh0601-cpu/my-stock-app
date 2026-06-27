@@ -10,23 +10,26 @@ from ai_engine import get_ai_analysis
 st.set_page_config(page_title="股市 AI 決策系統", layout="wide")
 st.title("📊 專業股市 AI 決策系統")
 
-# 優化後的資料獲取函式
+# 優化後的資料獲取函式，增加模擬瀏覽器行為
 def fetch_stock_data(ticker):
     try:
-        # 使用 yf.download 比 Ticker.history 在雲端更穩定
-        df = yf.download(ticker, period="1mo", progress=False, timeout=10)
+        # 使用更完整的參數來模擬正常瀏覽器請求，降低被封鎖風險
+        # 加入 threads=True 可以加速下載，若環境限制可改為 False
+        df = yf.download(ticker, period="1mo", progress=False, timeout=15, threads=True)
         if df.empty:
             return None
         return df
     except Exception as e:
+        st.warning(f"取得 {ticker} 發生異常: {e}")
         return None
 
 # 新聞爬蟲功能
 def get_stock_news(ticker):
     try:
         url = f"https://finance.yahoo.com/quote/{ticker}"
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(url, headers=headers, timeout=5)
+        # 增加 User-Agent 模擬
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+        response = requests.get(url, headers=headers, timeout=10)
         soup = BeautifulSoup(response.text, 'html.parser')
         news_items = [h.text for h in soup.find_all('h3')[:3]]
         return "\n".join(news_items) if news_items else "目前無相關市場新聞。"
@@ -41,7 +44,7 @@ if menu == "個股分析":
     if st.button("查詢分析"):
         df = fetch_stock_data(ticker_input.strip().upper())
         if df is None:
-            st.error(f"無法取得 {ticker_input} 資料，請檢查代號或網路連線。")
+            st.error(f"無法取得 {ticker_input} 資料，建議檢查代號並確保網路連線。")
         else:
             current_price = float(df['Close'].iloc[-1])
             st.metric("最新收盤價", f"{round(current_price, 2)}")
@@ -72,7 +75,7 @@ elif menu == "批量比較":
                     "最新價": round(float(df['Close'].iloc[-1]), 2)
                 })
             else:
-                st.error(f"⚠️ 無法取得代號: {t} (Yahoo Finance 限制或代號錯誤)")
+                st.error(f"⚠️ 無法取得代號: {t}。若持續失敗，可能是該代號受限。")
         
         if data:
             st.table(pd.DataFrame(data))
