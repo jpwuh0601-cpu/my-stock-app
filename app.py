@@ -6,26 +6,21 @@ import requests
 import json
 from requests import Session
 from requests_cache import CacheMixin, SQLiteCache
-from requests_ratelimiter import LimiterMixin, MemoryQueueBucket
-from pyrate_limiter import Duration, RequestRate, Limiter
 
 # 設定網頁標題
 st.set_page_config(page_title="專業股市 AI 決策系統", layout="wide")
 st.title("📊 專業股市 AI 決策系統")
 
-# 優化連線：建立帶有緩存與限流的 Session，並加入模擬瀏覽器的 Header
-class CachedLimiterSession(CacheMixin, LimiterMixin, Session):
+# 優化連線：建立帶有緩存的 Session，移除容易報錯的 ratelimiter 模組，改用簡單的緩存與 Header
+class CachedSession(CacheMixin, Session):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.headers.update({
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         })
 
-session = CachedLimiterSession(
-    limiter=Limiter(RequestRate(2, Duration.SECOND * 5)),
-    bucket_class=MemoryQueueBucket,
-    backend=SQLiteCache("yfinance.cache"),
-)
+# 初始化 session
+session = CachedSession(backend=SQLiteCache("yfinance.cache"))
 
 # 定義功能模組
 def get_technical_indicators(df):
@@ -99,4 +94,4 @@ elif menu == "黑天鵝警示系統":
 
 elif menu == "LINE 通知與 Bot 設定":
     st.subheader("📱 LINE 服務整合設定")
-    st.info("連線穩定度已針對 Yahoo 阻擋機制進行優化。")
+    st.info("連線穩定度已針對 Yahoo 阻擋機制進行優化，已移除衝突模組。")
