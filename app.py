@@ -2,8 +2,8 @@ import streamlit as st
 import requests
 import pandas as pd
 import time
+import random
 from datetime import datetime, timedelta
-from concurrent.futures import ThreadPoolExecutor
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -11,14 +11,13 @@ from urllib3.util.retry import Retry
 st.set_page_config(page_title="股市決策系統 (FinMind 極限穩定版)", layout="wide")
 st.title("📊 專業股市決策系統 (FinMind API)")
 
-st.info("提示：已啟用請求限速與防阻塞機制，若批量查詢失敗，建議減少同時查詢的檔數。")
+st.info("提示：為解決轉圈圈問題，批量查詢已調整為逐筆穩定載入模式。")
 
 # 設定具有重試機制的 Session
 @st.cache_resource
 def get_session():
     session = requests.Session()
-    # 增加 backoff_factor 以避免連續觸發速率限制
-    retry = Retry(total=3, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504])
+    retry = Retry(total=3, backoff_factor=2, status_forcelist=[429, 500, 502, 503, 504])
     adapter = HTTPAdapter(max_retries=retry)
     session.mount('https://', adapter)
     return session
@@ -27,16 +26,16 @@ def get_session():
 def fetch_stock_data(ticker, days=60):
     try:
         session = get_session()
-        # 強制加入短暫停頓，保護 API 請求頻率
-        time.sleep(0.5) 
+        # 強制加入更長的隨機停頓，規避 API 速率限制
+        time.sleep(random.uniform(1.0, 2.0)) 
         url = "https://api.finmindtrade.com/v2/api/data"
         params = {
             "dataset": "TaiwanStockPrice",
             "data_id": ticker,
             "start_date": (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
         }
-        # 縮短 timeout 確保即使卡住也能迅速釋放執行緒
-        response = session.get(url, params=params, timeout=4)
+        # 增加超時時間，給予伺服器足夠回應空間
+        response = session.get(url, params=params, timeout=10)
         data = response.json()
         
         if data.get("status") == 200 and data.get("data"):
@@ -69,14 +68,12 @@ elif menu == "批量比較":
     if st.button("開始比較"):
         tickers = [t.strip() for t in tickers_input.split(",")]
         
-        with st.spinner("正在執行穩定批量查詢..."):
-            # 將執行緒數量調低，避免對 API 產生瞬間壓力
-            with ThreadPoolExecutor(max_workers=2) as executor: 
-                results = list(executor.map(lambda t: (t, fetch_stock_data(t, days=days_filter)), tickers))
-            
+        with st.spinner("正在依序穩定查詢資料，請稍候..."):
             data = []
             success_count = 0
-            for t, result in results:
+            # 改為序列式處理，避開雲端並發請求的限制
+            for t in tickers:
+                result = fetch_stock_data(t, days=days_filter)
                 if isinstance(result, pd.DataFrame):
                     latest = float(result['Close'].iloc[0])
                     prev = float(result['Close'].iloc[1]) if len(result) > 1 else latest
