@@ -15,10 +15,9 @@ except:
 # 使用 Alpha Vantage 獲取數據的函式
 def fetch_stock_data(ticker):
     try:
-        # 轉換代號格式，Alpha Vantage 台股需加 TW: 前綴
-        symbol = ticker.replace(".TW", "")
-        if ".TW" in ticker:
-            symbol = f"TW:{symbol}"
+        # 清理代號：移除 .TW 後，強制補上 TW: 前綴
+        raw_ticker = ticker.upper().replace(".TW", "").strip()
+        symbol = f"TW:{raw_ticker}"
         
         url = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={API_KEY}"
         response = requests.get(url, timeout=10)
@@ -26,7 +25,7 @@ def fetch_stock_data(ticker):
         
         # 除錯區塊：若沒抓到預期數據，直接在網頁顯示原始回傳內容
         if "Time Series (Daily)" not in data:
-            st.error(f"API 回傳異常訊息：{data}")
+            st.error(f"API 回傳異常訊息：{data} (當前嘗試代號: {symbol})")
             return None
             
         df = pd.DataFrame.from_dict(data["Time Series (Daily)"], orient="index")
@@ -41,7 +40,7 @@ def fetch_stock_data(ticker):
 menu = st.sidebar.radio("功能選單", ["個股分析", "批量比較"])
 
 if menu == "個股分析":
-    ticker_input = st.text_input("輸入股票代號 (例如 2330.TW)", "2330.TW")
+    ticker_input = st.text_input("輸入股票代號 (例如 2330)", "2330")
     if st.button("查詢分析"):
         with st.spinner("正在從 Alpha Vantage 取得資料..."):
             df = fetch_stock_data(ticker_input.strip().upper())
@@ -55,7 +54,7 @@ if menu == "個股分析":
 
 elif menu == "批量比較":
     st.subheader("⚖️ 股票數據批量比較")
-    tickers_input = st.text_input("輸入代號 (逗號分隔)", "2330.TW, 2454.TW")
+    tickers_input = st.text_input("輸入代號 (逗號分隔)", "2330, 2454")
     if st.button("開始比較"):
         tickers = [t.strip().upper() for t in tickers_input.split(",")]
         data = []
