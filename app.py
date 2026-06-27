@@ -7,12 +7,9 @@ st.set_page_config(page_title="股市決策系統", layout="wide")
 st.title("📊 專業股市決策系統 (Alpha Vantage API 版)")
 
 # 安全讀取 API 金鑰
-# 請務必在 Streamlit Cloud 的 Settings -> Secrets 中設定:
-# ALPHA_VANTAGE_API_KEY = "H6Q4KBN202010AV4"
 try:
     API_KEY = st.secrets["ALPHA_VANTAGE_API_KEY"]
 except:
-    # 若本地執行未設定 secrets，則使用預設值
     API_KEY = "H6Q4KBN202010AV4" 
 
 # 使用 Alpha Vantage 獲取數據的函式
@@ -27,13 +24,17 @@ def fetch_stock_data(ticker):
         response = requests.get(url, timeout=10)
         data = response.json()
         
-        if "Time Series (Daily)" in data:
-            df = pd.DataFrame.from_dict(data["Time Series (Daily)"], orient="index")
-            df.columns = ["Open", "High", "Low", "Close", "Volume"]
-            df.index = pd.to_datetime(df.index)
-            return df.sort_index(ascending=False)
-        return None
+        # 除錯區塊：若沒抓到預期數據，直接在網頁顯示原始回傳內容
+        if "Time Series (Daily)" not in data:
+            st.error(f"API 回傳異常訊息：{data}")
+            return None
+            
+        df = pd.DataFrame.from_dict(data["Time Series (Daily)"], orient="index")
+        df.columns = ["Open", "High", "Low", "Close", "Volume"]
+        df.index = pd.to_datetime(df.index)
+        return df.sort_index(ascending=False)
     except Exception as e:
+        st.error(f"發生連線錯誤：{e}")
         return None
 
 # 側邊欄
@@ -45,7 +46,7 @@ if menu == "個股分析":
         with st.spinner("正在從 Alpha Vantage 取得資料..."):
             df = fetch_stock_data(ticker_input.strip().upper())
             if df is None:
-                st.error("無法取得資料，請檢查代號是否正確，或確認 API 每日額度限制。")
+                st.error("無法取得資料，請參考上述 API 回傳的錯誤訊息。")
             else:
                 current_price = float(df['Close'].iloc[0])
                 st.metric("最新收盤價", f"{round(current_price, 2)}")
