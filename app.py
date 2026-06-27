@@ -68,7 +68,11 @@ elif menu == "AI 選股與指標":
                     rsi_val = df['RSI'].iloc[-1]
                     if rsi_val < 30:
                         results.append({"代號": t, "當前RSI": round(rsi_val, 2), "狀態": "超賣"})
-        st.table(pd.DataFrame(results) if results else "無符合條件個股")
+        
+        if results:
+            st.table(pd.DataFrame(results))
+        else:
+            st.info("目前無符合條件的超賣個股。")
 
 elif menu == "黑天鵝警示系統":
     st.warning("⚠️ 黑天鵝監控中心")
