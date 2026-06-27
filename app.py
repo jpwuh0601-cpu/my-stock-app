@@ -1,7 +1,6 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
-import requests
 
 # 設定網頁標題
 st.set_page_config(page_title="專業股市 AI 決策系統", layout="wide")
@@ -25,20 +24,16 @@ def fetch_data(ticker):
         df = yf.download(ticker, period="6mo", progress=False)
         if df is None or df.empty:
             return None
-        # 處理 yfinance 可能回傳的多層索引 (MultiIndex)
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
-        
-        # 確保有需要的欄位
         if 'Close' not in df.columns:
             return None
-            
         df = get_technical_indicators(df)
         return df
     except Exception:
         return None
 
-# 側邊欄導航
+# 側邊欄導航與設定
 menu = st.sidebar.radio("AI 決策核心", ["個股儀表板", "AI 選股與指標", "黑天鵝警示系統"])
 
 if menu == "個股儀表板":
@@ -54,23 +49,27 @@ if menu == "個股儀表板":
 
 elif menu == "AI 選股與指標":
     st.subheader("🤖 AI 自動化選股系統")
+    
+    # 新增：讓使用者自訂 RSI 門檻
+    rsi_threshold = st.sidebar.slider("設定 RSI 超賣門檻", 20, 50, 30)
+    
     if st.button("執行全市場掃描"):
         target_tickers = ["2330.TW", "2454.TW", "2317.TW", "3008.TW"]
         results = []
-        with st.spinner("掃描中..."):
+        with st.spinner(f"掃描中 (門檻: RSI < {rsi_threshold})..."):
             for t in target_tickers:
                 df = fetch_data(t)
                 if df is not None and 'RSI' in df.columns:
                     rsi_val = df['RSI'].iloc[-1]
-                    if rsi_val < 30:
+                    if rsi_val < rsi_threshold:
                         results.append({"代號": t, "當前RSI": round(float(rsi_val), 2), "狀態": "超賣"})
         
-        # 這裡嚴格確保只有在有資料時才建立 DataFrame
-        if len(results) > 0:
+        # 使用互動式 dataframe 取代靜態 table
+        if results:
             df_results = pd.DataFrame(results)
-            st.table(df_results)
+            st.dataframe(df_results, use_container_width=True)
         else:
-            st.info("目前無符合條件的超賣個股。")
+            st.info(f"目前無符合 RSI < {rsi_threshold} 的個股。")
 
 elif menu == "黑天鵝警示系統":
     st.warning("⚠️ 黑天鵝監控中心")
