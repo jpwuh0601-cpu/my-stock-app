@@ -20,29 +20,32 @@ st.sidebar.header("決策參數調整")
 weight_macd = st.sidebar.slider("MACD 權重", 0.0, 1.0, 0.5)
 weight_sentiment = st.sidebar.slider("新聞情緒權重", 0.0, 1.0, 0.5)
 
+# LINE Notify 發送函數
+def send_line_message(token, message):
+    url = "https://notify-api.line.me/api/notify"
+    headers = {"Authorization": f"Bearer {token}"}
+    payload = {"message": message}
+    requests.post(url, headers=headers, data=payload)
+
 # 多策略計算：MACD + 布林通道
 def calculate_strategies(df):
-    # MACD
     ema12 = df['Close'].ewm(span=12, adjust=False).mean()
     ema26 = df['Close'].ewm(span=26, adjust=False).mean()
     macd = ema12 - ema26
     signal = macd.ewm(span=9, adjust=False).mean()
-    # Bollinger Bands
     ma20 = df['Close'].rolling(window=20).mean()
     std20 = df['Close'].rolling(window=20).std()
     upper = ma20 + (2 * std20)
     lower = ma20 - (2 * std20)
     return macd.iloc[-1], signal.iloc[-1], upper.iloc[-1], lower.iloc[-1]
 
-# 模擬新聞情緒
 def get_sentiment(ticker):
     return random.randint(0, 10)
 
-# AI 評分模型
 def ai_score(macd_val, signal_val, close_val, upper, lower, sentiment):
     score = 0
     if macd_val > signal_val: score += (50 * weight_macd)
-    if close_val < lower: score += 50 # 布林通道超賣
+    if close_val < lower: score += 50 
     score += (sentiment * 5 * weight_sentiment)
     return round(score)
 
@@ -59,6 +62,7 @@ def fetch_data(ticker):
 
 # 主畫面
 menu = st.sidebar.radio("核心模組", ["選股矩陣", "自動報告生成"])
+token = st.secrets.get("LINE_NOTIFY_TOKEN")
 
 if menu == "選股矩陣":
     sector = st.selectbox("產業類別", list(SECTOR_MAP.keys()))
@@ -76,4 +80,23 @@ if menu == "選股矩陣":
 elif menu == "自動報告生成":
     st.info("系統將在每日 08:30 自動執行背景掃描並推送至 LINE。")
     if st.button("手動觸發每日報表"):
-        st.success("報表已生成並已推送至您的 LINE。")
+        if not token:
+            st.error("請先在 Secrets 設定 LINE_NOTIFY_TOKEN")
+        else:
+            report_msg = "\n🚀 AI 每日選股報告：\n"
+            for sector, tickers in SECTOR_MAP.items():
+                best_score = 0
+                best_ticker = ""
+                for t in tickers:
+                    df = fetch_data(t)
+                    if df is not None:
+                        macd, signal, upper, lower = calculate_strategies(df)
+                        senti = get_sentiment(t)
+                        score = ai_score(macd, signal, df['Close'].iloc[-1], upper, lower, senti)
+                        if score > best_score:
+                            best_score = score
+                            best_ticker = t
+                report_msg += f"{sector}: {best_ticker} (評分: {best_score})\n"
+            
+            send_line_message(token, report_msg)
+            st.success("報表已生成並已推送至您的 LINE。")
