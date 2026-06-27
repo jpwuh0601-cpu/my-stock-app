@@ -7,7 +7,22 @@ import requests
 
 # 設定網頁標題
 st.set_page_config(page_title="股市 AI 決策系統", layout="wide")
-st.title("📊 專業台股 AI 決策系統 (含 LINE 通知)")
+st.title("📊 專業台股 AI 決策系統 (含籌碼分析)")
+
+# 獲取三大法人數據 (爬取證交所公開資料)
+def fetch_chips(ticker):
+    try:
+        # 證交所三大法人 API
+        url = f"https://www.twse.com.tw/fund/T86?response=json&selectType=00&stockNo={ticker.replace('.TW', '')}"
+        res = requests.get(url, timeout=5)
+        data = res.json()
+        if 'data' in data:
+            df = pd.DataFrame(data['data'], columns=data['fields'])
+            # 簡化回傳最後一筆紀錄
+            return df.tail(1)
+        return None
+    except:
+        return None
 
 # LINE Notify 推送函數
 def send_line_notify(token, message):
@@ -18,9 +33,7 @@ def send_line_notify(token, message):
 
 @st.cache_data(ttl=3600)
 def fetch_data(ticker):
-    """使用 twstock 獲取資料並計算指標"""
     time.sleep(random.uniform(1, 2))
-    
     try:
         code = ticker.replace(".TW", "")
         stock = twstock.Stock(code)
@@ -29,70 +42,42 @@ def fetch_data(ticker):
         df.set_index('date', inplace=True)
         df.rename(columns={'close': 'Close'}, inplace=True)
         
-        if df is None or df.empty:
-            return None
-            
         if len(df) >= 26:
+            # 技術指標計算
             delta = df['Close'].diff()
-            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-            rs = gain / loss
-            df['RSI'] = 100 - (100 / (1 + rs))
+            df['RSI'] = 100 - (100 / (1 + (delta.where(delta > 0, 0).rolling(14).mean() / (-delta.where(delta < 0, 0).rolling(14).mean()))))
             df['MA20'] = df['Close'].rolling(window=20).mean()
-            
-            ema12 = df['Close'].ewm(span=12, adjust=False).mean()
-            ema26 = df['Close'].ewm(span=26, adjust=False).mean()
-            df['MACD'] = ema12 - ema26
+            df['MACD'] = df['Close'].ewm(span=12, adjust=False).mean() - df['Close'].ewm(span=26, adjust=False).mean()
             df['Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
-            
         return df
-    except Exception:
+    except:
         return None
 
 # 介面
 menu = st.sidebar.radio("AI 決策核心", ["個股儀表板", "AI 選股與指標", "LINE 通知與 Bot 設定"])
+token = st.secrets.get("LINE_NOTIFY_TOKEN")
 
 if menu == "個股儀表板":
     ticker = st.text_input("輸入股票代號 (例如 2330)", "2330")
     if st.button("查詢"):
+        # 獲取價格與籌碼
         data = fetch_data(ticker)
-        if data is not None and 'Close' in data.columns:
-            st.subheader(f"{ticker} 技術指標走勢")
+        chips = fetch_chips(ticker)
+        
+        if data is not None:
+            st.subheader(f"{ticker} 技術指標")
             st.line_chart(data[['Close', 'MA20']])
-            st.write("MACD 指標分析")
-            st.line_chart(data[['MACD', 'Signal']])
+            
+            if chips is not None:
+                st.subheader("籌碼面統計 (三大法人)")
+                st.dataframe(chips)
         else:
-            st.error("下載失敗，請檢查代號或稍候再試。")
+            st.error("資料獲取失敗。")
 
 elif menu == "AI 選股與指標":
-    token = st.sidebar.text_input("輸入 LINE Notify Token", type="2tLmUzoYjdTYkEQwxm6ryqtVAioqpm0Qox0qMU5v2TF7jT5+zhPuNl1bGRfLwSgg1aGzsb6xl1Pb+nEDZwzv14T0oCqjZfMYpKYNm858sOdBO1XruO81ZFrR5jbUSDBbwIoUHGNpBIHvbqcSbGL/FAdB04t89/1O/w1cDnyilFU=")
     if st.button("掃描清單"):
-        results = []
         tickers = ["2330", "2454", "2317", "3008"]
-        progress_bar = st.progress(0)
-        
-        for i, t in enumerate(tickers):
+        for t in tickers:
             df = fetch_data(t)
-            if df is not None and 'MACD' in df.columns:
-                rsi = round(df['RSI'].iloc[-1], 2)
-                status = "多頭趨勢" if df['MACD'].iloc[-1] > df['Signal'].iloc[-1] else "弱勢盤整"
-                results.append({
-                    "代號": t, 
-                    "RSI": rsi,
-                    "MACD": round(df['MACD'].iloc[-1], 2),
-                    "趨勢": status
-                })
-                # 黑天鵝警示邏輯：RSI < 30
-                if rsi < 30 and token:
-                    send_line_notify(token, f"【黑天鵝警示】股票 {t} RSI 過低 ({rsi})，請留意風險！")
-            
-            progress_bar.progress((i + 1) / len(tickers))
-        
-        if results:
-            st.dataframe(pd.DataFrame(results))
-        else:
-            st.warning("掃描中斷或無資料。")
-
-elif menu == "LINE 通知與 Bot 設定":
-    st.header("LINE Notify 設定")
-    st.write("請至 [LINE Notify](https://notify-bot.line.me/) 申請 Token，並將其貼入「AI 選股與指標」頁面的設定欄位中。")
+            if df is not None:
+                st.write(f"代號: {t} | RSI: {round(df['RSI'].iloc[-1], 2)} | MACD 狀態: {'強勢' if df['MACD'].iloc[-1] > df['Signal'].iloc[-1] else '弱勢'}")
