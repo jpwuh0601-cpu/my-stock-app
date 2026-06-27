@@ -98,4 +98,11 @@ elif menu == "批量比較":
             styled_df = df_comp.style.format({"漲跌幅 (%)": format_change}).applymap(highlight_change, subset=["漲跌幅 (%)"])
             
             st.dataframe(styled_df, use_container_width=True)
+            
+            # 新增視覺化長條圖
+            valid_data = df_comp[df_comp["漲跌幅 (%)"] != -999]
+            if not valid_data.empty:
+                st.subheader("📈 漲跌幅視覺化比較")
+                st.bar_chart(valid_data.set_index("代號")["漲跌幅 (%)"])
+            
             st.success(f"比較完成！成功獲取 {success_count} 筆，失敗 {len(tickers) - success_count} 筆。")
