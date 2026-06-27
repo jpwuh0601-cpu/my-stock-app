@@ -7,7 +7,7 @@ import requests
 
 # 設定網頁標題
 st.set_page_config(page_title="股市 AI 決策系統", layout="wide")
-st.title("📊 專業台股 AI 決策系統 (產業選股矩陣)")
+st.title("📊 專業台股 AI 決策系統 (含自動化回測)")
 
 # 產業與代號映射表
 SECTOR_MAP = {
@@ -29,12 +29,17 @@ def fetch_chips(ticker):
     except:
         return None
 
-# LINE Notify 推送函數
-def send_line_notify(token, message):
-    url = "https://notify-api.line.me/api/notify"
-    headers = {"Authorization": f"Bearer {token}"}
-    payload = {"message": message}
-    requests.post(url, headers=headers, data=payload)
+# MACD 簡易回測邏輯 (統計金叉買入的獲利潛力)
+def perform_backtest(df):
+    """計算 MACD 黃金交叉後 5 日的平均漲跌幅"""
+    df['Signal_Cross'] = (df['MACD'] > df['Signal']) & (df['MACD'].shift(1) <= df['Signal'].shift(1))
+    # 簡化回測：找出黃金交叉日後 5 日的報酬率
+    returns = []
+    for i in range(len(df)):
+        if df['Signal_Cross'].iloc[i] and i + 5 < len(df):
+            ret = (df['Close'].iloc[i+5] - df['Close'].iloc[i]) / df['Close'].iloc[i]
+            returns.append(ret)
+    return round(sum(returns) / len(returns) * 100, 2) if returns else 0.0
 
 @st.cache_data(ttl=3600)
 def fetch_data(ticker):
@@ -58,7 +63,6 @@ def fetch_data(ticker):
 
 # 介面
 menu = st.sidebar.radio("AI 決策核心", ["個股儀表板", "產業選股矩陣", "LINE 通知設定"])
-token = st.secrets.get("LINE_NOTIFY_TOKEN")
 
 if menu == "個股儀表板":
     ticker = st.text_input("輸入股票代號 (例如 2330)", "2330")
@@ -76,7 +80,7 @@ if menu == "個股儀表板":
 
 elif menu == "產業選股矩陣":
     sector = st.selectbox("選擇產業類別", list(SECTOR_MAP.keys()))
-    if st.button("開始產業掃描"):
+    if st.button("開始產業掃描與回測"):
         results = []
         tickers = SECTOR_MAP[sector]
         progress_bar = st.progress(0)
@@ -84,15 +88,17 @@ elif menu == "產業選股矩陣":
         for i, t in enumerate(tickers):
             df = fetch_data(t)
             if df is not None:
+                win_rate = perform_backtest(df)
                 results.append({
                     "代號": t, 
                     "RSI": round(df['RSI'].iloc[-1], 2),
-                    "MACD 狀態": '強勢' if df['MACD'].iloc[-1] > df['Signal'].iloc[-1] else '弱勢'
+                    "MACD 狀態": '強勢' if df['MACD'].iloc[-1] > df['Signal'].iloc[-1] else '弱勢',
+                    "回測參考(5日平均績效%)": win_rate
                 })
             progress_bar.progress((i + 1) / len(tickers))
         
         if results:
-            st.subheader(f"{sector} 掃描結果")
+            st.subheader(f"{sector} 掃描結果 (含回測)")
             st.table(pd.DataFrame(results))
         else:
             st.warning("無資料。")
