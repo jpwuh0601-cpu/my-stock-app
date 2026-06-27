@@ -1,18 +1,31 @@
-name: Daily Auto Stock Analysis
+name: AI 自動化健檢每日任務
+
 on:
   schedule:
-    - cron: '0 8 * * 1-5' # 台灣時間 16:00 (收盤後)
-  workflow_dispatch: # 允許您在 GitHub 頁面手動觸發
+    # 每天台灣時間 08:30 執行 (GitHub 使用 UTC 時間，台灣時間需減 8 小時)
+    # 08:30 (台灣) = 00:30 (UTC)
+    - cron: '30 0 * * *'
+  # 允許手動觸發測試
+  workflow_dispatch:
+
 jobs:
-  run-worker:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with: {python-version: '3.9'}
-      - run: pip install yfinance openai requests
-      - name: Run worker
+      - name: 檢出程式碼
+        uses: actions/checkout@v3
+
+      - name: 設定 Python 環境
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: 安裝依賴套件
+        run: |
+          pip install twstock pandas requests
+
+      - name: 執行 AI 健檢任務
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
-        run: python worker.py
+          LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
+        run: |
+          python worker.py
