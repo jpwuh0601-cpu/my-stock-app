@@ -1,33 +1,36 @@
 import streamlit as st
 import requests
 import pandas as pd
+from datetime import datetime, timedelta
 
 # 設定網頁標題
-st.set_page_config(page_title="股市決策系統 (穩定 API 版)", layout="wide")
-st.title("📊 專業股市決策系統 (Alpha Vantage API)")
+st.set_page_config(page_title="股市決策系統 (FinMind 台股版)", layout="wide")
+st.title("📊 專業股市決策系統 (FinMind API)")
 
-# 從 Secrets 安全讀取 API Key
-try:
-    API_KEY = st.secrets["ALPHA_VANTAGE_API_KEY"]
-except:
-    API_KEY = "demo" # 若未設定則使用 demo 金鑰 (僅支援 IBM)
+# 提示用戶 FinMind 使用說明
+st.info("提示：FinMind 專為台股設計，請直接輸入代號 (例如: 2330, 2454)")
 
-# 定義抓取資料函式 (使用 requests 直接存取，最穩定)
+# 定義抓取資料函式 (使用 FinMind API)
 @st.cache_data(ttl=3600)
 def fetch_stock_data(ticker):
     try:
-        # 為了避開 cloud 環境網路阻塞，使用 requests 直連
-        url = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={ticker}&apikey={API_KEY}"
-        response = requests.get(url, timeout=15)
+        # FinMind API 獲取股價資料
+        url = "https://api.finmindtrade.com/v2/api/data"
+        params = {
+            "dataset": "TaiwanStockPrice",
+            "data_id": ticker,
+            "start_date": (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
+        }
+        response = requests.get(url, params=params, timeout=15)
         data = response.json()
         
-        if "Time Series (Daily)" in data:
-            df = pd.DataFrame.from_dict(data["Time Series (Daily)"], orient="index")
-            df.columns = ["Open", "High", "Low", "Close", "Volume"]
-            df.index = pd.to_datetime(df.index)
-            return df.sort_index(ascending=False)
-        elif "Note" in data:
-            return "limit" # 代表 API 限額已滿
+        if data.get("status") == 200 and data.get("data"):
+            df = pd.DataFrame(data["data"])
+            # 標準化欄位名稱以符合後續邏輯
+            df = df.rename(columns={"date": "Date", "open": "Open", "max": "High", "min": "Low", "close": "Close", "Trading_Volume": "Volume"})
+            df["Date"] = pd.to_datetime(df["Date"])
+            df = df.set_index("Date").sort_index(ascending=False)
+            return df[["Open", "High", "Low", "Close", "Volume"]]
         else:
             return "empty"
     except Exception as e:
@@ -37,27 +40,24 @@ def fetch_stock_data(ticker):
 menu = st.sidebar.radio("功能選單", ["個股分析", "批量比較"])
 
 if menu == "個股分析":
-    st.info("提示：輸入代號 (例如 IBM, AAPL) - 若使用免費金鑰，請以查詢 IBM 為主")
-    ticker_input = st.text_input("輸入股票代號", "IBM")
+    ticker_input = st.text_input("輸入台股代號", "2330")
     if st.button("查詢分析"):
-        with st.spinner("正在讀取資料..."):
-            result = fetch_stock_data(ticker_input.strip().upper())
+        with st.spinner("正在讀取 FinMind 台股資料..."):
+            result = fetch_stock_data(ticker_input.strip())
             if isinstance(result, pd.DataFrame):
                 current_price = float(result['Close'].iloc[0])
                 st.metric("最新收盤價", f"{round(current_price, 2)}")
                 st.table(result.head(5))
-            elif result == "limit":
-                st.warning("API 請求次數已達上限，請稍後再試。")
             elif result == "empty":
-                st.error("查無資料，請確認代號是否支援。")
+                st.error("查無資料，請確認代號是否正確。")
             else:
                 st.error(f"系統錯誤: {result}")
 
 elif menu == "批量比較":
     st.subheader("⚖️ 股票數據批量比較")
-    tickers_input = st.text_input("輸入代號 (逗號分隔)", "IBM, AAPL")
+    tickers_input = st.text_input("輸入代號 (逗號分隔)", "2330, 2454")
     if st.button("開始比較"):
-        tickers = [t.strip().upper() for t in tickers_input.split(",")]
+        tickers = [t.strip() for t in tickers_input.split(",")]
         data = []
         for t in tickers:
             result = fetch_stock_data(t)
