@@ -1,11 +1,10 @@
 import streamlit as st
 import pandas as pd
 import requests
-from ai_engine import get_ai_analysis
 
 # 設定網頁標題
-st.set_page_config(page_title="股市 AI 決策系統", layout="wide")
-st.title("📊 專業股市 AI 決策系統 (Alpha Vantage API 版)")
+st.set_page_config(page_title="股市決策系統", layout="wide")
+st.title("📊 專業股市決策系統 (Alpha Vantage API 版)")
 
 # 安全讀取 API 金鑰
 # 請務必在 Streamlit Cloud 的 Settings -> Secrets 中設定:
@@ -13,7 +12,7 @@ st.title("📊 專業股市 AI 決策系統 (Alpha Vantage API 版)")
 try:
     API_KEY = st.secrets["ALPHA_VANTAGE_API_KEY"]
 except:
-    # 若本地執行未設定 secrets，則使用預設值或跳出錯誤提醒
+    # 若本地執行未設定 secrets，則使用預設值
     API_KEY = "H6Q4KBN202010AV4" 
 
 # 使用 Alpha Vantage 獲取數據的函式
