@@ -1,72 +1,57 @@
 import streamlit as st
-import yfinance as yf
 import pandas as pd
 import requests
-import plotly.graph_objects as go
-from bs4 import BeautifulSoup
 from ai_engine import get_ai_analysis
 
 # 設定網頁標題
 st.set_page_config(page_title="股市 AI 決策系統", layout="wide")
-st.title("📊 專業股市 AI 決策系統")
+st.title("📊 專業股市 AI 決策系統 (Alpha Vantage API 版)")
 
-# 使用 requests Session 來模擬瀏覽器，降低被 Yahoo 阻擋機率
-session = requests.Session()
-session.headers.update({
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-})
+# 安全讀取 API 金鑰
+# 請務必在 Streamlit Cloud 的 Settings -> Secrets 中設定:
+# ALPHA_VANTAGE_API_KEY = "H6Q4KBN202010AV4"
+try:
+    API_KEY = st.secrets["ALPHA_VANTAGE_API_KEY"]
+except:
+    # 若本地執行未設定 secrets，則使用預設值或跳出錯誤提醒
+    API_KEY = "H6Q4KBN202010AV4" 
 
-# 優化後的資料獲取函式
+# 使用 Alpha Vantage 獲取數據的函式
 def fetch_stock_data(ticker):
     try:
-        # 使用 session 請求
-        stock = yf.Ticker(ticker, session=session)
-        # 增加更多嘗試機制
-        df = stock.history(period="1mo")
-        if df.empty:
-            return None
-        return df
+        # 轉換代號格式，Alpha Vantage 台股需加 TW: 前綴
+        symbol = ticker.replace(".TW", "")
+        if ".TW" in ticker:
+            symbol = f"TW:{symbol}"
+        
+        url = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={API_KEY}"
+        response = requests.get(url, timeout=10)
+        data = response.json()
+        
+        if "Time Series (Daily)" in data:
+            df = pd.DataFrame.from_dict(data["Time Series (Daily)"], orient="index")
+            df.columns = ["Open", "High", "Low", "Close", "Volume"]
+            df.index = pd.to_datetime(df.index)
+            return df.sort_index(ascending=False)
+        return None
     except Exception as e:
         return None
 
-# 新聞爬蟲功能
-def get_stock_news(ticker):
-    try:
-        url = f"https://finance.yahoo.com/quote/{ticker}"
-        response = session.get(url, timeout=10)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        news_items = [h.text for h in soup.find_all('h3')[:3]]
-        return "\n".join(news_items) if news_items else "目前無相關市場新聞。"
-    except:
-        return "新聞服務暫時離線。"
-
 # 側邊欄
-menu = st.sidebar.radio("功能選單", ["個股分析", "AI 選股器", "批量比較"])
+menu = st.sidebar.radio("功能選單", ["個股分析", "批量比較"])
 
 if menu == "個股分析":
     ticker_input = st.text_input("輸入股票代號 (例如 2330.TW)", "2330.TW")
     if st.button("查詢分析"):
-        df = fetch_stock_data(ticker_input.strip().upper())
-        if df is None:
-            st.error(f"無法取得 {ticker_input} 資料。Yahoo Finance 目前封鎖了此雲端伺服器 IP，請稍後再試或檢查代號。")
-        else:
-            current_price = float(df['Close'].iloc[-1])
-            st.metric("最新收盤價", f"{round(current_price, 2)}")
-            st.info(get_stock_news(ticker_input.strip().upper()))
-
-elif menu == "AI 選股器":
-    if st.button("執行選股掃描"):
-        watch_list = ["2330.TW", "2454.TW", "2317.TW"]
-        results = []
-        for s in watch_list:
-            df = fetch_stock_data(s)
-            if df is not None and df['Close'].iloc[-1] > df['Close'].rolling(20).mean().iloc[-1]:
-                results.append(s)
-        
-        if results:
-            st.success(f"強勢股: {', '.join(results)}")
-        else:
-            st.warning("掃描完成，但無符合條件標的，或數據源遭 Yahoo 封鎖。")
+        with st.spinner("正在從 Alpha Vantage 取得資料..."):
+            df = fetch_stock_data(ticker_input.strip().upper())
+            if df is None:
+                st.error("無法取得資料，請檢查代號是否正確，或確認 API 每日額度限制。")
+            else:
+                current_price = float(df['Close'].iloc[0])
+                st.metric("最新收盤價", f"{round(current_price, 2)}")
+                st.write("近期走勢數據 (前 5 筆):")
+                st.table(df.head(5))
 
 elif menu == "批量比較":
     st.subheader("⚖️ 股票數據批量比較")
@@ -77,7 +62,7 @@ elif menu == "批量比較":
         for t in tickers:
             df = fetch_stock_data(t)
             if df is not None:
-                data.append({"代號": t, "最新價": round(float(df['Close'].iloc[-1]), 2)})
+                data.append({"代號": t, "最新價": round(float(df['Close'].iloc[0]), 2)})
             else:
                 data.append({"代號": t, "最新價": "抓取失敗"})
         
