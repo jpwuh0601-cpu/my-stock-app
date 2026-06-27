@@ -10,13 +10,20 @@ from ai_engine import get_ai_analysis
 st.set_page_config(page_title="股市 AI 決策系統", layout="wide")
 st.title("📊 專業股市 AI 決策系統")
 
+# 使用 requests Session 來模擬瀏覽器，降低被 Yahoo 阻擋機率
+session = requests.Session()
+session.headers.update({
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+})
+
 # 優化後的資料獲取函式
 def fetch_stock_data(ticker):
     try:
-        # 增加 session 模擬與更長的 timeout 以降低請求失敗機率
-        stock = yf.Ticker(ticker)
-        df = stock.history(period="1mo", timeout=30)
-        if df is None or df.empty:
+        # 使用 session 請求
+        stock = yf.Ticker(ticker, session=session)
+        # 增加更多嘗試機制
+        df = stock.history(period="1mo")
+        if df.empty:
             return None
         return df
     except Exception as e:
@@ -26,8 +33,7 @@ def fetch_stock_data(ticker):
 def get_stock_news(ticker):
     try:
         url = f"https://finance.yahoo.com/quote/{ticker}"
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(url, headers=headers, timeout=10)
+        response = session.get(url, timeout=10)
         soup = BeautifulSoup(response.text, 'html.parser')
         news_items = [h.text for h in soup.find_all('h3')[:3]]
         return "\n".join(news_items) if news_items else "目前無相關市場新聞。"
@@ -42,7 +48,7 @@ if menu == "個股分析":
     if st.button("查詢分析"):
         df = fetch_stock_data(ticker_input.strip().upper())
         if df is None:
-            st.error(f"無法取得 {ticker_input} 資料。這通常是因為雲端環境連線受限，請稍後再試。")
+            st.error(f"無法取得 {ticker_input} 資料。Yahoo Finance 目前封鎖了此雲端伺服器 IP，請稍後再試或檢查代號。")
         else:
             current_price = float(df['Close'].iloc[-1])
             st.metric("最新收盤價", f"{round(current_price, 2)}")
@@ -60,7 +66,7 @@ elif menu == "AI 選股器":
         if results:
             st.success(f"強勢股: {', '.join(results)}")
         else:
-            st.warning("掃描完成，但目前無符合多頭條件的標的，或數據抓取受限。")
+            st.warning("掃描完成，但無符合條件標的，或數據源遭 Yahoo 封鎖。")
 
 elif menu == "批量比較":
     st.subheader("⚖️ 股票數據批量比較")
@@ -73,7 +79,7 @@ elif menu == "批量比較":
             if df is not None:
                 data.append({"代號": t, "最新價": round(float(df['Close'].iloc[-1]), 2)})
             else:
-                data.append({"代號": t, "最新價": "無法取得數據"})
+                data.append({"代號": t, "最新價": "抓取失敗"})
         
         if data:
             st.table(pd.DataFrame(data))
