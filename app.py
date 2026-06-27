@@ -3,7 +3,6 @@ import twstock
 import pandas as pd
 import random
 import requests
-import plotly.express as px
 
 st.set_page_config(page_title="AI 決策中樞", layout="wide")
 st.title("🚀 AI 專業投資決策中樞 (部位管理與 AI 健檢)")
@@ -49,7 +48,14 @@ def fetch_data(ticker):
         return df
     except: return None
 
+def send_line_message(token, message):
+    url = "https://notify-api.line.me/api/notify"
+    headers = {"Authorization": f"Bearer {token}"}
+    payload = {"message": message}
+    requests.post(url, headers=headers, data=payload)
+
 menu = st.sidebar.radio("核心模組", ["選股矩陣", "部位對帳單", "自動報告生成"])
+token = st.secrets.get("LINE_NOTIFY_TOKEN")
 
 if menu == "選股矩陣":
     sector = st.selectbox("選擇產業", list(SECTOR_MAP.keys()))
@@ -85,21 +91,28 @@ elif menu == "部位對帳單":
                 score = ai_score(macd, signal, atr, random.randint(0, 10))
             
             pnl = (price - item['成本']) * item['股數']
-            pf_data.append({
-                "代號": item['代號'], "現價": price, "成本": item['成本'], 
-                "損益": pnl, "AI 健檢評分": score
-            })
+            pf_data.append({"代號": item['代號'], "現價": price, "成本": item['成本'], "損益": pnl, "AI 健檢評分": score})
         
-        pf_df = pd.DataFrame(pf_data)
-        st.table(pf_df)
-        
+        st.table(pd.DataFrame(pf_data))
         if st.button("執行部位風險健檢"):
-            alerts = pf_df[pf_df['AI 健檢評分'] < 30]
-            if not alerts.empty:
-                st.warning(f"檢測到以下部位評分過低，建議調整: {alerts['代號'].tolist()}")
+            alerts = [item for item in pf_data if item['AI 健檢評分'] < 30]
+            if alerts:
+                st.warning(f"檢測到風險部位: {[a['代號'] for a in alerts]}")
             else:
                 st.success("目前所有部位狀態良好。")
 
 elif menu == "自動報告生成":
-    if st.button("觸發自動化報告"):
-        st.success("報表已推送到您的 LINE。")
+    st.info("系統將整理部位健檢結果並推送至 LINE。")
+    if st.button("觸發自動化健檢報告"):
+        if not token:
+            st.error("請在 Streamlit Secrets 設定 LINE_NOTIFY_TOKEN")
+        else:
+            report = "\n📊 AI 每日持股健檢報告：\n"
+            for item in st.session_state.portfolio:
+                df = fetch_data(item['代號'])
+                score = ai_score(*calculate_strategies(df), random.randint(0, 10)) if df is not None else 0
+                status = "良好" if score >= 30 else "建議調整"
+                report += f"- {item['代號']}: 評分 {score} ({status})\n"
+            
+            send_line_message(token, report)
+            st.success("健檢報告已推送至 LINE。")
