@@ -2,7 +2,6 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
-import talib
 import requests
 import json
 
@@ -10,11 +9,15 @@ import json
 st.set_page_config(page_title="專業股市 AI 決策系統", layout="wide")
 st.title("📊 專業股市 AI 決策系統")
 
-# 定義功能模組
+# 定義功能模組 (移除 talib 依賴，改用 pandas 計算)
 def get_technical_indicators(df):
-    """計算技術指標 (RSI, MA)"""
-    df['RSI'] = talib.RSI(df['收盤價'], timeperiod=14)
-    df['MA20'] = talib.SMA(df['收盤價'], timeperiod=20)
+    """純 Python 計算技術指標 (RSI, MA)"""
+    delta = df['收盤價'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    rs = gain / loss
+    df['RSI'] = 100 - (100 / (1 + rs))
+    df['MA20'] = df['收盤價'].rolling(window=20).mean()
     return df
 
 @st.cache_data(ttl=3600)
@@ -116,6 +119,5 @@ elif menu == "LINE 通知與 Bot 設定":
         webhook_url = st.text_input("Webhook URL (公開連結)")
         st.caption("設定後可用於雙向互動式查詢。")
         
-        # 模擬測試 Webhook
         if st.button("模擬測試 Webhook"):
-            st.info("系統已準備好回應邏輯，您只需在 LINE Developers Console 填入部署後的 Webhook URL 即可。")
+            st.info("系統已準備好回應邏輯，請重新部署以完成生效。")
