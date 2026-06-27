@@ -1,6 +1,7 @@
 import openai
 import os
-
+import os
+# print(f"API Key 檢查: {os.environ.get('OPENAI_API_KEY')}")
 # 初始化 OpenAI Client
 client = openai.OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
