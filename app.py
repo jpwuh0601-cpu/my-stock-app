@@ -77,10 +77,16 @@ elif menu == "批量比較":
                     })
                     success_count += 1
                 else:
-                    data.append({"代號": t, "最新價": "查詢失敗", "漲跌幅 (%)": "-"})
+                    data.append({"代號": t, "最新價": "查詢失敗", "漲跌幅 (%)": -999})
         
         if data:
-            # 轉換為 DataFrame 並顯示
+            # 轉換為 DataFrame 並顯示，依照漲跌幅降冪排序
             df_comp = pd.DataFrame(data)
-            st.dataframe(df_comp.style.format({"漲跌幅 (%)": "{:+.2f}%"}), use_container_width=True)
+            df_comp = df_comp.sort_values(by="漲跌幅 (%)", ascending=False)
+            
+            # 使用自定義顯示格式：將失敗的 -999 顯示為 "-"
+            def format_change(val):
+                return f"{val:+.2f}%" if val != -999 else "-"
+            
+            st.dataframe(df_comp.style.format({"漲跌幅 (%)": format_change}), use_container_width=True)
             st.success(f"比較完成！成功獲取 {success_count} 筆，失敗 {len(tickers) - success_count} 筆。")
