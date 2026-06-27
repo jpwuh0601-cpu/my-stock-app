@@ -3,46 +3,35 @@ import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
 import requests
-import json
-from requests import Session
-from requests_cache import CacheMixin, SQLiteCache
 
 # 設定網頁標題
 st.set_page_config(page_title="專業股市 AI 決策系統", layout="wide")
 st.title("📊 專業股市 AI 決策系統")
 
-# 優化連線：建立帶有緩存的 Session，移除容易報錯的 ratelimiter 模組，改用簡單的緩存與 Header
-class CachedSession(CacheMixin, Session):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        })
-
-# 初始化 session
-session = CachedSession(backend=SQLiteCache("yfinance.cache"))
-
-# 定義功能模組
+# 定義技術指標計算
 def get_technical_indicators(df):
-    """純 Python 計算技術指標 (RSI, MA)"""
-    delta = df['收盤價'].diff()
+    if len(df) < 20:
+        return df
+    delta = df['Close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
     rs = gain / loss
     df['RSI'] = 100 - (100 / (1 + rs))
-    df['MA20'] = df['收盤價'].rolling(window=20).mean()
+    df['MA20'] = df['Close'].rolling(window=20).mean()
     return df
 
 @st.cache_data(ttl=3600)
 def fetch_data(ticker):
+    """使用 yfinance 下載資料，不使用自定義 session 以避免衝突"""
     try:
-        # 使用自定義 session 增加穩定度
-        ticker_data = yf.Ticker(ticker, session=session)
-        df = ticker_data.history(period="6mo")
-        
+        # 官方推薦用法
+        df = yf.download(ticker, period="6mo", progress=False)
         if not df.empty:
-            df = df.rename(columns={"Close": "收盤價", "Open": "開盤價", "High": "最高價", "Low": "最低價", "Volume": "成交量"})
-            return get_technical_indicators(df.sort_index())
+            # yfinance 回傳的多層 index 處理
+            if isinstance(df.columns, pd.MultiIndex):
+                df.columns = df.columns.get_level_values(0)
+            df = get_technical_indicators(df)
+            return df
         return None
     except Exception as e:
         st.error(f"資料獲取失敗: {e}")
@@ -62,10 +51,10 @@ if menu == "個股儀表板":
     if st.button("查詢分析"):
         data = fetch_data(ticker)
         if data is not None:
-            st.metric("最新收盤價", f"{round(data['收盤價'].iloc[-1], 2)}")
-            st.line_chart(data[['收盤價', 'MA20']])
+            st.metric("最新收盤價", f"{round(data['Close'].iloc[-1], 2)}")
+            st.line_chart(data[['Close', 'MA20']])
         else:
-            st.warning("無法獲取資料，請確認代號是否正確或稍後再試。")
+            st.warning("無法獲取資料，請確認代號是否正確。")
 
 elif menu == "AI 選股與指標":
     st.subheader("🤖 AI 自動化選股系統")
@@ -75,8 +64,10 @@ elif menu == "AI 選股與指標":
         with st.spinner("正在聯網掃描..."):
             for t in target_tickers:
                 df = fetch_data(t)
-                if df is not None and df['RSI'].iloc[-1] < 30:
-                    results.append({"代號": t, "當前RSI": round(df['RSI'].iloc[-1], 2), "狀態": "超賣"})
+                if df is not None and not df.empty and 'RSI' in df.columns:
+                    rsi_val = df['RSI'].iloc[-1]
+                    if rsi_val < 30:
+                        results.append({"代號": t, "當前RSI": round(rsi_val, 2), "狀態": "超賣"})
         st.table(pd.DataFrame(results) if results else "無符合條件個股")
 
 elif menu == "黑天鵝警示系統":
@@ -86,12 +77,8 @@ elif menu == "黑天鵝警示系統":
     
     if st.button("啟動自動監控"):
         data = fetch_data(target_ticker)
-        if data is not None and data['RSI'].iloc[-1] < 30:
+        if data is not None and 'RSI' in data.columns and data['RSI'].iloc[-1] < 30:
             msg = f"警示：{target_ticker} 超賣 (RSI: {round(data['RSI'].iloc[-1], 2)})"
             if notify_token:
                 send_line_notify(notify_token, msg)
                 st.success("通知已發送")
-
-elif menu == "LINE 通知與 Bot 設定":
-    st.subheader("📱 LINE 服務整合設定")
-    st.info("連線穩定度已針對 Yahoo 阻擋機制進行優化，已移除衝突模組。")
