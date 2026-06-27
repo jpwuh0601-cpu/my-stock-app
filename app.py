@@ -13,9 +13,13 @@ from pyrate_limiter import Duration, RequestRate, Limiter
 st.set_page_config(page_title="專業股市 AI 決策系統", layout="wide")
 st.title("📊 專業股市 AI 決策系統")
 
-# 優化連線：建立帶有緩存與限流的 Session
+# 優化連線：建立帶有緩存與限流的 Session，並加入模擬瀏覽器的 Header
 class CachedLimiterSession(CacheMixin, LimiterMixin, Session):
-    pass
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.headers.update({
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        })
 
 session = CachedLimiterSession(
     limiter=Limiter(RequestRate(2, Duration.SECOND * 5)),
@@ -46,7 +50,7 @@ def fetch_data(ticker):
             return get_technical_indicators(df.sort_index())
         return None
     except Exception as e:
-        st.error(f"連線錯誤: {e}")
+        st.error(f"資料獲取失敗: {e}")
         return None
 
 def send_line_notify(token, message):
@@ -66,17 +70,18 @@ if menu == "個股儀表板":
             st.metric("最新收盤價", f"{round(data['收盤價'].iloc[-1], 2)}")
             st.line_chart(data[['收盤價', 'MA20']])
         else:
-            st.warning("無法獲取資料，請確認代號是否正確。")
+            st.warning("無法獲取資料，請確認代號是否正確或稍後再試。")
 
 elif menu == "AI 選股與指標":
     st.subheader("🤖 AI 自動化選股系統")
-    if st.button("執行全市場掃描 (測試代號)"):
-        target_tickers = ["2330.TW", "2454.TW"]
+    if st.button("執行全市場掃描"):
+        target_tickers = ["2330.TW", "2454.TW", "2317.TW", "3008.TW"]
         results = []
-        for t in target_tickers:
-            df = fetch_data(t)
-            if df is not None and df['RSI'].iloc[-1] < 30:
-                results.append({"代號": t, "當前RSI": round(df['RSI'].iloc[-1], 2), "狀態": "超賣"})
+        with st.spinner("正在聯網掃描..."):
+            for t in target_tickers:
+                df = fetch_data(t)
+                if df is not None and df['RSI'].iloc[-1] < 30:
+                    results.append({"代號": t, "當前RSI": round(df['RSI'].iloc[-1], 2), "狀態": "超賣"})
         st.table(pd.DataFrame(results) if results else "無符合條件個股")
 
 elif menu == "黑天鵝警示系統":
@@ -94,4 +99,4 @@ elif menu == "黑天鵝警示系統":
 
 elif menu == "LINE 通知與 Bot 設定":
     st.subheader("📱 LINE 服務整合設定")
-    st.info("此系統已優化連線穩定度。")
+    st.info("連線穩定度已針對 Yahoo 阻擋機制進行優化。")
