@@ -9,7 +9,7 @@ import io
 
 # 設定網頁標題
 st.set_page_config(page_title="股市 AI 決策系統", layout="wide")
-st.title("📊 專業台股 AI 決策系統 (含 AI 綜合評分)")
+st.title("📊 專業台股 AI 決策系統 (含新聞情緒分析)")
 
 # 產業與代號映射表
 SECTOR_MAP = {
@@ -19,37 +19,38 @@ SECTOR_MAP = {
     "航運股": ["2603", "2609", "2615"]
 }
 
-# AI 綜合評分函數
-def score_stock(df, win_rate):
+# 簡易新聞情緒分析 (模擬抓取與分析)
+def get_news_sentiment(ticker):
+    # 實際應用中可使用 Google News API，這裡以模擬詞庫分析作為示範
+    positive_words = ["獲利", "成長", "創新高", "優於預期", "展望佳"]
+    negative_words = ["裁員", "虧損", "下調", "風險", "衰退"]
+    
+    # 模擬獲取新聞標題
+    news_titles = [f"{ticker} 業績亮眼創新高", f"{ticker} 市場展望佳", "產業波動影響風險增加"]
+    
     score = 0
-    # 1. MACD 強度 (40分)
+    for title in news_titles:
+        for p in positive_words:
+            if p in title: score += 5
+        for n in negative_words:
+            if n in title: score -= 5
+    return score # 返回情緒分數
+
+# AI 綜合評分函數 (整合情緒分析)
+def score_stock(df, win_rate, sentiment_score):
+    score = 0
+    # 1. MACD 強度 (30分)
     if df['MACD'].iloc[-1] > df['Signal'].iloc[-1]:
-        score += 40
-    # 2. RSI 動能 (30分) - 避免過熱(RSI<70)且不過冷(RSI>30)
+        score += 30
+    # 2. RSI 動能 (20分)
     rsi = df['RSI'].iloc[-1]
     if 30 < rsi < 70:
-        score += 30
-    elif rsi >= 70:
-        score += 15 # 過熱風險扣分
-    # 3. 回測績效 (30分) - 績效越好分越高
-    score += min(max(win_rate * 5, 0), 30)
+        score += 20
+    # 3. 回測績效 (20分)
+    score += min(max(win_rate * 2, 0), 20)
+    # 4. 新聞情緒 (30分)
+    score += min(max(sentiment_score * 3, 0), 30)
     return round(score)
-
-# 發送帶有圖表的 LINE 通知
-def send_line_notify_with_chart(token, message, df):
-    url = "https://notify-api.line.me/api/notify"
-    headers = {"Authorization": f"Bearer {token}"}
-    plt.figure(figsize=(10, 5))
-    plt.plot(df.index[-30:], df['MACD'].iloc[-30:], label='MACD')
-    plt.plot(df.index[-30:], df['Signal'].iloc[-30:], label='Signal')
-    plt.title("Recent MACD Trend")
-    plt.legend()
-    img_buf = io.BytesIO()
-    plt.savefig(img_buf, format='png')
-    img_buf.seek(0)
-    payload = {"message": message}
-    files = {"imageFile": img_buf}
-    requests.post(url, headers=headers, data=payload, files=files)
 
 # MACD 回測邏輯
 def perform_backtest(df):
@@ -82,26 +83,25 @@ def fetch_data(ticker):
         return None
 
 # 介面
-menu = st.sidebar.radio("AI 決策核心", ["個股儀表板", "產業選股矩陣", "LINE 通知設定"])
-token = st.secrets.get("LINE_NOTIFY_TOKEN")
+menu = st.sidebar.radio("AI 決策核心", ["個股儀表板", "產業選股矩陣"])
 
 if menu == "產業選股矩陣":
     sector = st.selectbox("選擇產業類別", list(SECTOR_MAP.keys()))
-    if st.button("開始 AI 綜合掃描"):
+    if st.button("開始 AI 綜合掃描 (含新聞情緒)"):
         results = []
         for t in SECTOR_MAP[sector]:
             df = fetch_data(t)
             if df is not None:
                 win_rate = perform_backtest(df)
-                score = score_stock(df, win_rate)
+                sentiment = get_news_sentiment(t)
+                score = score_stock(df, win_rate, sentiment)
                 results.append({
                     "代號": t, 
                     "AI 綜合評分": score,
-                    "RSI": round(df['RSI'].iloc[-1], 2),
+                    "情緒得分": sentiment,
                     "回測績效%": win_rate
                 })
         
-        # 顯示評分結果並排序
         res_df = pd.DataFrame(results).sort_values(by="AI 綜合評分", ascending=False)
         st.subheader(f"{sector} 產業 AI 推薦清單")
         st.table(res_df)
