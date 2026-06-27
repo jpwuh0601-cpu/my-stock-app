@@ -4,12 +4,26 @@ import pandas as pd
 from datetime import datetime, timedelta
 import requests
 import json
+from requests import Session
+from requests_cache import CacheMixin, SQLiteCache
+from requests_ratelimiter import LimiterMixin, MemoryQueueBucket
+from pyrate_limiter import Duration, RequestRate, Limiter
 
 # 設定網頁標題
 st.set_page_config(page_title="專業股市 AI 決策系統", layout="wide")
 st.title("📊 專業股市 AI 決策系統")
 
-# 定義功能模組 (移除 talib 依賴，改用 pandas 計算)
+# 優化連線：建立帶有緩存與限流的 Session
+class CachedLimiterSession(CacheMixin, LimiterMixin, Session):
+    pass
+
+session = CachedLimiterSession(
+    limiter=Limiter(RequestRate(2, Duration.SECOND * 5)),
+    bucket_class=MemoryQueueBucket,
+    backend=SQLiteCache("yfinance.cache"),
+)
+
+# 定義功能模組
 def get_technical_indicators(df):
     """純 Python 計算技術指標 (RSI, MA)"""
     delta = df['收盤價'].diff()
@@ -23,101 +37,61 @@ def get_technical_indicators(df):
 @st.cache_data(ttl=3600)
 def fetch_data(ticker):
     try:
-        df = yf.download(ticker, period="6mo", progress=False)
+        # 使用自定義 session 增加穩定度
+        ticker_data = yf.Ticker(ticker, session=session)
+        df = ticker_data.history(period="6mo")
+        
         if not df.empty:
-            if isinstance(df.columns, pd.MultiIndex):
-                df.columns = df.columns.get_level_values(0)
             df = df.rename(columns={"Close": "收盤價", "Open": "開盤價", "High": "最高價", "Low": "最低價", "Volume": "成交量"})
             return get_technical_indicators(df.sort_index())
         return None
-    except:
+    except Exception as e:
+        st.error(f"連線錯誤: {e}")
         return None
 
 def send_line_notify(token, message):
-    """發送 LINE Notify 推送通知"""
     url = "https://notify-api.line.me/api/notify"
     headers = {"Authorization": f"Bearer {token}"}
     payload = {"message": message}
     return requests.post(url, headers=headers, data=payload)
-
-def handle_line_webhook(request_json, channel_token):
-    """LINE Bot Webhook 路由處理邏輯"""
-    events = request_json.get("events", [])
-    for event in events:
-        if event["type"] == "message" and event["message"]["type"] == "text":
-            ticker = event["message"]["text"].strip()
-            data = fetch_data(ticker)
-            if data is not None:
-                price = round(data['收盤價'].iloc[-1], 2)
-                reply_text = f"💡 代號 {ticker} 最新收盤價為 {price}\n📊 20日均線: {round(data['MA20'].iloc[-1], 2)}\n📈 RSI: {round(data['RSI'].iloc[-1], 2)}"
-            else:
-                reply_text = "⚠️ 找不到該股票代號，請確認輸入格式 (例如 2330.TW)"
-            
-            # 回覆訊息給 LINE
-            reply_token = event["replyToken"]
-            url = "https://api.line.me/v2/bot/message/reply"
-            headers = {"Authorization": f"Bearer {channel_token}", "Content-Type": "application/json"}
-            payload = {"replyToken": reply_token, "messages": [{"type": "text", "text": reply_text}]}
-            requests.post(url, headers=headers, json=payload)
 
 # 側邊欄導航
 menu = st.sidebar.radio("AI 決策核心", ["個股儀表板", "AI 選股與指標", "黑天鵝警示系統", "LINE 通知與 Bot 設定"])
 
 if menu == "個股儀表板":
     ticker = st.text_input("輸入台股代號", "2330.TW")
-    if st.button("AI 深度分析"):
+    if st.button("查詢分析"):
         data = fetch_data(ticker)
         if data is not None:
             st.metric("最新收盤價", f"{round(data['收盤價'].iloc[-1], 2)}")
             st.line_chart(data[['收盤價', 'MA20']])
-            st.write("### 🧠 GPT 新聞與指標解讀")
-            st.info("串接 OpenAI/OpenRouter API 後，此處將顯示 AI 對該股的技術面與市場情緒報告。")
         else:
-            st.error("無法取得資料。")
+            st.warning("無法獲取資料，請確認代號是否正確。")
 
 elif menu == "AI 選股與指標":
     st.subheader("🤖 AI 自動化選股系統")
-    target_tickers = ["2330.TW", "2454.TW", "2317.TW", "3008.TW"]
-    if st.button("執行全市場掃描"):
+    if st.button("執行全市場掃描 (測試代號)"):
+        target_tickers = ["2330.TW", "2454.TW"]
         results = []
         for t in target_tickers:
             df = fetch_data(t)
             if df is not None and df['RSI'].iloc[-1] < 30:
-                results.append({"代號": t, "當前RSI": round(df['RSI'].iloc[-1], 2), "狀態": "超賣潛力股"})
-        
-        if results:
-            st.table(pd.DataFrame(results))
-        else:
-            st.write("目前無符合條件的個股。")
+                results.append({"代號": t, "當前RSI": round(df['RSI'].iloc[-1], 2), "狀態": "超賣"})
+        st.table(pd.DataFrame(results) if results else "無符合條件個股")
 
 elif menu == "黑天鵝警示系統":
-    st.warning("⚠️ 黑天鵝監控中心：自動化警示設定")
+    st.warning("⚠️ 黑天鵝監控中心")
     target_ticker = st.text_input("監控代號", "2330.TW")
-    notify_token = st.text_input("LINE Notify Token (接收警示)", type="password")
+    notify_token = st.text_input("LINE Notify Token", type="password")
     
     if st.button("啟動自動監控"):
         data = fetch_data(target_ticker)
-        if data is not None:
-            rsi = data['RSI'].iloc[-1]
-            if rsi < 30:
-                msg = f"【黑天鵝警示】{target_ticker} 觸發超賣訊號，當前 RSI: {round(rsi, 2)}"
-                if notify_token:
-                    send_line_notify(notify_token, msg)
-                    st.success(f"已發送警示通知至 LINE: {msg}")
-                else:
-                    st.error("請先設定 LINE Notify Token")
-            else:
-                st.info(f"當前狀態正常 (RSI: {round(rsi, 2)})")
+        if data is not None and data['RSI'].iloc[-1] < 30:
+            msg = f"警示：{target_ticker} 超賣 (RSI: {round(data['RSI'].iloc[-1], 2)})"
+            if notify_token:
+                send_line_notify(notify_token, msg)
+                st.success("通知已發送")
 
 elif menu == "LINE 通知與 Bot 設定":
     st.subheader("📱 LINE 服務整合設定")
-    with st.expander("LINE Notify 設定"):
-        st.write("用於接收黑天鵝警示推送。")
-    
-    with st.expander("LINE Messaging API 設定"):
-        channel_token = st.text_input("Channel Access Token", type="password")
-        webhook_url = st.text_input("Webhook URL (公開連結)")
-        st.caption("設定後可用於雙向互動式查詢。")
-        
-        if st.button("模擬測試 Webhook"):
-            st.info("系統已準備好回應邏輯，請重新部署以完成生效。")
+    st.info("此系統已優化連線穩定度。")
