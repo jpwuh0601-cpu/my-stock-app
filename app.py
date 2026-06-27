@@ -2,6 +2,7 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import requests
+import plotly.graph_objects as go
 from bs4 import BeautifulSoup
 from ai_engine import get_ai_analysis
 
@@ -64,6 +65,12 @@ if menu == "個股分析":
                     col1.metric("最新收盤價", f"{round(current_price, 2)}")
                     col2.metric("20日均線", f"{round(ma20, 2)}")
                     
+                    # 繪製走勢圖
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(x=df.index, y=df['Close'], name='收盤價', line=dict(color='blue')))
+                    fig.add_trace(go.Scatter(x=df.index, y=df['Close'].rolling(window=20).mean(), name='20日均線', line=dict(color='orange', dash='dash')))
+                    st.plotly_chart(fig, use_container_width=True)
+                    
                     if is_danger:
                         st.error("⚠️ [黑天鵝警示]：股價嚴重偏離均線，請注意風險！")
                     
@@ -85,7 +92,6 @@ elif menu == "AI 選股器":
     st.write("掃描市場熱門標的...")
     if st.button("執行選股掃描"):
         with st.spinner("AI 正在分析市場數據..."):
-            # 模擬選股邏輯
             sample_stocks = ["2330.TW", "2454.TW", "2317.TW"]
             for s in sample_stocks:
                 st.success(f"AI 推薦: {s} - 技術指標表現強勁")
