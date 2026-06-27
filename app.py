@@ -67,11 +67,20 @@ elif menu == "批量比較":
             for t in tickers:
                 result = fetch_stock_data(t, days=days_filter)
                 if isinstance(result, pd.DataFrame):
-                    data.append({"代號": t, "最新價": round(float(result['Close'].iloc[0]), 2)})
+                    latest = float(result['Close'].iloc[0])
+                    prev = float(result['Close'].iloc[1]) if len(result) > 1 else latest
+                    change = ((latest - prev) / prev) * 100
+                    data.append({
+                        "代號": t, 
+                        "最新價": round(latest, 2),
+                        "漲跌幅 (%)": round(change, 2)
+                    })
                     success_count += 1
                 else:
-                    data.append({"代號": t, "最新價": "查詢失敗"})
+                    data.append({"代號": t, "最新價": "查詢失敗", "漲跌幅 (%)": "-"})
         
         if data:
-            st.table(pd.DataFrame(data))
+            # 轉換為 DataFrame 並顯示
+            df_comp = pd.DataFrame(data)
+            st.dataframe(df_comp.style.format({"漲跌幅 (%)": "{:+.2f}%"}), use_container_width=True)
             st.success(f"比較完成！成功獲取 {success_count} 筆，失敗 {len(tickers) - success_count} 筆。")
