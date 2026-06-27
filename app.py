@@ -4,11 +4,12 @@ import pandas as pd
 import random
 import requests
 import plotly.express as px
+from datetime import datetime
 
 st.set_page_config(page_title="AI 決策中樞", layout="wide")
 st.title("🚀 AI 專業投資決策中樞 (專業實戰整合版)")
 
-# 初始化持股狀態
+# 初始化狀態
 if 'portfolio' not in st.session_state:
     st.session_state.portfolio = []
 
@@ -19,7 +20,14 @@ SECTOR_MAP = {
     "生技": ["1795", "4743"]
 }
 
-# --- 功能模組 ---
+# --- 核心邏輯與通知 ---
+def send_line_message(token, message):
+    if not token: return
+    url = "https://notify-api.line.me/api/notify"
+    headers = {"Authorization": f"Bearer {token}"}
+    payload = {"message": f"\n{message}"}
+    requests.post(url, headers=headers, data=payload)
+
 def get_market_sentiment(ticker):
     return random.uniform(-1, 1)
 
@@ -47,6 +55,7 @@ def fetch_data(ticker):
 
 # --- UI 模組 ---
 menu = st.sidebar.radio("核心模組", ["市場監控", "AI 選股與下單", "部位健檢"])
+token = st.secrets.get("LINE_NOTIFY_TOKEN")
 
 if menu == "市場監控":
     st.subheader("📊 市場資金流向熱點圖")
@@ -76,7 +85,17 @@ elif menu == "部位健檢":
         if st.form_submit_button("新增部位"):
             st.session_state.portfolio.append({"代號": t, "成本": cost})
     
+    if st.button("執行全面健檢並推送至 LINE"):
+        report = "🚨 AI 持股風險健檢報告\n"
+        for item in st.session_state.portfolio:
+            df = fetch_data(item['代號'])
+            score = ai_score(*calculate_strategies(df), get_market_sentiment(item['代號']))
+            status = "✅ 持有" if score >= 50 else "⚠️ 建議減碼/檢視"
+            report += f"{item['代號']}: 評分 {score} ({status})\n"
+        send_line_message(token, report)
+        st.success("健檢報告已推送至 LINE。")
+        
     for item in st.session_state.portfolio:
         df = fetch_data(item['代號'])
         score = ai_score(*calculate_strategies(df), get_market_sentiment(item['代號']))
-        st.write(f"代號: {item['代號']} | 當前 AI 評分: {score} | 建議: {'持有' if score > 50 else '減碼/健檢'}")
+        st.write(f"代號: {item['代號']} | 當前 AI 評分: {score} | 建議: {'持有' if score >= 50 else '減碼/健檢'}")
