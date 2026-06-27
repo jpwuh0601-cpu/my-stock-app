@@ -3,23 +3,36 @@ import requests
 import pandas as pd
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # 設定網頁標題
-st.set_page_config(page_title="股市決策系統 (FinMind 台股版)", layout="wide")
-st.title("📊 專業股市決策系統 (FinMind API)")
+st.set_page_config(page_title="股市決策系統 (FinMind 穩定版)", layout="wide")
+st.title("📊 專業股市決策系統 (FinMind 穩定版)")
 
-st.info("提示：FinMind 專為台股設計，請直接輸入代號 (例如: 2330, 2454)")
+st.info("提示：若批量查詢持續卡住，建議減少一次查詢的代號數量。")
+
+# 設定具有重試機制的 Session
+@st.cache_resource
+def get_session():
+    session = requests.Session()
+    retry = Retry(total=3, backoff_factor=0.5, status_forcelist=[500, 502, 503, 504])
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('https://', adapter)
+    return session
 
 @st.cache_data(ttl=3600)
 def fetch_stock_data(ticker, days=60):
     try:
+        session = get_session()
         url = "https://api.finmindtrade.com/v2/api/data"
         params = {
             "dataset": "TaiwanStockPrice",
             "data_id": ticker,
             "start_date": (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
         }
-        response = requests.get(url, params=params, timeout=10)
+        # 將 timeout 設定得更保守，確保執行緒快速釋放
+        response = session.get(url, params=params, timeout=5)
         data = response.json()
         
         if data.get("status") == 200 and data.get("data"):
@@ -52,9 +65,8 @@ elif menu == "批量比較":
     if st.button("開始比較"):
         tickers = [t.strip() for t in tickers_input.split(",")]
         
-        with st.spinner("正在併發處理批量運算..."):
-            # 使用多執行緒同時查詢，解決轉圈卡死問題
-            with ThreadPoolExecutor(max_workers=5) as executor:
+        with st.spinner("正在處理，若資料量大請稍候..."):
+            with ThreadPoolExecutor(max_workers=3) as executor: # 降低併發數減少伺服器壓力
                 results = list(executor.map(lambda t: (t, fetch_stock_data(t, days=days_filter)), tickers))
             
             data = []
