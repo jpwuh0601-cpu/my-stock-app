@@ -12,14 +12,14 @@ st.info("提示：FinMind 專為台股設計，請直接輸入代號 (例如: 23
 
 # 定義抓取資料函式 (使用 FinMind API)
 @st.cache_data(ttl=3600)
-def fetch_stock_data(ticker):
+def fetch_stock_data(ticker, days=60):
     try:
         # FinMind API 獲取股價資料
         url = "https://api.finmindtrade.com/v2/api/data"
         params = {
             "dataset": "TaiwanStockPrice",
             "data_id": ticker,
-            "start_date": (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
+            "start_date": (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
         }
         response = requests.get(url, params=params, timeout=15)
         data = response.json()
@@ -38,16 +38,18 @@ def fetch_stock_data(ticker):
 
 # 側邊欄
 menu = st.sidebar.radio("功能選單", ["個股分析", "批量比較"])
+# 新增日期範圍選擇器
+days_filter = st.sidebar.slider("選擇資料顯示天數", 10, 180, 60)
 
 if menu == "個股分析":
     ticker_input = st.text_input("輸入台股代號", "2330")
     if st.button("查詢分析"):
-        with st.spinner("正在讀取 FinMind 台股資料..."):
-            result = fetch_stock_data(ticker_input.strip())
+        with st.spinner(f"正在讀取近 {days_filter} 天的 FinMind 資料..."):
+            result = fetch_stock_data(ticker_input.strip(), days=days_filter)
             if isinstance(result, pd.DataFrame):
                 current_price = float(result['Close'].iloc[0])
                 st.metric("最新收盤價", f"{round(current_price, 2)}")
-                st.table(result.head(5))
+                st.table(result.head(10)) # 顯示更多筆資料
             elif result == "empty":
                 st.error("查無資料，請確認代號是否正確。")
             else:
@@ -63,7 +65,7 @@ elif menu == "批量比較":
         
         with st.spinner("正在進行批量運算..."):
             for t in tickers:
-                result = fetch_stock_data(t)
+                result = fetch_stock_data(t, days=days_filter)
                 if isinstance(result, pd.DataFrame):
                     data.append({"代號": t, "最新價": round(float(result['Close'].iloc[0]), 2)})
                     success_count += 1
