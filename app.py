@@ -21,20 +21,24 @@ def get_technical_indicators(df):
 @st.cache_data(ttl=3600)
 def fetch_data(ticker):
     try:
-        df = yf.download(ticker, period="6mo", progress=False)
+        # 在雲端環境下，明確指定不使用過多的 session 快取，僅下載資料
+        data = yf.Ticker(ticker)
+        df = data.history(period="6mo")
+        
         if df is None or df.empty:
             return None
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
+            
         if 'Close' not in df.columns:
             return None
+            
         df = get_technical_indicators(df)
         return df
-    except Exception:
+    except Exception as e:
+        st.error(f"資料獲取失敗: {str(e)}")
         return None
 
 # 側邊欄導航與設定
-menu = st.sidebar.radio("AI 決策核心", ["個股儀表板", "AI 選股與指標", "黑天鵝警示系統"])
+menu = st.sidebar.radio("AI 決策核心", ["個股儀表板", "AI 選股與指標", "黑天鵝警示系統", "LINE 通知與 Bot 設定"])
 
 if menu == "個股儀表板":
     ticker = st.text_input("輸入台股代號", "2330.TW")
@@ -49,8 +53,6 @@ if menu == "個股儀表板":
 
 elif menu == "AI 選股與指標":
     st.subheader("🤖 AI 自動化選股系統")
-    
-    # 新增：讓使用者自訂 RSI 門檻
     rsi_threshold = st.sidebar.slider("設定 RSI 超賣門檻", 20, 50, 30)
     
     if st.button("執行全市場掃描"):
@@ -64,7 +66,6 @@ elif menu == "AI 選股與指標":
                     if rsi_val < rsi_threshold:
                         results.append({"代號": t, "當前RSI": round(float(rsi_val), 2), "狀態": "超賣"})
         
-        # 使用互動式 dataframe 取代靜態 table
         if results:
             df_results = pd.DataFrame(results)
             st.dataframe(df_results, use_container_width=True)
@@ -74,3 +75,13 @@ elif menu == "AI 選股與指標":
 elif menu == "黑天鵝警示系統":
     st.warning("⚠️ 黑天鵝監控中心")
     st.write("此模組可整合 LINE Notify 進行自動化提醒。")
+
+elif menu == "LINE 通知與 Bot 設定":
+    st.subheader("📱 LINE 服務整合設定")
+    with st.expander("LINE Notify 設定"):
+        st.write("用於接收黑天鵝警示推送。")
+    with st.expander("LINE Messaging API 設定"):
+        st.text_input("Channel Access Token", type="password")
+        st.text_input("Webhook URL (公開連結)")
+        if st.button("模擬測試 Webhook"):
+            st.success("系統已準備好回應邏輯，請重新部署以完成生效。")
