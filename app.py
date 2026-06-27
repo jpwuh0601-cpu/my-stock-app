@@ -65,7 +65,7 @@ if menu == "個股儀表板":
             st.error("下載失敗，請檢查代號或稍候再試。")
 
 elif menu == "AI 選股與指標":
-    token = st.sidebar.text_input("輸入 LINE Notify Token", type="password")
+    token = st.sidebar.text_input("輸入 LINE Notify Token", type="2tLmUzoYjdTYkEQwxm6ryqtVAioqpm0Qox0qMU5v2TF7jT5+zhPuNl1bGRfLwSgg1aGzsb6xl1Pb+nEDZwzv14T0oCqjZfMYpKYNm858sOdBO1XruO81ZFrR5jbUSDBbwIoUHGNpBIHvbqcSbGL/FAdB04t89/1O/w1cDnyilFU=")
     if st.button("掃描清單"):
         results = []
         tickers = ["2330", "2454", "2317", "3008"]
