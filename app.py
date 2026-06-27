@@ -88,10 +88,22 @@ if menu == "個股分析":
             st.write(get_ai_analysis(st.session_state['stock_data_summary']))
 
 elif menu == "AI 選股器":
-    st.subheader("🤖 AI 策略選股")
-    st.write("掃描市場熱門標的...")
+    st.subheader("🤖 AI 策略選股 (多頭篩選)")
+    st.write("正在掃描熱門標的並進行技術分析篩選...")
     if st.button("執行選股掃描"):
         with st.spinner("AI 正在分析市場數據..."):
-            sample_stocks = ["2330.TW", "2454.TW", "2317.TW"]
-            for s in sample_stocks:
-                st.success(f"AI 推薦: {s} - 技術指標表現強勁")
+            watch_list = ["2330.TW", "2454.TW", "2317.TW", "2303.TW", "2308.TW"]
+            found_stocks = []
+            for s in watch_list:
+                df = yf.download(s, period="1mo", auto_adjust=True, progress=False)
+                if not df.empty:
+                    price = float(df['Close'].iloc[-1])
+                    ma20 = float(df['Close'].rolling(window=20).mean().iloc[-1])
+                    if price > ma20:
+                        found_stocks.append(s)
+            
+            if found_stocks:
+                for s in found_stocks:
+                    st.success(f"AI 推薦 (技術面多頭): {s}")
+            else:
+                st.warning("目前無符合篩選條件的標的。")
