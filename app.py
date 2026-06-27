@@ -15,9 +15,9 @@ except:
 # 使用 Alpha Vantage 獲取數據的函式
 def fetch_stock_data(ticker):
     try:
-        # 清理代號：移除 .TW 後，強制補上 TW: 前綴
-        raw_ticker = ticker.upper().replace(".TW", "").strip()
-        symbol = f"TW:{raw_ticker}"
+        # 彈性調整：嘗試使用使用者輸入的原始代號，不再強制加上 TW: 前綴
+        # 有些 Alpha Vantage 的全球數據不需要特別標註市場
+        symbol = ticker.strip().upper()
         
         url = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={API_KEY}"
         response = requests.get(url, timeout=10)
@@ -45,7 +45,7 @@ if menu == "個股分析":
         with st.spinner("正在從 Alpha Vantage 取得資料..."):
             df = fetch_stock_data(ticker_input.strip().upper())
             if df is None:
-                st.error("無法取得資料，請參考上述 API 回傳的錯誤訊息。")
+                st.error("無法取得資料，請檢查代號是否正確。")
             else:
                 current_price = float(df['Close'].iloc[0])
                 st.metric("最新收盤價", f"{round(current_price, 2)}")
