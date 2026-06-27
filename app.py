@@ -35,7 +35,7 @@ def get_stock_news(ticker):
         return "新聞獲取服務暫時中斷。"
 
 # 側邊欄導覽
-menu = st.sidebar.radio("功能選單", ["個股分析", "AI 選股器"])
+menu = st.sidebar.radio("功能選單", ["個股分析", "AI 選股器", "批量比較"])
 
 if menu == "個股分析":
     ticker_input = st.text_input("輸入股票代號 (例如 2330.TW)", "2330.TW")
@@ -89,7 +89,6 @@ if menu == "個股分析":
 
 elif menu == "AI 選股器":
     st.subheader("🤖 AI 策略選股 (多頭篩選)")
-    st.write("正在掃描熱門標的並進行技術分析篩選...")
     if st.button("執行選股掃描"):
         with st.spinner("AI 正在分析市場數據..."):
             watch_list = ["2330.TW", "2454.TW", "2317.TW", "2303.TW", "2308.TW"]
@@ -107,3 +106,23 @@ elif menu == "AI 選股器":
                     st.success(f"AI 推薦 (技術面多頭): {s}")
             else:
                 st.warning("目前無符合篩選條件的標的。")
+
+elif menu == "批量比較":
+    st.subheader("⚖️ 股票數據批量比較")
+    tickers_input = st.text_input("輸入多個代號 (以逗號分隔，例如 2330.TW, 2454.TW)", "2330.TW, 2454.TW")
+    if st.button("開始比較"):
+        tickers = [t.strip().upper() for t in tickers_input.split(",")]
+        data = []
+        for t in tickers:
+            df = yf.download(t, period="1mo", auto_adjust=True, progress=False)
+            if not df.empty:
+                data.append({
+                    "代號": t,
+                    "最新收盤價": round(float(df['Close'].iloc[-1]), 2),
+                    "漲跌幅 (%)": round(((df['Close'].iloc[-1] - df['Close'].iloc[0]) / df['Close'].iloc[0]) * 100, 2)
+                })
+        
+        if data:
+            st.table(pd.DataFrame(data))
+        else:
+            st.error("無法取得數據。")
