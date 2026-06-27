@@ -11,19 +11,22 @@ st.title("📊 專業股市 AI 決策系統")
 # 輸入區塊
 ticker = st.text_input("輸入股票代號 (例如 2330.TW)", "2330.TW")
 
+# 自動處理台股代號補全功能
+if ticker.isdigit():
+    ticker = f"{ticker}.TW"
+
 if st.button("查詢分析"):
-    with st.spinner("正在安全抓取資料..."):
+    with st.spinner(f"正在安全抓取 {ticker} 的資料..."):
         try:
-            # 加入緩衝機制，避免頻繁請求
+            # 加入緩衝機制
             time.sleep(2)
             
-            # 改用 yf.download 方式，這比 stock.info 更穩定且較不易被封鎖
-            # 抓取最近 1 個月的資料
+            # 使用 yf.download 方式
             df = yf.download(ticker, period="1mo", progress=False)
             
             # 檢查是否成功取得資料
             if df.empty:
-                st.error("無法取得該代號的資料，請確認輸入代號是否正確。")
+                st.error(f"無法取得代號 {ticker} 的資料，請確認輸入代號是否正確。")
             else:
                 # 取得最新收盤價
                 current_price = df['Close'].iloc[-1]
