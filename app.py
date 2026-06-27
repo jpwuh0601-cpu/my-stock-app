@@ -55,15 +55,21 @@ if menu == "個股分析":
 
 elif menu == "批量比較":
     st.subheader("⚖️ 股票數據批量比較")
-    tickers_input = st.text_input("輸入代號 (逗號分隔)", "2330, 2454")
+    tickers_input = st.text_input("輸入代號 (逗號分隔)", "2330, 2454, 2317")
     if st.button("開始比較"):
         tickers = [t.strip() for t in tickers_input.split(",")]
         data = []
-        for t in tickers:
-            result = fetch_stock_data(t)
-            if isinstance(result, pd.DataFrame):
-                data.append({"代號": t, "最新價": round(float(result['Close'].iloc[0]), 2)})
-            else:
-                data.append({"代號": t, "最新價": "失敗"})
+        success_count = 0
+        
+        with st.spinner("正在進行批量運算..."):
+            for t in tickers:
+                result = fetch_stock_data(t)
+                if isinstance(result, pd.DataFrame):
+                    data.append({"代號": t, "最新價": round(float(result['Close'].iloc[0]), 2)})
+                    success_count += 1
+                else:
+                    data.append({"代號": t, "最新價": "查詢失敗"})
+        
         if data:
             st.table(pd.DataFrame(data))
+            st.success(f"比較完成！成功獲取 {success_count} 筆，失敗 {len(tickers) - success_count} 筆。")
