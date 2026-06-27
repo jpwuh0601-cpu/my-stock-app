@@ -4,46 +4,35 @@ import pandas as pd
 import time
 import random
 from datetime import datetime, timedelta
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
 # 設定網頁標題
 st.set_page_config(page_title="股市決策系統 (FinMind 最終穩定版)", layout="wide")
 st.title("📊 專業股市決策系統 (FinMind API)")
 
-st.info("提示：已啟用防鎖死超時控制，若查詢逾時將直接顯示失敗，避免轉圈卡死。")
-
-# 設定具有重試機制的 Session
-@st.cache_resource
-def get_session():
-    session = requests.Session()
-    # 減少重試次數，避免長時間等待
-    retry = Retry(total=1, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504])
-    adapter = HTTPAdapter(max_retries=retry)
-    session.mount('https://', adapter)
-    return session
+st.info("提示：已採取極致穩定模式，每次查詢間隔會自動拉長，避免連線失敗。")
 
 def fetch_stock_data(ticker, days=60):
     try:
-        session = get_session()
-        # 強制停頓，這是繞過 API 頻率限制的必要手段
-        time.sleep(random.uniform(1.5, 2.5)) 
+        # 強制執行序列間隔，這是確保雲端環境連線穩定的關鍵
+        time.sleep(random.uniform(2.0, 3.0)) 
+        
         url = "https://api.finmindtrade.com/v2/api/data"
         params = {
             "dataset": "TaiwanStockPrice",
             "data_id": ticker,
             "start_date": (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
         }
-        # 強制縮短 Timeout，確保不卡死
-        response = session.get(url, params=params, timeout=8)
-        data = response.json()
+        # 使用 timeout 確保單一請求不會阻塞主執行緒
+        response = requests.get(url, params=params, timeout=10)
         
-        if data.get("status") == 200 and data.get("data"):
-            df = pd.DataFrame(data["data"])
-            df = df.rename(columns={"date": "Date", "open": "Open", "max": "High", "min": "Low", "close": "Close", "Trading_Volume": "Volume"})
-            df["Date"] = pd.to_datetime(df["Date"])
-            df = df.set_index("Date").sort_index(ascending=False)
-            return df[["Close"]]
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("status") == 200 and data.get("data"):
+                df = pd.DataFrame(data["data"])
+                df = df.rename(columns={"date": "Date", "open": "Open", "max": "High", "min": "Low", "close": "Close", "Trading_Volume": "Volume"})
+                df["Date"] = pd.to_datetime(df["Date"])
+                df = df.set_index("Date").sort_index(ascending=False)
+                return df[["Close"]]
         return "empty"
     except Exception:
         return "error"
@@ -60,7 +49,7 @@ if menu == "個股分析":
                 st.metric("最新收盤價", f"{round(float(result['Close'].iloc[0]), 2)}")
                 st.table(result.head(10))
             else:
-                st.error("查無資料或連線逾時")
+                st.error("查無資料或連線逾時，請稍後再試。")
 
 elif menu == "批量比較":
     st.subheader("⚖️ 股票數據批量比較")
@@ -68,7 +57,6 @@ elif menu == "批量比較":
     if st.button("開始比較"):
         tickers = [t.strip() for t in tickers_input.split(",")]
         
-        # 加入進度條，提升 UI 反饋
         progress_bar = st.progress(0)
         data = []
         
@@ -82,7 +70,6 @@ elif menu == "批量比較":
             else:
                 data.append({"代號": t, "最新價": "失敗", "漲跌幅 (%)": -999})
             
-            # 更新進度條
             progress_bar.progress((i + 1) / len(tickers))
         
         if data:
