@@ -60,7 +60,7 @@ if menu == "🤖 個股深度分析":
                 st.write(response.choices[0].message.content)
                 
                 # 繪圖
-                st.line_chart(hist['Close'])
+                st.line_chart(hist['Close'], width=None) # 預設使用標準寬度
 
             except Exception as e:
                 st.error(f"資料抓取失敗: {e}")
