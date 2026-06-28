@@ -29,13 +29,6 @@ def check_health():
     status = {"LINE": "✅ 正常" if line_token else "❌ 未設定", "OpenRouter": "✅ 正常" if client else "❌ 未設定"}
     return status
 
-def send_line_message(token, message):
-    if not token: return
-    url = "https://notify-api.line.me/api/notify"
-    headers = {"Authorization": f"Bearer {token}"}
-    payload = {"message": f"\n{message}"}
-    requests.post(url, headers=headers, data=payload)
-
 def get_ai_analysis(ticker, fundamentals):
     """優化後的 AI 深度決策指令"""
     if not client: return "AI 分析功能目前無法使用 (API Key 未配置)"
@@ -71,24 +64,19 @@ if menu == "市場監控":
     
     st.divider()
     st.subheader("📊 市場資金流向熱點圖")
-    # ... (原有邏輯維持不變)
 
 elif menu == "AI 選股與下單":
     st.subheader("AI 自動化決策")
     t = st.text_input("輸入股票代號 (例如: 2330)", "2330")
     if st.button("評估買入"):
         with st.spinner("執行深度基本面與技術面綜合分析中..."):
-            # 獲取真實數據
             fundamentals = get_realtime_fundamentals(t)
-            # 整合 get_ai_analysis
             ai_advice = get_ai_analysis(t, fundamentals)
             st.success("分析完成！")
             st.write(ai_advice)
 
 elif menu == "部位健檢":
     st.subheader("持股部位監控")
-    # ... (原有邏輯維持不變)
 
 elif menu == "決策日誌":
     st.subheader("📋 互動式決策歷史日誌")
-    # ... (原有邏輯維持不變)
