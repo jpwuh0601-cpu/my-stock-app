@@ -4,6 +4,7 @@ import random
 import requests
 import plotly.express as px
 import os
+import yfinance as yf
 from datetime import datetime
 from openai import OpenAI
 
@@ -49,6 +50,15 @@ def get_ai_analysis(ticker, fundamentals):
     response = client.chat.completions.create(model="openai/gpt-4o-mini", messages=[{"role": "user", "content": prompt}])
     return response.choices[0].message.content
 
+def get_realtime_fundamentals(ticker):
+    """獲取真實基本面數據"""
+    try:
+        stock = yf.Ticker(f"{ticker}.TW")
+        info = stock.info
+        return f"PE Ratio: {info.get('trailingPE', 'N/A')}, EPS: {info.get('trailingEps', 'N/A')}, Beta: {info.get('beta', 'N/A')}, Market Cap: {info.get('marketCap', 'N/A')}"
+    except Exception as e:
+        return "基本面數據獲取失敗 (可能非上市櫃或數據延遲)"
+
 # --- UI 模組 ---
 menu = st.sidebar.radio("核心模組", ["市場監控", "AI 選股與下單", "部位健檢", "決策日誌"])
 
@@ -65,13 +75,15 @@ if menu == "市場監控":
 
 elif menu == "AI 選股與下單":
     st.subheader("AI 自動化決策")
-    t = st.text_input("輸入股票代號", "2330")
+    t = st.text_input("輸入股票代號 (例如: 2330)", "2330")
     if st.button("評估買入"):
-        # 假設已有 fetch_data 與計算邏輯
-        st.info("執行深度基本面與技術面綜合分析...")
-        # 這裡整合 get_ai_analysis
-        ai_advice = get_ai_analysis(t, "PE=20, EPS=25 (假設值)")
-        st.write(ai_advice)
+        with st.spinner("執行深度基本面與技術面綜合分析中..."):
+            # 獲取真實數據
+            fundamentals = get_realtime_fundamentals(t)
+            # 整合 get_ai_analysis
+            ai_advice = get_ai_analysis(t, fundamentals)
+            st.success("分析完成！")
+            st.write(ai_advice)
 
 elif menu == "部位健檢":
     st.subheader("持股部位監控")
