@@ -49,6 +49,7 @@ def fetch_stock_data(ticker):
         return {
             "ticker": ticker, 
             "price": current_price, 
+            "ytd_return_val": ytd_return, # 保存數值用於計算
             "ytd_return": f"{ytd_return:.2f}%",
             "news": get_news(ticker)
         }
@@ -91,7 +92,15 @@ if __name__ == "__main__":
     report_data = [fetch_stock_data(t) for t in WATCHLIST]
     ai_summary = get_ai_insight(report_data)
     
-    msg = "【績效與盤勢】\n"
+    # 檢查是否有異常波動
+    alerts = []
+    for item in report_data:
+        if "ytd_return_val" in item and abs(item["ytd_return_val"]) > 5.0:
+            alerts.append(f"🚨 異常波動: {item['ticker']} (年報酬 {item['ytd_return']})")
+            
+    alert_msg = "\n".join(alerts) + "\n\n" if alerts else ""
+    
+    msg = f"{alert_msg}【績效與盤勢】\n"
     for item in report_data:
         if "error" in item:
             msg += f"- {item['ticker']}: 數據異常\n"
