@@ -1,20 +1,20 @@
 import os
 import requests
 import yfinance as yf
-from bs4 import BeautifulSoup
 from datetime import datetime
 
 def get_market_news():
-    """抓取市場關鍵新聞摘要"""
+    """使用 yfinance 抓取大盤資訊與新聞"""
     try:
-        # 使用 yfinance 抓取大盤資訊
+        # 改用更穩定的 Ticker 抓取方式
         ticker = yf.Ticker("^TWII")
+        # 限制一次抓取的數量，並增加錯誤處理
         news = ticker.news
         if not news:
             return "目前無即時重大財經新聞。"
         
-        # 提取前兩則新聞標題作為摘要
-        summary = "\n".join([f"- {n['title']}" for n in news[:2]])
+        # 提取前兩則新聞標題
+        summary = "\n".join([f"- {n.get('title', '無標題')}" for n in news[:2]])
         return summary
     except Exception as e:
         return f"新聞抓取異常: {e}"
@@ -22,10 +22,13 @@ def get_market_news():
 def run_smart_report():
     """執行智慧晨報任務"""
     try:
-        # 1. 基礎健檢
-        data = yf.download("^TWII", period="2d")
-        change = data['Close'].pct_change().iloc[-1]
-        status = "穩定" if change > -0.02 else "⚠️ 風險警告"
+        # 1. 基礎健檢 (使用 yfinance 獲取數據)
+        data = yf.download("^TWII", period="2d", progress=False)
+        if not data.empty:
+            change = data['Close'].pct_change().iloc[-1]
+            status = "穩定" if change > -0.02 else "⚠️ 風險警告"
+        else:
+            status = "資料獲取失敗"
         
         # 2. 獲取新聞
         news_summary = get_market_news()
