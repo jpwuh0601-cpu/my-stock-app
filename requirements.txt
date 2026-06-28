@@ -1,6 +1,4 @@
 streamlit
+yfinance
 pandas
 requests
-yfinance
-twstock
-python-dotenv
