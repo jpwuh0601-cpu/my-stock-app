@@ -2,10 +2,7 @@ name: AI 自動化健檢每日任務
 
 on:
   schedule:
-    # 每天台灣時間 08:30 執行 (GitHub 使用 UTC 時間，台灣時間需減 8 小時)
-    # 08:30 (台灣) = 00:30 (UTC)
     - cron: '30 0 * * *'
-  # 允許手動觸發測試
   workflow_dispatch:
 
 jobs:
@@ -22,8 +19,9 @@ jobs:
 
       - name: 安裝依賴套件
         run: |
-          pip install twstock pandas requests
-
+          pip install --upgrade pip
+          pip install -r requirements.txt
+        
       - name: 執行 AI 健檢任務
         env:
           LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
