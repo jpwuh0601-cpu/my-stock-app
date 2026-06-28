@@ -1,8 +1,8 @@
 name: Daily Stock Analysis
 on:
   schedule:
-    - cron: '0 9 * * 1-5' # 每天早上 9 點 (UTC) 執行
-  workflow_dispatch: # 允許手動觸發
+    - cron: '30 0 * * *' # 配合您的排程
+  workflow_dispatch:
 jobs:
   run-script:
     runs-on: ubuntu-latest
@@ -10,11 +10,14 @@ jobs:
       - uses: actions/checkout@v3
       - name: Set up Python
         uses: actions/setup-python@v4
-        with: {python-version: '3.9'}
+        with:
+          python-version: '3.9'
       - name: Install dependencies
-        run: pip install yfinance pandas openai requests
-      - name: Run script
+        run: |
+          pip install twstock pandas openai requests
+      - name: Run worker script
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
-        run: python your_script.py # 您需要另建一個專門發送 LINE 的腳本
+        run: |
+          python worker.py
