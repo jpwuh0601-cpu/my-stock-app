@@ -32,6 +32,7 @@ def calculate_indicators(data):
     exp1 = data['Close'].ewm(span=12, adjust=False).mean()
     exp2 = data['Close'].ewm(span=26, adjust=False).mean()
     data['MACD'] = exp1 - exp2
+    data['Signal'] = data['MACD'].ewm(span=9, adjust=False).mean()
     return data
 
 if menu == "🤖 個股深度分析":
@@ -47,20 +48,28 @@ if menu == "🤖 個股深度分析":
                 hist = calculate_indicators(hist)
                 info = stock.info
                 
+                # 取得最新指標數值
+                rsi_val = hist['RSI'].iloc[-1]
+                macd_val = hist['MACD'].iloc[-1]
+                signal_val = hist['Signal'].iloc[-1]
+                
                 # 即時數據面板
                 curr = info.get('currentPrice', 0)
                 col1, col2, col3, col4 = st.columns(4)
                 col1.metric("即時股價", f"{curr:.2f}")
-                col2.metric("RSI (14日)", f"{hist['RSI'].iloc[-1]:.2f}")
-                col3.metric("MACD 值", f"{hist['MACD'].iloc[-1]:.2f}")
+                col2.metric("RSI (14日)", f"{rsi_val:.2f}")
+                col3.metric("MACD 差值", f"{macd_val:.2f}")
                 col4.metric("產業別", info.get('sector', 'N/A'))
                 
-                # AI 分析：新聞、基本面與黑天鵝預警
+                # AI 分析：整合 RSI 與 MACD 判讀邏輯
                 prompt = f"""
                 請針對 {ticker_symbol} 進行深度分析：
-                1. 綜合基本面狀況。
-                2. 分析是否有潛在的「黑天鵝」風險因素（如地緣政治、供應鏈危機）。
-                3. 基於技術指標 (RSI, MACD) 提供短期進出場建議。
+                1. 基本面：綜合財務狀況。
+                2. 黑天鵝風險：分析潛在的地緣政治或產業黑天鵝。
+                3. 技術面建議：
+                   - 當前 RSI 為 {rsi_val:.2f} (RSI > 70 為超買，RSI < 30 為超賣)。
+                   - 當前 MACD ({macd_val:.2f}) 與訊號線 ({signal_val:.2f}) 之關係 (MACD 上穿訊號線為買進訊號，下穿為賣出)。
+                請依據上述指標提供具體的進出場策略。
                 """
                 response = client.chat.completions.create(
                     model="openai/gpt-4o-mini", 
