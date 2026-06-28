@@ -32,7 +32,7 @@ def calculate_indicators(data):
     
     # MACD
     exp1 = data['Close'].ewm(span=12, adjust=False).mean()
-    exp2 = data['Close'].ढ(span=26, adjust=False).mean()
+    exp2 = data['Close'].ewm(span=26, adjust=False).mean()
     data['MACD'] = exp1 - exp2
     data['Signal'] = data['MACD'].ewm(span=9, adjust=False).mean()
     return data
@@ -44,20 +44,33 @@ if menu == "🤖 個股深度分析":
     # 提供用戶常見代號檢查提示
     with st.expander("⚠️ 若分析失敗，請檢查："):
         st.write("1. 確保代號為台灣上市櫃股票 (如 2330, 2454)。")
-        st.write("2. 若為 Yahoo Finance 未收錄的冷門股或剛上市股票，暫無法取得數據。")
-        st.write("3. 檢查網路連線或 Yahoo Finance API 回應狀況。")
+        st.write("2. Yahoo Finance 若查無數據，請確認該代號是否正確或已下市。")
+        st.write("3. 嘗試手動加上 .TW (上市) 或 .TWO (上櫃) 後綴。")
 
     if st.button("啟動專業分析"):
         with st.spinner("正在進行多維度分析..."):
             try:
-                # 簡單自動補全代號，若用戶未加 .TW 則自動補上
-                ticker_formatted = f"{t}.TW" if not t.endswith(".TW") else t
-                stock = yf.Ticker(ticker_formatted)
-                hist = stock.history(period="6mo")
+                # 改進的代號處理邏輯：優先嘗試用戶輸入，若失敗則嘗試補上 TW
+                ticker_input = t.strip()
+                tickers_to_try = [ticker_input]
+                if not ticker_input.endswith((".TW", ".TWO")):
+                    tickers_to_try.append(f"{ticker_input}.TW")
+                    tickers_to_try.append(f"{ticker_input}.TWO")
+                
+                hist = None
+                stock = None
+                ticker_formatted = ""
+
+                for candidate in tickers_to_try:
+                    stock = yf.Ticker(candidate)
+                    hist = stock.history(period="6mo")
+                    if not hist.empty:
+                        ticker_formatted = candidate
+                        break
                 
                 # 深度數據檢查
-                if hist.empty:
-                    st.error(f"無法在 Yahoo Finance 找到代號 **{ticker_formatted}** 的數據。請嘗試輸入正確的代號或檢查該代號是否符合 Yahoo 格式。")
+                if hist is None or hist.empty:
+                    st.error(f"無法在 Yahoo Finance 找到代號 **{t}** 的相關數據 (嘗試過: {', '.join(tickers_to_try)})。請確認代號正確性。")
                 elif len(hist) < 14:
                     st.error("該股票歷史數據不足，無法進行 RSI/MACD 等指標計算。")
                 else:
@@ -67,7 +80,6 @@ if menu == "🤖 個股深度分析":
                     # 取得最新指標數值
                     rsi_val = hist['RSI'].iloc[-1]
                     macd_val = hist['MACD'].iloc[-1]
-                    signal_val = hist['Signal'].iloc[-1]
                     
                     # 即時數據面板
                     curr = info.get('currentPrice', 'N/A')
