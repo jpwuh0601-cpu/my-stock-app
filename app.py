@@ -28,6 +28,12 @@ def save_to_journal(ticker, analysis):
 
 # 使用快取機制，降低 API 呼叫頻率 (每 1 小時重新抓取)
 @st.cache_data(ttl=3600)
+def get_stock_data(ticker):
+    t = yf.Ticker(ticker)
+    hist = t.history(period="1mo")
+    return hist
+
+@st.cache_data(ttl=3600)
 def get_news_cached(ticker):
     t = yf.Ticker(ticker)
     return t.news
@@ -37,10 +43,16 @@ st.sidebar.title("🤖 AI 決策中樞")
 menu = st.sidebar.radio("功能導航", ["自動新聞讀取", "投資復盤日記"])
 
 if menu == "自動新聞讀取":
-    st.subheader("📰 熱門財經新聞")
+    st.subheader("📰 熱門財經新聞與走勢")
     ticker = st.text_input("輸入股票代號 (例如: 2330.TW)", "2330.TW")
-    if st.button("抓取最新新聞"):
+    
+    if st.button("抓取最新數據與新聞"):
         try:
+            # 顯示股價圖表
+            data = get_stock_data(ticker)
+            st.line_chart(data['Close'])
+            
+            # 顯示新聞
             news = get_news_cached(ticker)
             if not news:
                 st.warning("暫無相關新聞。")
@@ -53,7 +65,7 @@ if menu == "自動新聞讀取":
                         save_to_journal(ticker, analysis)
                         st.success("已存入復盤日記！")
         except Exception as e:
-            st.error("市場數據請求冷卻中，請稍候幾分鐘後再試。")
+            st.error(f"資料抓取失敗: {e}")
 
 elif menu == "投資復盤日記":
     st.subheader("📖 歷史決策回顧")
