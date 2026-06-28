@@ -9,6 +9,22 @@ from openai import OpenAI
 # 設定頁面風格
 st.set_page_config(page_title="AI 專業投資儀表板", layout="wide", page_icon="📈")
 
+# 自定義 CSS 讓方塊更有感
+st.markdown("""
+    <style>
+    div[data-testid="stMetricValue"] {
+        font-size: 24px !important;
+        font-weight: bold;
+    }
+    .metric-card {
+        background-color: #f0f2f6;
+        padding: 20px;
+        border-radius: 10px;
+        border-left: 5px solid #FF4B4B;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 st.title("📈 AI 專業投資決策中樞 (專業版)")
 
 # 安全讀取環境變數
@@ -41,11 +57,6 @@ if menu == "🤖 個股深度分析":
     st.subheader("個股即時數據健檢")
     t = st.text_input("輸入股票代號 (例如 2330)", "2330")
     
-    with st.expander("⚠️ 若分析失敗，請檢查："):
-        st.write("1. 確保代號為台灣上市櫃股票 (如 2330, 2454)。")
-        st.write("2. Yahoo Finance 若查無數據，請確認該代號是否正確。")
-        st.write("3. 嘗試手動加上 .TW (上市) 或 .TWO (上櫃) 後綴。")
-
     if st.button("啟動專業分析"):
         with st.spinner("正在進行多維度分析..."):
             try:
@@ -85,13 +96,14 @@ if menu == "🤖 個股深度分析":
                     bv = info.get('bookValue', 'N/A')
                     shares = info.get('sharesOutstanding', 'N/A')
 
-                    # 顯示數據面板
+                    # 顯示即時股價數據面板 (彩色塊狀)
+                    st.markdown("### 📊 即時市場動態")
                     col1, col2, col3, col4, col5 = st.columns(5)
                     col1.metric("即時股價", f"{curr}", f"{delta_val:+.2f} ({change_pct:+.2f}%)")
                     col2.metric("EPS", f"{eps}")
                     col3.metric("本益比", f"{pe}")
                     col4.metric("每股淨值", f"{bv}")
-                    col5.metric("發行股數", f"{shares:,}" if isinstance(shares, int) else shares)
+                    col5.metric("發行股數", f"{shares:,}" if isinstance(shares, (int, float)) else shares)
                     
                     st.divider()
 
@@ -99,30 +111,31 @@ if menu == "🤖 個股深度分析":
                     if 'show_forecast' not in st.session_state:
                         st.session_state.show_forecast = False
                     
-                    if st.button("預估明年股價"):
+                    if st.button("查看預估明年股價"):
                         st.session_state.show_forecast = True
                     
                     if st.session_state.show_forecast:
-                        st.markdown("### 🔮 預估明年數據面板")
+                        st.markdown("### 🔮 明年預估數據")
                         p1, p2, p3, p4 = st.columns(4)
                         
                         est_eps = float(eps) * 1.1 if isinstance(eps, (int, float)) else "N/A"
                         est_price = float(curr) * 1.1 if isinstance(curr, (int, float)) else "N/A"
                         
                         p1.metric("預估股價", f"{est_price:.2f}")
-                        p2.metric("預估 EPS", f"{est_eps}")
-                        p3.metric("預估本益比", f"{pe}")
+                        p2.metric("預估 EPS", f"{est_eps:.2f}")
+                        p3.metric("本益比", f"{pe}")
                         p4.metric("每股淨值", f"{bv}")
 
                     # AI 分析
-                    prompt = f"分析 {ticker_formatted}，EPS: {eps}, 本益比: {pe}, 淨值: {bv}"
+                    prompt = f"分析 {ticker_formatted}，當前股價: {curr}, EPS: {eps}, 本益比: {pe}, 淨值: {bv}"
                     response = client.chat.completions.create(model="openai/gpt-4o-mini", messages=[{"role": "user", "content": prompt}])
                     st.markdown("### 🎯 AI 綜合戰情報告")
                     st.write(response.choices[0].message.content)
                     
-                    st.markdown("### 📊 股價走勢")
+                    st.markdown("### 📈 股價走勢圖")
                     fig = go.Figure()
-                    fig.add_trace(go.Scatter(x=hist.index, y=hist['Close'], name="收盤價"))
+                    fig.add_trace(go.Scatter(x=hist.index, y=hist['Close'], name="收盤價", line=dict(color='#FF4B4B', width=2)))
+                    fig.update_layout(template="plotly_white", margin=dict(l=20, r=20, t=20, b=20))
                     st.plotly_chart(fig, width='stretch')
 
             except Exception as e:
