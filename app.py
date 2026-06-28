@@ -41,7 +41,6 @@ if menu == "🤖 個股深度分析":
     st.subheader("個股即時數據健檢")
     t = st.text_input("輸入股票代號 (例如 2330)", "2330")
     
-    # 提供用戶常見代號檢查提示
     with st.expander("⚠️ 若分析失敗，請檢查："):
         st.write("1. 確保代號為台灣上市櫃股票 (如 2330, 2454)。")
         st.write("2. Yahoo Finance 若查無數據，請確認該代號是否正確或已下市。")
@@ -50,7 +49,6 @@ if menu == "🤖 個股深度分析":
     if st.button("啟動專業分析"):
         with st.spinner("正在進行多維度分析..."):
             try:
-                # 改進的代號處理邏輯：優先嘗試用戶輸入，若失敗則嘗試補上 TW
                 ticker_input = t.strip()
                 tickers_to_try = [ticker_input]
                 if not ticker_input.endswith((".TW", ".TWO")):
@@ -68,50 +66,55 @@ if menu == "🤖 個股深度分析":
                         ticker_formatted = candidate
                         break
                 
-                # 深度數據檢查
                 if hist is None or hist.empty:
-                    st.error(f"無法在 Yahoo Finance 找到代號 **{t}** 的相關數據 (嘗試過: {', '.join(tickers_to_try)})。請確認代號正確性。")
-                elif len(hist) < 14:
-                    st.error("該股票歷史數據不足，無法進行 RSI/MACD 等指標計算。")
+                    st.error(f"無法在 Yahoo Finance 找到代號 **{t}** 的相關數據。")
                 else:
                     hist = calculate_indicators(hist)
                     info = stock.info
                     
-                    # 取得最新指標數值
+                    # 抓取新增數據
+                    curr = info.get('currentPrice', 'N/A')
+                    prev_close = info.get('previousClose', curr)
+                    change = ((curr - prev_close) / prev_close * 100) if isinstance(curr, (int, float)) else 0
+                    eps = info.get('trailingEps', 'N/A')
+                    pe = info.get('trailingPE', 'N/A')
+                    bv = info.get('bookValue', 'N/A')
+                    shares = info.get('sharesOutstanding', 'N/A')
+
+                    # 顯示數據面板
+                    col1, col2, col3, col4, col5 = st.columns(5)
+                    col1.metric("即時股價", f"{curr}", f"{change:.2f}%")
+                    col2.metric("EPS", f"{eps}")
+                    col3.metric("本益比", f"{pe}")
+                    col4.metric("每股淨值", f"{bv}")
+                    col5.metric("發行股數", f"{shares:,}" if isinstance(shares, int) else shares)
+                    
+                    # 預估明年股價按鈕
+                    if st.button("預估明年股價"):
+                        st.markdown("### 🔮 預估數據面板")
+                        p1, p2, p3, p4 = st.columns(4)
+                        # 簡單的預估邏輯，實際應用建議引入 AI 預測模型
+                        est_eps = float(eps) * 1.1 if isinstance(eps, (int, float)) else "N/A"
+                        p1.metric("預估明年股價", f"{float(curr)*1.1:.2f}")
+                        p2.metric("預估 EPS", f"{est_eps}")
+                        p3.metric("預估本益比", f"{pe}")
+                        p4.metric("每股淨值", f"{bv}")
+
+                    # AI 分析
                     rsi_val = hist['RSI'].iloc[-1]
                     macd_val = hist['MACD'].iloc[-1]
-                    
-                    # 即時數據面板
-                    curr = info.get('currentPrice', 'N/A')
-                    col1, col2, col3, col4 = st.columns(4)
-                    col1.metric("即時股價", f"{curr}")
-                    col2.metric("RSI (14日)", f"{rsi_val:.2f}")
-                    col3.metric("MACD 差值", f"{macd_val:.2f}")
-                    col4.metric("產業別", info.get('sector', 'N/A'))
-                    
-                    # AI 分析指令
-                    prompt = f"""
-                    請針對 {ticker_formatted} 進行全方位深度分析：
-                    1. 【新聞動態】：市場觀點與近期重要新聞。
-                    2. 【技術指標判讀】：RSI ({rsi_val:.2f}) 與 MACD ({macd_val:.2f}) 之趨勢分析。
-                    3. 【風險評估】：針對該股進行黑天鵝風險評估。
-                    4. 【策略建議】：給出具體進出場判斷。
-                    """
-                    response = client.chat.completions.create(
-                        model="openai/gpt-4o-mini", 
-                        messages=[{"role": "user", "content": prompt}]
-                    )
-                    
+                    prompt = f"分析 {ticker_formatted}，EPS: {eps}, 本益比: {pe}"
+                    response = client.chat.completions.create(model="openai/gpt-4o-mini", messages=[{"role": "user", "content": prompt}])
                     st.markdown("### 🎯 AI 綜合戰情報告")
                     st.write(response.choices[0].message.content)
                     
                     st.markdown("### 📊 股價走勢")
                     fig = go.Figure()
-                    fig.add_trace(go.Scatter(x=hist.index, y=hist['Close'], name="收盤價", line=dict(color='royalblue')))
+                    fig.add_trace(go.Scatter(x=hist.index, y=hist['Close'], name="收盤價"))
                     st.plotly_chart(fig, use_container_width=True)
 
             except Exception as e:
-                st.error(f"分析過程發生非預期錯誤: {e}")
+                st.error(f"錯誤: {e}")
 
 elif menu == "💼 部位管理":
     st.subheader("我的持股看板")
