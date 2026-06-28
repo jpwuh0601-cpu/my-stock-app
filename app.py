@@ -72,10 +72,10 @@ if menu == "🤖 個股深度分析":
                     hist = calculate_indicators(hist)
                     info = stock.info
                     
-                    # 抓取新增數據
+                    # 抓取數據
                     curr = info.get('currentPrice', 'N/A')
                     prev_close = info.get('previousClose', curr)
-                    change = ((curr - prev_close) / prev_close * 100) if isinstance(curr, (int, float)) else 0
+                    change_pct = ((curr - prev_close) / prev_close * 100) if isinstance(curr, (int, float)) and isinstance(prev_close, (int, float)) else 0
                     eps = info.get('trailingEps', 'N/A')
                     pe = info.get('trailingPE', 'N/A')
                     bv = info.get('bookValue', 'N/A')
@@ -83,27 +83,29 @@ if menu == "🤖 個股深度分析":
 
                     # 顯示數據面板
                     col1, col2, col3, col4, col5 = st.columns(5)
-                    col1.metric("即時股價", f"{curr}", f"{change:.2f}%")
+                    col1.metric("即時股價", f"{curr}", f"{change_pct:.2f}%")
                     col2.metric("EPS", f"{eps}")
                     col3.metric("本益比", f"{pe}")
                     col4.metric("每股淨值", f"{bv}")
                     col5.metric("發行股數", f"{shares:,}" if isinstance(shares, int) else shares)
                     
-                    # 預估明年股價按鈕
-                    if st.button("預估明年股價"):
-                        st.markdown("### 🔮 預估數據面板")
+                    st.divider()
+
+                    # 預估明年股價功能
+                    if st.button("預估明年股價分析"):
+                        st.markdown("### 🔮 預估數據面板 (AI 輔助推算)")
                         p1, p2, p3, p4 = st.columns(4)
-                        # 簡單的預估邏輯，實際應用建議引入 AI 預測模型
+                        
                         est_eps = float(eps) * 1.1 if isinstance(eps, (int, float)) else "N/A"
-                        p1.metric("預估明年股價", f"{float(curr)*1.1:.2f}")
+                        est_price = float(curr) * 1.1 if isinstance(curr, (int, float)) else "N/A"
+                        
+                        p1.metric("預估明年股價", f"{est_price:.2f}")
                         p2.metric("預估 EPS", f"{est_eps}")
-                        p3.metric("預估本益比", f"{pe}")
+                        p3.metric("本益比", f"{pe}")
                         p4.metric("每股淨值", f"{bv}")
 
                     # AI 分析
-                    rsi_val = hist['RSI'].iloc[-1]
-                    macd_val = hist['MACD'].iloc[-1]
-                    prompt = f"分析 {ticker_formatted}，EPS: {eps}, 本益比: {pe}"
+                    prompt = f"分析 {ticker_formatted}，EPS: {eps}, 本益比: {pe}, 淨值: {bv}"
                     response = client.chat.completions.create(model="openai/gpt-4o-mini", messages=[{"role": "user", "content": prompt}])
                     st.markdown("### 🎯 AI 綜合戰情報告")
                     st.write(response.choices[0].message.content)
@@ -111,7 +113,7 @@ if menu == "🤖 個股深度分析":
                     st.markdown("### 📊 股價走勢")
                     fig = go.Figure()
                     fig.add_trace(go.Scatter(x=hist.index, y=hist['Close'], name="收盤價"))
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width='stretch')
 
             except Exception as e:
                 st.error(f"錯誤: {e}")
