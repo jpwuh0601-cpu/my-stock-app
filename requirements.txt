@@ -1,7 +1,6 @@
 streamlit
 pandas
-twstock
 requests
 yfinance
-openai
-plotly
+twstock
+python-dotenv
