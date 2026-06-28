@@ -1,27 +1,30 @@
-name: Daily Stock Analysis
+name: 每日股市健檢自動化任務
+
 on:
   schedule:
-    - cron: '30 0 * * *' 
+    - cron: '30 0 * * *'
   workflow_dispatch:
+
 jobs:
-  run-script:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Set up Python
+      - name: 檢出程式碼
+        uses: actions/checkout@v3
+
+      - name: 設定 Python 環境
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
-      - name: Install dependencies
+
+      - name: 安裝依賴套件
         run: |
-          pip install twstock pandas openai requests yfinance
-      - name: Run worker script
+          python -m pip install --upgrade pip
+          # 集中安裝核心依賴，確保 yfinance 與其他科學計算庫相容
+          pip install streamlit pandas requests yfinance twstock python-dotenv
+        
+      - name: 執行健檢腳本
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
           LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          GOOGLE_CSE_ID: ${{ secrets.GOOGLE_CSE_ID }}
-          WATCHLIST: ${{ secrets.WATCHLIST }}
         run: |
           python worker.py
