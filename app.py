@@ -40,7 +40,7 @@ if menu == "🤖 個股深度分析":
     t = st.text_input("輸入股票代號 (例如 2330)", "2330")
     
     if st.button("啟動專業分析"):
-        with st.spinner("正在進行多維度分析..."):
+        with st.spinner("正在進行多維度分析 (含新聞與黑天鵝預警)..."):
             try:
                 ticker_symbol = f"{t}.TW"
                 stock = yf.Ticker(ticker_symbol)
@@ -61,15 +61,16 @@ if menu == "🤖 個股深度分析":
                 col3.metric("MACD 差值", f"{macd_val:.2f}")
                 col4.metric("產業別", info.get('sector', 'N/A'))
                 
-                # AI 分析：整合 RSI 與 MACD 判讀邏輯
+                # AI 分析：整合新聞分析、技術指標判讀與黑天鵝警示
                 prompt = f"""
-                請針對 {ticker_symbol} 進行深度分析：
-                1. 基本面：綜合財務狀況。
-                2. 黑天鵝風險：分析潛在的地緣政治或產業黑天鵝。
-                3. 技術面建議：
-                   - 當前 RSI 為 {rsi_val:.2f} (RSI > 70 為超買，RSI < 30 為超賣)。
-                   - 當前 MACD ({macd_val:.2f}) 與訊號線 ({signal_val:.2f}) 之關係 (MACD 上穿訊號線為買進訊號，下穿為賣出)。
-                請依據上述指標提供具體的進出場策略。
+                請針對 {ticker_symbol} 進行全方位深度分析，請依照下列格式報告：
+                1. 【新聞動態分析】：基於當前市場觀點與趨勢，總結該股近期重要新聞。
+                2. 【基本面與財務狀況】：PE、EPS、PB 等數據分析。
+                3. 【技術指標分析】：
+                   - 當前 RSI 為 {rsi_val:.2f} (判斷是否過熱 >70 或過冷 <30)。
+                   - 當前 MACD ({macd_val:.2f}) 與訊號線 ({signal_val:.2f}) 之關係 (MACD 上穿訊號線為買進信號，下穿為賣出)。
+                4. 【黑天鵝警示】：分析潛在的地緣政治、供應鏈或產業結構性黑天鵝風險。
+                5. 【最終策略】：給出具體的進出場策略建議。
                 """
                 response = client.chat.completions.create(
                     model="openai/gpt-4o-mini", 
