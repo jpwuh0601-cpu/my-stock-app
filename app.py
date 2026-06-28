@@ -121,8 +121,9 @@ if menu == "🤖 個股深度分析":
                         est_eps = float(eps) * 1.1 if isinstance(eps, (int, float)) else "N/A"
                         est_price = float(curr) * 1.1 if isinstance(curr, (int, float)) else "N/A"
                         
-                        p1.metric("預估股價", f"{est_price:.2f}")
-                        p2.metric("預估 EPS", f"{est_eps:.2f}")
+                        # 使用字串格式化，確保即使數值為 N/A 也能顯示
+                        p1.metric("預估股價", f"{est_price:.2f}" if isinstance(est_price, float) else "N/A")
+                        p2.metric("預估 EPS", f"{est_eps:.2f}" if isinstance(est_eps, float) else "N/A")
                         p3.metric("本益比", f"{pe}")
                         p4.metric("每股淨值", f"{bv}")
 
