@@ -18,6 +18,15 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 WATCHLIST_ENV = os.getenv("WATCHLIST", "2330,2881,2603,2454")
 WATCHLIST = WATCHLIST_ENV.split(",")
 
+# 增加產業加權設定 (用於風險計算加權)
+# 半導體權重較高，跌幅敏感度增加；金融相對保守
+SECTOR_WEIGHTS = {
+    "2330": 1.2, # 半導體
+    "2881": 0.8, # 金融
+    "2603": 1.5, # 航運 (高波動)
+    "2454": 1.1  # IC設計
+}
+
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 def fetch_stock_data(ticker):
@@ -35,8 +44,9 @@ def fetch_stock_data(ticker):
         
         trend = "📈 強勢" if current_price > ma5 else "📉 轉弱"
         
-        # 風險檢查：跌幅超過 5% 加入警告標籤
-        risk_alert = "🚨 風險提示: 跌幅異常" if change_pct <= -5 else ""
+        # 風險檢查：加入產業加權影響，敏感度 = 基礎跌幅 * 權重
+        weight = SECTOR_WEIGHTS.get(ticker, 1.0)
+        risk_alert = "🚨 風險提示: 產業高波動警告" if (change_pct * weight) <= -5 else ""
         
         return {
             "ticker": ticker, 
@@ -52,8 +62,8 @@ def fetch_stock_data(ticker):
 
 def get_ai_insight(report_data):
     data_str = json.dumps(report_data, ensure_ascii=False)
-    prompt = (f"以下是今日的股市監控數據: {data_str}。包含股價、漲跌幅、成交量及風險警示。請以專業投資顧問角度，"
-              "分析這些股票的趨勢並給出具體操作建議。若有風險警示，請特別標註。請簡潔回覆，重點摘要，不超過 150 字。")
+    prompt = (f"以下是今日的股市監控數據 (包含產業加權風險評估): {data_str}。包含股價、漲跌幅、成交量及風險警示。"
+              "請以專業投資顧問角度，分析這些股票的趨勢並給出具體操作建議。若有風險警示，請特別標註。請簡潔回覆，重點摘要，不超過 150 字。")
     
     try:
         logging.info("發送請求給 OpenAI 進行分析")
