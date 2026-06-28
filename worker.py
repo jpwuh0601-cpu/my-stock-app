@@ -13,95 +13,69 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # 從環境變數讀取金鑰
 LINE_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+GOOGLE_CSE_ID = os.getenv("GOOGLE_CSE_ID")
 
-# 支援從環境變數讀取選股清單 (格式: "2330,2881,2603")，若無則使用預設值
-WATCHLIST_ENV = os.getenv("WATCHLIST", "2330,2881,2603,2454")
-WATCHLIST = WATCHLIST_ENV.split(",")
-
-# 增加產業加權設定 (用於風險計算加權)
-# 半導體權重較高，跌幅敏感度增加；金融相對保守
-SECTOR_WEIGHTS = {
-    "2330": 1.2, # 半導體
-    "2881": 0.8, # 金融
-    "2603": 1.5, # 航運 (高波動)
-    "2454": 1.1  # IC設計
-}
+WATCHLIST = os.getenv("WATCHLIST", "2330,2881,2603,2454").split(",")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
+def get_news(ticker):
+    """使用 Google Search API 獲取新聞"""
+    if not GOOGLE_API_KEY or not GOOGLE_CSE_ID:
+        return "未設定搜尋 API 金鑰，跳過新聞分析。"
+    
+    url = f"https://www.googleapis.com/customsearch/v1?key={GOOGLE_API_KEY}&cx={GOOGLE_CSE_ID}&q={ticker}+股票+新聞"
+    try:
+        response = requests.get(url).json()
+        items = response.get("items", [])[:3]
+        return "\n".join([item['title'] for item in items])
+    except:
+        return "無法獲取最新新聞。"
+
 def fetch_stock_data(ticker):
     try:
-        logging.info(f"正在獲取股票數據: {ticker}")
         stock = twstock.Stock(ticker)
-        data = stock.fetch_from(2026, 5) 
+        data = stock.fetch_from(2026, 1) # 從年初開始
         df = pd.DataFrame(data)
         
         current_price = df['close'].iloc[-1]
-        prev_price = df['close'].iloc[-2]
-        change_pct = ((current_price - prev_price) / prev_price) * 100
-        volume = df['capacity'].iloc[-1]
-        ma5 = df['close'].rolling(window=5).mean().iloc[-1]
+        start_price = df['close'].iloc[0]
+        ytd_return = ((current_price - start_price) / start_price) * 100
         
-        trend = "📈 強勢" if current_price > ma5 else "📉 轉弱"
-        
-        # 風險檢查：加入產業加權影響，敏感度 = 基礎跌幅 * 權重
-        weight = SECTOR_WEIGHTS.get(ticker, 1.0)
-        risk_alert = "🚨 風險提示: 產業高波動警告" if (change_pct * weight) <= -5 else ""
+        change_pct = ((df['close'].iloc[-1] - df['close'].iloc[-2]) / df['close'].iloc[-2]) * 100
         
         return {
             "ticker": ticker, 
             "price": current_price, 
-            "change": f"{change_pct:.2f}%", 
-            "volume": int(volume), 
-            "trend": trend,
-            "risk_alert": risk_alert
+            "ytd_return": f"{ytd_return:.2f}%",
+            "change": f"{change_pct:.2f}%",
+            "news": get_news(ticker)
         }
     except Exception as e:
-        logging.error(f"獲取 {ticker} 數據失敗: {e}")
-        return {"ticker": ticker, "price": 0, "trend": "數據錯誤", "risk_alert": ""}
+        logging.error(f"數據獲取錯誤: {e}")
+        return {"ticker": ticker, "error": "數據異常"}
 
 def get_ai_insight(report_data):
-    data_str = json.dumps(report_data, ensure_ascii=False)
-    prompt = (f"以下是今日的股市監控數據 (包含產業加權風險評估): {data_str}。包含股價、漲跌幅、成交量及風險警示。"
-              "請以專業投資顧問角度，分析這些股票的趨勢並給出具體操作建議。若有風險警示，請特別標註。請簡潔回覆，重點摘要，不超過 150 字。")
-    
-    try:
-        logging.info("發送請求給 OpenAI 進行分析")
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        logging.error(f"AI 分析引擎失敗: {e}")
-        return f"AI 分析服務暫時無法連線。"
+    prompt = f"分析以下股市數據與新聞，給出投資觀點: {json.dumps(report_data, ensure_ascii=False)}"
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response.choices[0].message.content
 
-def send_line_message(message_content):
-    if not LINE_TOKEN:
-        logging.error("未設定 LINE_CHANNEL_ACCESS_TOKEN")
-        return
-        
+def send_line_message(content):
     url = "https://api.line.me/v2/bot/message/broadcast"
     headers = {"Authorization": f"Bearer {LINE_TOKEN}", "Content-Type": "application/json"}
-    
-    final_message = f"🤖 AI 深度決策報告\n📅 {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n{message_content}"
-    payload = {"messages": [{"type": "text", "text": final_message}]}
-    
-    try:
-        response = requests.post(url, headers=headers, json=payload)
-        response.raise_for_status()
-        logging.info("LINE 通知發送成功")
-    except Exception as e:
-        logging.error(f"LINE 發送失敗: {e}")
+    payload = {"messages": [{"type": "text", "text": f"🤖 AI 決策中樞\n\n{content}"}]}
+    requests.post(url, headers=headers, json=payload)
 
 if __name__ == "__main__":
     report_data = [fetch_stock_data(t) for t in WATCHLIST]
     ai_summary = get_ai_insight(report_data)
     
-    msg = "【市場盤勢概覽】\n"
+    msg = "【績效與盤勢】\n"
     for item in report_data:
-        alert = f" {item['risk_alert']}" if item['risk_alert'] else ""
-        msg += f"- {item['ticker']}: ${item['price']} (漲跌: {item.get('change', 'N/A')}, 量: {item.get('volume', 0)}){alert}\n"
-    
-    msg += f"\n【AI 深度觀點】\n{ai_summary}"
+        msg += f"- {item['ticker']}: 年報酬 {item.get('ytd_return', 'N/A')}\n"
+    msg += f"\n【AI 深度分析】\n{ai_summary}"
     send_line_message(msg)
