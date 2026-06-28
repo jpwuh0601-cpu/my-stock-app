@@ -4,6 +4,7 @@ import twstock
 import pandas as pd
 import logging
 import json
+from datetime import datetime
 from openai import OpenAI
 
 # 設定日誌紀錄格式
@@ -22,6 +23,15 @@ client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=OPENAI_API_KEY
 ) if OPENAI_API_KEY else None
+
+def log_to_file(message):
+    """將分析報告存入本地日誌檔案 (簡易資料庫功能)"""
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    try:
+        with open("daily_log.txt", "a", encoding="utf-8") as f:
+            f.write(f"[{timestamp}]\n{message}\n{'-'*30}\n")
+    except Exception as e:
+        logging.error(f"日誌存檔失敗: {e}")
 
 def get_news(ticker):
     """嘗試使用 Google Search API 獲取最新財經新聞"""
@@ -62,7 +72,6 @@ def get_ai_insight(report_data):
     if not client:
         return "（未配置 API Key，無法進行深度分析）"
     
-    # 優化後的 Prompt，要求 AI 進行比較與判斷
     prompt = (
         "請擔任專業投資顧問。請根據以下清單的數據（YTD 報酬與相關新聞）進行深入分析：\n"
         "1. 比較各支股票的績效表現，找出表現最強勢與最弱勢的標的。\n"
@@ -117,4 +126,7 @@ if __name__ == "__main__":
             msg += f"- {item['ticker']}: 年報酬 {item.get('ytd_return', 'N/A')}\n"
             
     msg += f"\n【AI 深度分析】\n{ai_summary}"
+    
+    # 發送訊息並同步儲存至資料庫檔案
     send_line_message(msg)
+    log_to_file(msg)
