@@ -1,23 +1,29 @@
-name: Daily Stock Analysis
-on:
-  schedule:
-    - cron: '30 0 * * *' # 配合您的排程
-  workflow_dispatch:
-jobs:
-  run-script:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-      - name: Install dependencies
-        run: |
-          pip install twstock pandas openai requests python-dotenv
-      - name: Run worker script
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
-        run: |
-          python worker.py
+import os
+import requests
+
+def send_line_message(message):
+    token = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
+    if not token:
+        print("未偵測到 LINE_CHANNEL_ACCESS_TOKEN")
+        return
+
+    # 使用 Messaging API 的廣播端點
+    url = "https://api.line.me/v2/bot/message/broadcast"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+    
+    # 優化內容：加入 emoji 與排版
+    payload = {
+        "messages": [
+            {
+                "type": "text",
+                "text": f"🤖 AI 每日投資健檢報告\n--------------------------\n{message}\n--------------------------\n資料時間: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+            }
+        ]
+    }
+    
+    response = requests.post(url, headers=headers, json=payload)
+    if response.status_code != 200:
+        print(f"發送失敗: {response.text}")
