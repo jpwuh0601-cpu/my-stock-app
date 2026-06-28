@@ -49,7 +49,7 @@ def fetch_stock_data(ticker):
         return {
             "ticker": ticker, 
             "price": current_price, 
-            "ytd_return_val": ytd_return, # 保存數值用於計算
+            "ytd_return_val": ytd_return, 
             "ytd_return": f"{ytd_return:.2f}%",
             "news": get_news(ticker)
         }
@@ -58,14 +58,23 @@ def fetch_stock_data(ticker):
         return {"ticker": ticker, "error": "數據異常"}
 
 def get_ai_insight(report_data):
-    """透過 OpenRouter 進行 AI 深度分析"""
+    """透過 OpenRouter 進行進階 AI 深度分析，加入更具體的指令集"""
     if not client:
         return "（未配置 API Key，無法進行深度分析）"
     
-    prompt = f"分析以下股市數據，給出專業投資觀點: {json.dumps(report_data, ensure_ascii=False)}"
+    # 優化後的 Prompt，要求 AI 進行比較與判斷
+    prompt = (
+        "請擔任專業投資顧問。請根據以下清單的數據（YTD 報酬與相關新聞）進行深入分析：\n"
+        "1. 比較各支股票的績效表現，找出表現最強勢與最弱勢的標的。\n"
+        "2. 基於報酬率趨勢，判斷是否出現過度集中或過度發散的風險。\n"
+        "3. 綜合新聞資訊，簡要評估這些股票目前是否處於技術超買或超賣區間的觀察點。\n"
+        "4. 給出簡潔的投資建議。\n\n"
+        f"數據內容: {json.dumps(report_data, ensure_ascii=False)}"
+    )
+    
     try:
         response = client.chat.completions.create(
-            model="openai/gpt-4o-mini", # OpenRouter 使用格式
+            model="openai/gpt-4o-mini", 
             messages=[{"role": "user", "content": prompt}]
         )
         return response.choices[0].message.content
