@@ -40,8 +40,11 @@ def get_ai_analysis(ticker, fundamentals):
     - 若 PE > 25 或 EPS 顯示衰退，請給出減碼警告。
     - 給出明確的 0-100 分數與投資建議。
     """
-    response = client.chat.completions.create(model="openai/gpt-4o-mini", messages=[{"role": "user", "content": prompt}])
-    return response.choices[0].message.content
+    try:
+        response = client.chat.completions.create(model="openai/gpt-4o-mini", messages=[{"role": "user", "content": prompt}])
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"AI 分析請求失敗: {str(e)}"
 
 def get_realtime_fundamentals(ticker):
     """獲取真實基本面數據"""
@@ -50,7 +53,7 @@ def get_realtime_fundamentals(ticker):
         info = stock.info
         return f"PE Ratio: {info.get('trailingPE', 'N/A')}, EPS: {info.get('trailingEps', 'N/A')}, Beta: {info.get('beta', 'N/A')}, Market Cap: {info.get('marketCap', 'N/A')}"
     except Exception as e:
-        return "基本面數據獲取失敗 (可能非上市櫃或數據延遲)"
+        return f"基本面數據獲取失敗: {str(e)}"
 
 # --- UI 模組 ---
 menu = st.sidebar.radio("核心模組", ["市場監控", "AI 選股與下單", "部位健檢", "決策日誌"])
@@ -64,6 +67,7 @@ if menu == "市場監控":
     
     st.divider()
     st.subheader("📊 市場資金流向熱點圖")
+    st.info("系統已連線並準備好進行即時數據分析。")
 
 elif menu == "AI 選股與下單":
     st.subheader("AI 自動化決策")
@@ -77,6 +81,8 @@ elif menu == "AI 選股與下單":
 
 elif menu == "部位健檢":
     st.subheader("持股部位監控")
+    st.write("功能開發中，請稍候。")
 
 elif menu == "決策日誌":
     st.subheader("📋 互動式決策歷史日誌")
+    st.write("目前尚無記錄。")
