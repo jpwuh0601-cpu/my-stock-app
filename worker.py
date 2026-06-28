@@ -25,7 +25,7 @@ client = OpenAI(
 ) if OPENAI_API_KEY else None
 
 def log_to_file(message):
-    """將分析報告存入本地日誌檔案 (簡易資料庫功能)"""
+    """將分析報告存入本地日誌檔案"""
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     try:
         with open("daily_log.txt", "a", encoding="utf-8") as f:
@@ -56,11 +56,19 @@ def fetch_stock_data(ticker):
         start_price = df['close'].iloc[0]
         ytd_return = ((current_price - start_price) / start_price) * 100
         
+        # 計算 RSI (14日)
+        delta = df['close'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs.iloc[-1]))
+        
         return {
             "ticker": ticker, 
             "price": current_price, 
             "ytd_return_val": ytd_return, 
             "ytd_return": f"{ytd_return:.2f}%",
+            "rsi": f"{rsi:.2f}",
             "news": get_news(ticker)
         }
     except Exception as e:
@@ -68,16 +76,15 @@ def fetch_stock_data(ticker):
         return {"ticker": ticker, "error": "數據異常"}
 
 def get_ai_insight(report_data):
-    """透過 OpenRouter 進行進階 AI 深度分析，加入更具體的指令集"""
+    """透過 OpenRouter 進行進階 AI 深度分析"""
     if not client:
         return "（未配置 API Key，無法進行深度分析）"
     
     prompt = (
-        "請擔任專業投資顧問。請根據以下清單的數據（YTD 報酬與相關新聞）進行深入分析：\n"
-        "1. 比較各支股票的績效表現，找出表現最強勢與最弱勢的標的。\n"
-        "2. 基於報酬率趨勢，判斷是否出現過度集中或過度發散的風險。\n"
-        "3. 綜合新聞資訊，簡要評估這些股票目前是否處於技術超買或超賣區間的觀察點。\n"
-        "4. 給出簡潔的投資建議。\n\n"
+        "請擔任專業投資顧問。請根據以下數據（包含 RSI 指標與新聞）進行分析：\n"
+        "1. RSI > 70 代表超買，RSI < 30 代表超賣，請標註清單中是否有過熱標的。\n"
+        "2. 比較績效表現與技術指標，給出短線調整建議。\n"
+        "3. 給出簡潔的投資總結。\n\n"
         f"數據內容: {json.dumps(report_data, ensure_ascii=False)}"
     )
     
@@ -94,15 +101,14 @@ def send_line_message(content):
     if not LINE_TOKEN:
         return
         
-    # 自動判斷使用 Line Notify 或 Messaging API
     if "notify" in LINE_TOKEN.lower() or len(LINE_TOKEN) < 50:
         url = "https://notify-api.line.me/api/notify"
         headers = {"Authorization": f"Bearer {LINE_TOKEN}"}
-        payload = {"message": f"\n🤖 AI 決策中樞\n\n{content}"}
+        payload = {"message": f"\n{content}"}
     else:
         url = "https://api.line.me/v2/bot/message/broadcast"
         headers = {"Authorization": f"Bearer {LINE_TOKEN}", "Content-Type": "application/json"}
-        payload = {"messages": [{"type": "text", "text": f"🤖 AI 決策中樞\n\n{content}"}]}
+        payload = {"messages": [{"type": "text", "text": content}]}
         
     requests.post(url, headers=headers, json=payload)
 
@@ -110,23 +116,19 @@ if __name__ == "__main__":
     report_data = [fetch_stock_data(t) for t in WATCHLIST]
     ai_summary = get_ai_insight(report_data)
     
-    # 檢查是否有異常波動
     alerts = []
     for item in report_data:
         if "ytd_return_val" in item and abs(item["ytd_return_val"]) > 5.0:
-            alerts.append(f"🚨 異常波動: {item['ticker']} (年報酬 {item['ytd_return']})")
+            alerts.append(f"🚨 異常: {item['ticker']} 波動達 {item['ytd_return']}")
             
-    alert_msg = "\n".join(alerts) + "\n\n" if alerts else ""
+    alert_msg = " | ".join(alerts) + "\n\n" if alerts else ""
     
-    msg = f"{alert_msg}【績效與盤勢】\n"
+    msg = f"🤖 AI 決策中樞報告\n{'-'*15}\n{alert_msg}"
     for item in report_data:
-        if "error" in item:
-            msg += f"- {item['ticker']}: 數據異常\n"
-        else:
-            msg += f"- {item['ticker']}: 年報酬 {item.get('ytd_return', 'N/A')}\n"
+        if "error" not in item:
+            msg += f"📌 {item['ticker']}\n- 報酬: {item['ytd_return']}\n- RSI: {item['rsi']}\n\n"
             
-    msg += f"\n【AI 深度分析】\n{ai_summary}"
+    msg += f"🧠 深度觀點\n{ai_summary}"
     
-    # 發送訊息並同步儲存至資料庫檔案
     send_line_message(msg)
     log_to_file(msg)
