@@ -12,15 +12,16 @@ st.set_page_config(layout="wide", page_title="AI 專業投資儀表板", page_ic
 st.markdown("""
     <style>
     .metric-card { 
-        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-        padding: 20px; 
-        border-radius: 15px; 
-        border-left: 8px solid #FF4B4B;
-        box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
-        margin-bottom: 20px;
+        background: linear-gradient(135deg, #ffffff 0%, #f0f7ff 100%);
+        padding: 25px; 
+        border-radius: 20px; 
+        border-left: 10px solid #2563EB;
+        box-shadow: 4px 4px 15px rgba(0,0,0,0.1);
+        margin-bottom: 25px;
     }
-    h3 { color: #1E3A8A; }
-    .stButton>button { border-radius: 10px; background-color: #1E3A8A; color: white; }
+    h3 { color: #1E3A8A; font-weight: 800; }
+    .stButton>button { border-radius: 12px; background-color: #2563EB; color: white; font-weight: bold; }
+    .stMetric { background-color: #fff; padding: 15px; border-radius: 10px; border: 1px solid #e5e7eb; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -39,13 +40,15 @@ if menu == "🤖 個股深度分析":
             hist = stock.history(period="6mo")
             info = stock.info
             
-            # 安全數據獲取，避免拋出異常
+            # 安全數據獲取，增加預設值保護
             curr = info.get('currentPrice') or info.get('regularMarketPrice', 0.0)
             eps = info.get('trailingEps', 0.0)
             pe = info.get('trailingPE', 0.0)
             bv = info.get('bookValue', 0.0)
-            shares = info.get('sharesOutstanding') or 100000000.0 # 預設值避免計算崩潰
-            prev_revenue = info.get('totalRevenue') or 0.0
+            
+            # 確保 shares 和 revenue 不為 0 或空，以免計算錯誤
+            shares = info.get('sharesOutstanding') or 100000000.0
+            prev_revenue = info.get('totalRevenue') or 5000000000.0 
 
             st.markdown("### 📊 即時市場動態")
             col1, col2, col3, col4 = st.columns(4)
@@ -61,7 +64,7 @@ if menu == "🤖 個股深度分析":
             
             if st.session_state.show_forecast:
                 st.markdown("### 🔮 明年專業推算數據 (八步驟邏輯)")
-                with st.expander("📝 調整推算參數 (若自動抓取為 0，請手動修正)", expanded=True):
+                with st.expander("📝 調整參數 (若自動抓取為 0，請務必手動修正)", expanded=True):
                     c1, c2, c3, c4 = st.columns(4)
                     manual_prev_revenue = c1.number_input("上年度營收 (元)", value=float(prev_revenue), step=1e7)
                     yoy = c2.number_input("累積營收年增率 (%)", value=10.0) / 100
@@ -72,7 +75,7 @@ if menu == "🤖 個股深度分析":
                     target_pe = c5.number_input("預期本益比 (P/E)", value=float(pe) if pe and pe > 0 else 15.0)
                     manual_shares = c6.number_input("發行股數", value=float(shares), step=1e6)
                 
-                # 推算邏輯
+                # 推算邏輯執行
                 est_revenue = manual_prev_revenue * (1 + yoy)
                 est_net_profit = est_revenue * margin
                 est_eps = est_net_profit / manual_shares if manual_shares > 0 else 0
@@ -93,7 +96,7 @@ if menu == "🤖 個股深度分析":
                 st.warning("查無歷史股價走勢資料。")
 
         except Exception as e:
-            st.error(f"分析過程錯誤: {e}")
+            st.error(f"分析過程錯誤 (請檢查代號是否正確): {e}")
 
 elif menu == "💼 部位管理":
     st.subheader("💼 我的持股管理")
