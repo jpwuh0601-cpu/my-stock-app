@@ -2,7 +2,6 @@ streamlit
 pandas
 requests
 yfinance
-twstock
 python-dotenv
 openai
 beautifulsoup4
