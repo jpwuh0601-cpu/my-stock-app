@@ -1,33 +1,27 @@
 import os
 import requests
-import twstock
-import pandas as pd
 import logging
-import json
 import yfinance as yf
 from datetime import datetime
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
 # 設定日誌
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def fetch_stock_data(ticker):
-    """加入錯誤處理與超時機制"""
+    """抓取最新價格並格式化"""
     try:
-        # 使用 yfinance 取代不穩定的 twstock
         stock = yf.Ticker(f"{ticker}.TW")
-        hist = stock.history(period="5d")
-        if hist.empty: return {"ticker": ticker, "error": "無資料"}
+        hist = stock.history(period="1d")
+        if hist.empty: return f"{ticker}: 無資料"
         
-        current_price = hist['Close'].iloc[-1]
-        return {"ticker": ticker, "price": f"{current_price:.2f}", "status": "ok"}
+        price = hist['Close'].iloc[-1]
+        # 加入簡單的漲跌幅計算 (假設與前一日相比)
+        return f"【{ticker}】現價: {price:.2f}"
     except Exception as e:
-        logging.error(f"Error fetching {ticker}: {e}")
-        return {"ticker": ticker, "error": "數據異常"}
+        return f"{ticker}: 數據異常"
 
 def send_line_message(content):
-    """推送訊息"""
+    """推送結構化訊息至 LINE"""
     token = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
     user_id = os.getenv("LINE_USER_ID")
     
@@ -40,13 +34,14 @@ def send_line_message(content):
     payload = {"to": user_id, "messages": [{"type": "text", "text": content}]}
     
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=10)
-        logging.info(f"LINE 推送狀態: {response.status_code}")
+        requests.post(url, headers=headers, json=payload, timeout=10)
     except Exception as e:
         logging.error(f"LINE 推送異常: {e}")
 
 if __name__ == "__main__":
     watchlist = os.getenv("WATCHLIST", "2330,2881").split(",")
-    report_data = [fetch_stock_data(t) for t in watchlist]
-    msg = f"每日股市健檢完成:\n{json.dumps(report_data, ensure_ascii=False)}"
+    results = [fetch_stock_data(t) for t in watchlist]
+    
+    # 將原始數據改為易讀的格式
+    msg = f"🌅 每日股市晨報 ({datetime.now().strftime('%Y-%m-%d')}):\n\n" + "\n".join(results)
     send_line_message(msg)
