@@ -4,7 +4,7 @@ import twstock
 import pandas as pd
 import logging
 import json
-import random
+import yfinance as yf
 from datetime import datetime
 from openai import OpenAI
 
@@ -35,12 +35,18 @@ def log_to_file(message):
         logging.error(f"日誌存檔失敗: {e}")
 
 def get_fundamental_data(ticker):
-    """模擬獲取個股基本面數據 (EPS/PE)，實際應用可串接 Yahoo Finance API"""
-    # 這裡模擬回傳數值，實際生產環境建議改用 yfinance 套件
-    return {
-        "EPS": round(random.uniform(5, 30), 2),
-        "PE_Ratio": round(random.uniform(10, 30), 2)
-    }
+    """使用 yfinance 獲取個股真實 EPS 與 PE Ratio"""
+    try:
+        # 台股代號在 yfinance 需加上 .TW
+        stock_obj = yf.Ticker(f"{ticker}.TW")
+        info = stock_obj.info
+        return {
+            "EPS": info.get("trailingEps", "N/A"),
+            "PE_Ratio": info.get("trailingPE", "N/A")
+        }
+    except Exception as e:
+        logging.warning(f"無法獲取 {ticker} 的基本面數據: {e}")
+        return {"EPS": "N/A", "PE_Ratio": "N/A"}
 
 def get_news(ticker):
     """嘗試使用 Google Search API 獲取最新財經新聞"""
@@ -72,7 +78,7 @@ def fetch_stock_data(ticker):
         rs = gain / loss
         rsi = 100 - (100 / (1 + rs.iloc[-1]))
         
-        # 加入基本面數據
+        # 獲取真實基本面
         fundamentals = get_fundamental_data(ticker)
         
         return {
@@ -80,7 +86,8 @@ def fetch_stock_data(ticker):
             "price": current_price, 
             "ytd_return_val": ytd_return, 
             "ytd_return": f"{ytd_return:.2f}%",
-            "rsi": f"{rsi:.2f}",
+            "rsi": rsi,
+            "rsi_str": f"{rsi:.2f}",
             "eps": fundamentals["EPS"],
             "pe": fundamentals["PE_Ratio"],
             "news": get_news(ticker)
@@ -90,16 +97,15 @@ def fetch_stock_data(ticker):
         return {"ticker": ticker, "error": "數據異常"}
 
 def get_ai_insight(report_data):
-    """透過 OpenRouter 進行進階 AI 深度分析，包含基本面與技術面"""
+    """透過 OpenRouter 進行進階 AI 深度分析，包含真實基本面數據"""
     if not client:
         return "（未配置 API Key，無法進行深度分析）"
     
     prompt = (
-        "請擔任專業投資顧問。請根據以下數據（包含 RSI 指標、EPS/PE 基本面與新聞）進行綜合評估：\n"
-        "1. RSI > 70 代表超買，RSI < 30 代表超賣。\n"
+        "請擔任專業投資顧問。請根據以下數據進行綜合評估：\n"
+        "1. RSI > 70 代表超買 (需警惕回調)，RSI < 30 代表超賣 (可觀察佈局)。\n"
         "2. 結合 PE 與 EPS 判斷個股估值是否合理。\n"
-        "3. 比較績效表現與技術指標，給出短線調整建議。\n"
-        "4. 給出簡潔的投資總結。\n\n"
+        "3. 給出針對績效與指標的短線投資建議。\n\n"
         f"數據內容: {json.dumps(report_data, ensure_ascii=False)}"
     )
     
@@ -133,22 +139,32 @@ if __name__ == "__main__":
         ai_summary = get_ai_insight(report_data)
         
         alerts = []
-        for item in report_data:
-            if "ytd_return_val" in item and abs(item["ytd_return_val"]) > 5.0:
-                alerts.append(f"🚨 異常: {item['ticker']} 波動達 {item['ytd_return']}")
-                
-        alert_msg = " | ".join(alerts) + "\n\n" if alerts else ""
+        rsi_alerts = []
         
-        msg = f"🤖 AI 決策中樞報告\n{'-'*15}\n{alert_msg}"
+        for item in report_data:
+            if "error" in item: continue
+            
+            # 異常波動檢測
+            if abs(item["ytd_return_val"]) > 5.0:
+                alerts.append(f"🚨 波動: {item['ticker']} {item['ytd_return']}")
+            
+            # RSI 突破檢測
+            if item["rsi"] > 70:
+                rsi_alerts.append(f"🔥 {item['ticker']} 超買(RSI:{item['rsi_str']})")
+            elif item["rsi"] < 30:
+                rsi_alerts.append(f"🧊 {item['ticker']} 超賣(RSI:{item['rsi_str']})")
+                
+        alert_str = (" | ".join(alerts) + "\n" if alerts else "") + (" | ".join(rsi_alerts) + "\n" if rsi_alerts else "")
+        
+        msg = f"🤖 AI 決策中樞報告\n{'-'*15}\n{alert_str}\n"
         for item in report_data:
             if "error" not in item:
-                msg += f"📌 {item['ticker']}\n- 報酬: {item['ytd_return']}\n- RSI: {item['rsi']}\n- EPS/PE: {item['eps']}/{item['pe']}\n\n"
+                msg += f"📌 {item['ticker']}\n- 報酬: {item['ytd_return']}\n- RSI: {item['rsi_str']}\n- EPS/PE: {item['eps']}/{item['pe']}\n\n"
                 
         msg += f"🧠 深度觀點\n{ai_summary}"
         
         send_line_message(msg)
         log_to_file(msg)
     except Exception as e:
-        # 當主程序失敗時，嘗試發送錯誤通知給 LINE
-        send_line_message(f"❌ 系統錯誤: 自動化任務執行失敗，請檢查 GitHub Actions。\n錯誤詳情: {str(e)[:50]}")
+        send_line_message(f"❌ 系統錯誤: 自動化任務執行失敗，請檢查 GitHub Actions。\n詳情: {str(e)[:50]}")
         raise e
