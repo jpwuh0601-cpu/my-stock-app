@@ -10,7 +10,6 @@ from datetime import datetime
 DATA_FILE = "trading_journal.json"
 
 def save_to_journal(ticker, analysis):
-    """將分析紀錄存入 JSON 檔案"""
     history = []
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, "r") as f:
@@ -27,12 +26,10 @@ def save_to_journal(ticker, analysis):
     with open(DATA_FILE, "w") as f:
         json.dump(history, f)
 
-# 使用快取機制，降低 API 呼叫頻率 (每 1 小時重新抓取)
 @st.cache_data(ttl=3600)
 def get_stock_data(ticker):
     t = yf.Ticker(ticker)
-    hist = t.history(period="1mo")
-    return hist
+    return t.history(period="1mo")
 
 @st.cache_data(ttl=3600)
 def get_news_cached(ticker):
@@ -43,7 +40,7 @@ def get_news_cached(ticker):
 st.set_page_config(page_title="AI 股市決策日記", layout="wide")
 st.sidebar.title("🤖 AI 決策中樞")
 
-# 導航選項，確保 Daily Stock Analysis 在列表內
+# 強制定義導航，確保 Daily Stock Analysis 永遠在側邊欄
 menu = st.sidebar.radio("功能導航", ["Daily Stock Analysis", "投資復盤日記"])
 
 if menu == "Daily Stock Analysis":
@@ -53,22 +50,15 @@ if menu == "Daily Stock Analysis":
     if st.button("抓取最新數據與新聞"):
         try:
             with st.spinner('正在分析市場數據...'):
-                # 顯示股價圖表
                 data = get_stock_data(ticker)
                 st.line_chart(data['Close'])
                 
-                # 顯示新聞
                 news = get_news_cached(ticker)
                 if not news:
                     st.warning("暫無相關新聞。")
                 else:
                     for n in news[:5]:
                         st.write(f"**{n.get('title', '無標題')}**")
-                        if st.button(f"解讀此則新聞", key=n.get('uuid', str(time.time()))):
-                            analysis = f"AI 分析: 針對 {n.get('title')} 的市場趨勢觀察。"
-                            st.info(analysis)
-                            save_to_journal(ticker, analysis)
-                            st.success("已存入復盤日記！")
         except Exception as e:
             st.error(f"資料抓取失敗: {e}")
 
