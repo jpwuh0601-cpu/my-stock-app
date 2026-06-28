@@ -22,20 +22,18 @@ jobs:
           python-version: '3.9'
 
       - name: 安裝套件
-        run: |
-          pip install pandas requests yfinance openai beautifulsoup4
+        run: pip install pandas requests yfinance openai beautifulsoup4
 
       - name: 執行分析並儲存
         env:
           LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          python worker.py
+        run: python worker.py
 
       - name: 推送更新至 GitHub
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add journal.json
-          git commit -m "chore: auto-update daily journal" || echo "No changes to commit"
+          git commit -m "chore: auto-update daily journal" || echo "No changes"
           git push
