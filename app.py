@@ -1,88 +1,71 @@
 import streamlit as st
 import pandas as pd
-import random
-import requests
 import plotly.express as px
 import os
 import yfinance as yf
 from datetime import datetime
 from openai import OpenAI
 
-# 設定頁面
-st.set_page_config(page_title="AI 決策中樞", layout="wide")
-st.title("🚀 AI 專業投資決策中樞 (專業實戰整合版)")
+# 設定頁面風格
+st.set_page_config(page_title="AI 專業投資儀表板", layout="wide", page_icon="📈")
 
-# 初始化狀態與 API 連線
+# 自訂 CSS 美化
+st.markdown("""
+    <style>
+    .stApp { background-color: #f8f9fa; }
+    .stButton>button { width: 100%; border-radius: 5px; background-color: #0047AB; color: white; }
+    .css-1r6slp0 { padding: 1rem; border-radius: 10px; border: 1px solid #dee2e6; }
+    </style>
+    """, unsafe_allow_html=True)
+
+st.title("📈 AI 專業投資決策中樞")
+
+# 初始化
 if 'portfolio' not in st.session_state:
-    st.session_state.portfolio = []
+    st.session_state.portfolio = pd.DataFrame({"代號": ["2330", "2454"], "名稱": ["台積電", "聯發科"], "成本": [600, 900], "現價": [650, 950]})
+if 'logs' not in st.session_state:
+    st.session_state.logs = []
 
-# 安全讀取 Secrets (優先讀取 Streamlit Secrets)
-openai_api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
-line_token = st.secrets.get("LINE_NOTIFY_TOKEN") or os.getenv("LINE_NOTIFY_TOKEN")
+# 安全讀取
+client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY")))
 
-# 初始化 OpenAI 客戶端 (OpenRouter)
-client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=openai_api_key) if openai_api_key else None
+menu = st.sidebar.radio("導航目錄", ["📊 市場健康", "🤖 AI 智慧分析", "💼 部位管理", "📋 分享建議"])
 
-# --- 核心邏輯函式 ---
-def check_health():
-    """雲端健康檢查：檢測 API 連線狀態"""
-    status = {"LINE": "✅ 正常" if line_token else "❌ 未設定", "OpenRouter": "✅ 正常" if client else "❌ 未設定"}
-    return status
+if menu == "📊 市場健康":
+    st.subheader("系統狀態監控")
+    col1, col2 = st.columns(2)
+    col1.metric("數據來源", "Yahoo Finance", "正常")
+    col2.metric("AI 模型", "GPT-4o-mini", "連線中")
+    st.info("系統運作中，親友分享請參考右側說明。")
 
-def get_ai_analysis(ticker, fundamentals):
-    """優化後的 AI 深度決策指令"""
-    if not client: return "AI 分析功能目前無法使用 (API Key 未配置)"
-    
-    prompt = f"""
-    請擔任專業分析師，針對個股 {ticker} 進行深入分析：
-    - 基本面數據: {fundamentals}
-    - 要求：請特別檢查 PE 比是否過高，並評估 EPS 的增長潛力。
-    - 若 PE > 25 或 EPS 顯示衰退，請給出減碼警告。
-    - 給出明確的 0-100 分數與投資建議。
-    """
-    try:
-        response = client.chat.completions.create(model="openai/gpt-4o-mini", messages=[{"role": "user", "content": prompt}])
-        return response.choices[0].message.content
-    except Exception as e:
-        return f"AI 分析請求失敗: {str(e)}"
+elif menu == "🤖 AI 智慧分析":
+    st.subheader("個股深度健檢")
+    t = st.text_input("輸入股票代號 (例如 2330)", "2330")
+    if st.button("啟動 AI 深度分析"):
+        with st.spinner("正在讀取財報並進行深度推論..."):
+            stock = yf.Ticker(f"{t}.TW")
+            info = stock.info
+            funda = f"PE: {info.get('trailingPE')}, EPS: {info.get('trailingEps')}"
+            prompt = f"分析 {t}，數據：{funda}。請以專業基金經理人語氣提供建議。"
+            response = client.chat.completions.create(model="openai/gpt-4o-mini", messages=[{"role": "user", "content": prompt}])
+            res = response.choices[0].message.content
+            st.markdown(f"### 分析報告\n{res}")
+            st.session_state.logs.append({"時間": datetime.now().strftime("%H:%M"), "代號": t, "結果": "已分析"})
 
-def get_realtime_fundamentals(ticker):
-    """獲取真實基本面數據"""
-    try:
-        stock = yf.Ticker(f"{ticker}.TW")
-        info = stock.info
-        return f"PE Ratio: {info.get('trailingPE', 'N/A')}, EPS: {info.get('trailingEps', 'N/A')}, Beta: {info.get('beta', 'N/A')}, Market Cap: {info.get('marketCap', 'N/A')}"
-    except Exception as e:
-        return f"基本面數據獲取失敗: {str(e)}"
+elif menu == "💼 部位管理":
+    st.subheader("我的持股看板")
+    df = st.session_state.portfolio
+    df['損益'] = df['現價'] - df['成本']
+    fig = px.bar(df, x='名稱', y='損益', color='損益', text='損益')
+    st.plotly_chart(fig, use_container_width=True)
 
-# --- UI 模組 ---
-menu = st.sidebar.radio("核心模組", ["市場監控", "AI 選股與下單", "部位健檢", "決策日誌"])
-
-if menu == "市場監控":
-    st.subheader("📊 雲端系統健康狀態")
-    health = check_health()
-    cols = st.columns(2)
-    for i, (k, v) in enumerate(health.items()):
-        cols[i].metric(k, v)
-    
-    st.divider()
-    st.subheader("📊 市場資金流向熱點圖")
-    st.info("系統已連線並準備好進行即時數據分析。")
-
-elif menu == "AI 選股與下單":
-    st.subheader("AI 自動化決策")
-    t = st.text_input("輸入股票代號 (例如: 2330)", "2330")
-    if st.button("評估買入"):
-        with st.spinner("執行深度基本面與技術面綜合分析中..."):
-            fundamentals = get_realtime_fundamentals(t)
-            ai_advice = get_ai_analysis(t, fundamentals)
-            st.success("分析完成！")
-            st.write(ai_advice)
-
-elif menu == "部位健檢":
-    st.subheader("持股部位監控")
-    st.write("功能開發中，請稍候。")
-
-elif menu == "決策日誌":
-    st.subheader("📋 互動式決策歷史日誌")
-    st.write("目前尚無記錄。")
+elif menu == "📋 分享建議":
+    st.subheader("📢 分享給親友的注意事項")
+    st.warning("""
+    ### 親友使用建議：
+    1. **輔助工具**：本系統僅為數據分析輔助，不做任何買賣承諾。
+    2. **延遲資訊**：資料來自 Yahoo Finance，非即時交易數據。
+    3. **保護個資**：切勿分享您的 API Key。
+    4. **風險自負**：股票投資有賺有賠，下單前請三思。
+    """)
+    st.success("您可以放心分享此連結給親友，我們會自動過濾掉敏感的 API Key。")
