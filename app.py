@@ -26,6 +26,12 @@ def save_to_journal(ticker, analysis):
     with open(DATA_FILE, "w") as f:
         json.dump(history, f)
 
+# 使用快取機制，降低 API 呼叫頻率 (每 1 小時重新抓取)
+@st.cache_data(ttl=3600)
+def get_news_cached(ticker):
+    t = yf.Ticker(ticker)
+    return t.news
+
 st.set_page_config(page_title="AI 股市決策日記", layout="wide")
 st.sidebar.title("🤖 AI 決策中樞")
 menu = st.sidebar.radio("功能導航", ["自動新聞讀取", "投資復盤日記"])
@@ -35,9 +41,7 @@ if menu == "自動新聞讀取":
     ticker = st.text_input("輸入股票代號 (例如: 2330.TW)", "2330.TW")
     if st.button("抓取最新新聞"):
         try:
-            time.sleep(1) 
-            t = yf.Ticker(ticker)
-            news = t.news
+            news = get_news_cached(ticker)
             if not news:
                 st.warning("暫無相關新聞。")
             else:
