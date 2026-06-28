@@ -75,7 +75,11 @@ if menu == "🤖 個股深度分析":
                     # 抓取數據
                     curr = info.get('currentPrice', 'N/A')
                     prev_close = info.get('previousClose', curr)
-                    change_pct = ((curr - prev_close) / prev_close * 100) if isinstance(curr, (int, float)) and isinstance(prev_close, (int, float)) else 0
+                    
+                    # 計算漲跌金額與幅度
+                    delta_val = curr - prev_close if isinstance(curr, (int, float)) and isinstance(prev_close, (int, float)) else 0
+                    change_pct = (delta_val / prev_close * 100) if prev_close and prev_close != 0 else 0
+                    
                     eps = info.get('trailingEps', 'N/A')
                     pe = info.get('trailingPE', 'N/A')
                     bv = info.get('bookValue', 'N/A')
@@ -83,7 +87,7 @@ if menu == "🤖 個股深度分析":
 
                     # 顯示數據面板
                     col1, col2, col3, col4, col5 = st.columns(5)
-                    col1.metric("即時股價", f"{curr}", f"{change_pct:.2f}%")
+                    col1.metric("即時股價", f"{curr}", f"{delta_val:+.2f} ({change_pct:+.2f}%)")
                     col2.metric("EPS", f"{eps}")
                     col3.metric("本益比", f"{pe}")
                     col4.metric("每股淨值", f"{bv}")
@@ -91,8 +95,14 @@ if menu == "🤖 個股深度分析":
                     
                     st.divider()
 
-                    # 預估明年股價功能
+                    # 預估明年股價功能 (使用 session state 處理互動)
+                    if 'show_forecast' not in st.session_state:
+                        st.session_state.show_forecast = False
+                    
                     if st.button("預估明年股價分析"):
+                        st.session_state.show_forecast = True
+                    
+                    if st.session_state.show_forecast:
                         st.markdown("### 🔮 預估數據面板 (AI 輔助推算)")
                         p1, p2, p3, p4 = st.columns(4)
                         
