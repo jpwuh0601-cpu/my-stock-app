@@ -1,3 +1,7 @@
 streamlit
-twstock
 pandas
+twstock
+requests
+yfinance
+openai
+plotly
