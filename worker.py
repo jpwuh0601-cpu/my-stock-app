@@ -1,53 +1,41 @@
-import os
-import json
-import requests
-import yfinance as yf
-from datetime import datetime
+name: AI 自動化健檢與日記任務
 
-def save_to_journal(ticker_symbol, report_content):
-    """將每日分析存入 journal.json"""
-    journal_file = "journal.json"
-    
-    # 讀取現有日記
-    data = []
-    if os.path.exists(journal_file):
-        with open(journal_file, "r", encoding="utf-8") as f:
-            try:
-                data = json.load(f)
-            except:
-                data = []
+on:
+  schedule:
+    - cron: '30 0 * * *'
+  workflow_dispatch:
 
-    # 新增今日紀錄
-    entry = {
-        "date": datetime.now().strftime("%Y-%m-%d"),
-        "ticker": ticker_symbol,
-        "content": report_content
-    }
-    data.append(entry)
+permissions:
+  contents: write
 
-    # 寫回檔案
-    with open(journal_file, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          persist-credentials: true
 
-def run_smart_report():
-    ticker_symbol = "^TWII"
-    ticker = yf.Ticker(ticker_symbol)
-    
-    # 簡單分析邏輯
-    news = ticker.news
-    news_summary = "\n".join([n.get('title', '') for n in news[:3]]) if news else "今日無重大新聞。"
-    
-    report = f"市場分析結果：\n{news_summary}"
-    
-    # 存檔
-    save_to_journal(ticker_symbol, report)
-    
-    # 發送 LINE 通知
-    token = os.getenv("LINE_NOTIFY_TOKEN")
-    if token:
-        requests.post("https://notify-api.line.me/api/notify", 
-                      headers={"Authorization": f"Bearer {token}"}, 
-                      data={"message": f"\n📝 投資日記已更新！\n{report}"})
+      - name: 設定 Python 環境
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
 
-if __name__ == "__main__":
-    run_smart_report()
+      - name: 安裝套件
+        run: |
+          pip install pandas requests yfinance openai beautifulsoup4
+
+      - name: 執行分析並儲存
+        env:
+          LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python worker.py
+
+      - name: 推送更新至 GitHub
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add journal.json
+          git commit -m "chore: auto-update daily journal" || echo "No changes to commit"
+          git push
