@@ -21,6 +21,8 @@ client = OpenAI(
 menu = st.sidebar.radio("導航目錄", ["🤖 個股深度分析", "💼 部位管理"])
 
 def calculate_indicators(data):
+    if len(data) < 14:
+        return None
     # RSI
     delta = data['Close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
@@ -40,54 +42,57 @@ if menu == "🤖 個股深度分析":
     t = st.text_input("輸入股票代號 (例如 2330)", "2330")
     
     if st.button("啟動專業分析"):
-        with st.spinner("正在進行多維度分析 (含新聞與黑天鵝預警)..."):
+        with st.spinner("正在進行多維度分析..."):
             try:
                 ticker_symbol = f"{t}.TW"
                 stock = yf.Ticker(ticker_symbol)
                 hist = stock.history(period="6mo")
-                hist = calculate_indicators(hist)
-                info = stock.info
                 
-                # 取得最新指標數值
-                rsi_val = hist['RSI'].iloc[-1]
-                macd_val = hist['MACD'].iloc[-1]
-                signal_val = hist['Signal'].iloc[-1]
-                
-                # 即時數據面板
-                curr = info.get('currentPrice', 0)
-                col1, col2, col3, col4 = st.columns(4)
-                col1.metric("即時股價", f"{curr:.2f}")
-                col2.metric("RSI (14日)", f"{rsi_val:.2f}")
-                col3.metric("MACD 差值", f"{macd_val:.2f}")
-                col4.metric("產業別", info.get('sector', 'N/A'))
-                
-                # AI 分析：整合新聞分析、技術指標判讀與黑天鵝警示
-                prompt = f"""
-                請針對 {ticker_symbol} 進行全方位深度分析，請依照下列格式報告：
-                1. 【新聞動態分析】：基於當前市場觀點與趨勢，總結該股近期重要新聞。
-                2. 【基本面與財務狀況】：PE、EPS、PB 等數據分析。
-                3. 【技術指標分析】：
-                   - 當前 RSI 為 {rsi_val:.2f} (判斷是否過熱 >70 或過冷 <30)。
-                   - 當前 MACD ({macd_val:.2f}) 與訊號線 ({signal_val:.2f}) 之關係 (MACD 上穿訊號線為買進信號，下穿為賣出)。
-                4. 【黑天鵝警示】：分析潛在的地緣政治、供應鏈或產業結構性黑天鵝風險。
-                5. 【最終策略】：給出具體的進出場策略建議。
-                """
-                response = client.chat.completions.create(
-                    model="openai/gpt-4o-mini", 
-                    messages=[{"role": "user", "content": prompt}]
-                )
-                
-                st.markdown("### 🎯 AI 綜合戰情報告")
-                st.write(response.choices[0].message.content)
-                
-                # 技術指標圖表
-                st.markdown("### 📊 股價與技術指標分析")
-                fig = go.Figure()
-                fig.add_trace(go.Scatter(x=hist.index, y=hist['Close'], name="收盤價"))
-                st.plotly_chart(fig, width='stretch')
+                if hist.empty or len(hist) < 14:
+                    st.error("無法取得足夠的歷史數據，請確認代號是否正確或該股票近期是否有交易。")
+                else:
+                    hist = calculate_indicators(hist)
+                    info = stock.info
+                    
+                    # 取得最新指標數值
+                    rsi_val = hist['RSI'].iloc[-1]
+                    macd_val = hist['MACD'].iloc[-1]
+                    signal_val = hist['Signal'].iloc[-1]
+                    
+                    # 即時數據面板
+                    curr = info.get('currentPrice', 0)
+                    col1, col2, col3, col4 = st.columns(4)
+                    col1.metric("即時股價", f"{curr:.2f}")
+                    col2.metric("RSI (14日)", f"{rsi_val:.2f}")
+                    col3.metric("MACD 差值", f"{macd_val:.2f}")
+                    col4.metric("產業別", info.get('sector', 'N/A'))
+                    
+                    # AI 分析
+                    prompt = f"""
+                    請針對 {ticker_symbol} 進行全方位深度分析：
+                    1. 【新聞動態分析】：市場觀點與近期重要新聞。
+                    2. 【基本面與財務狀況】：PE、EPS、PB 等數據分析。
+                    3. 【技術指標分析】：
+                       - RSI 為 {rsi_val:.2f} (70以上超買, 30以下超賣)。
+                       - MACD ({macd_val:.2f}) 與訊號線 ({signal_val:.2f}) 之關係。
+                    4. 【黑天鵝警示】：分析潛在的結構性風險。
+                    5. 【最終策略】：具體進出場建議。
+                    """
+                    response = client.chat.completions.create(
+                        model="openai/gpt-4o-mini", 
+                        messages=[{"role": "user", "content": prompt}]
+                    )
+                    
+                    st.markdown("### 🎯 AI 綜合戰情報告")
+                    st.write(response.choices[0].message.content)
+                    
+                    st.markdown("### 📊 股價與技術指標分析")
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(x=hist.index, y=hist['Close'], name="收盤價"))
+                    st.plotly_chart(fig, width='stretch')
 
             except Exception as e:
-                st.error(f"資料分析失敗: {e}")
+                st.error(f"分析過程發生錯誤: {e}")
 
 elif menu == "💼 部位管理":
     st.subheader("我的持股看板")
