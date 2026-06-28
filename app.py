@@ -95,10 +95,11 @@ if menu == "🤖 個股深度分析":
 
             if not hist.empty:
                 st.markdown("### 📈 股價走勢")
-                st.line_chart(hist['Close'], use_container_width=True)
+                st.line_chart(hist['Close'], width='stretch')
 
         except Exception as e:
             st.error(f"分析過程錯誤: {e}")
 
 elif menu == "💼 部位管理":
     st.subheader("💼 我的持股管理")
+    st.info("此區塊目前正在建構中...")
