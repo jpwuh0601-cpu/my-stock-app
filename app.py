@@ -48,8 +48,11 @@ if menu == "🤖 個股深度分析":
                 stock = yf.Ticker(ticker_symbol)
                 hist = stock.history(period="6mo")
                 
-                if hist.empty or len(hist) < 14:
-                    st.error("無法取得足夠的歷史數據，請確認代號是否正確或該股票近期是否有交易。")
+                # 檢查是否取得有效資訊
+                if hist.empty:
+                    st.error(f"無法在 Yahoo Finance 找到代號 {ticker_symbol} 的數據，請確認代號是否正確。")
+                elif len(hist) < 14:
+                    st.error("該股票歷史數據不足（可能剛上市或交易稀疏），無法計算技術指標。")
                 else:
                     hist = calculate_indicators(hist)
                     info = stock.info
@@ -60,9 +63,9 @@ if menu == "🤖 個股深度分析":
                     signal_val = hist['Signal'].iloc[-1]
                     
                     # 即時數據面板
-                    curr = info.get('currentPrice', 0)
+                    curr = info.get('currentPrice', 'N/A')
                     col1, col2, col3, col4 = st.columns(4)
-                    col1.metric("即時股價", f"{curr:.2f}")
+                    col1.metric("即時股價", f"{curr}")
                     col2.metric("RSI (14日)", f"{rsi_val:.2f}")
                     col3.metric("MACD 差值", f"{macd_val:.2f}")
                     col4.metric("產業別", info.get('sector', 'N/A'))
@@ -92,7 +95,7 @@ if menu == "🤖 個股深度分析":
                     st.plotly_chart(fig, width='stretch')
 
             except Exception as e:
-                st.error(f"分析過程發生錯誤: {e}")
+                st.error(f"系統分析異常: {e}")
 
 elif menu == "💼 部位管理":
     st.subheader("我的持股看板")
