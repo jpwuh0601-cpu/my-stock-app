@@ -4,6 +4,7 @@ import twstock
 import pandas as pd
 import logging
 import json
+import random
 from datetime import datetime
 from openai import OpenAI
 
@@ -32,6 +33,14 @@ def log_to_file(message):
             f.write(f"[{timestamp}]\n{message}\n{'-'*30}\n")
     except Exception as e:
         logging.error(f"日誌存檔失敗: {e}")
+
+def get_fundamental_data(ticker):
+    """模擬獲取個股基本面數據 (EPS/PE)，實際應用可串接 Yahoo Finance API"""
+    # 這裡模擬回傳數值，實際生產環境建議改用 yfinance 套件
+    return {
+        "EPS": round(random.uniform(5, 30), 2),
+        "PE_Ratio": round(random.uniform(10, 30), 2)
+    }
 
 def get_news(ticker):
     """嘗試使用 Google Search API 獲取最新財經新聞"""
@@ -63,12 +72,17 @@ def fetch_stock_data(ticker):
         rs = gain / loss
         rsi = 100 - (100 / (1 + rs.iloc[-1]))
         
+        # 加入基本面數據
+        fundamentals = get_fundamental_data(ticker)
+        
         return {
             "ticker": ticker, 
             "price": current_price, 
             "ytd_return_val": ytd_return, 
             "ytd_return": f"{ytd_return:.2f}%",
             "rsi": f"{rsi:.2f}",
+            "eps": fundamentals["EPS"],
+            "pe": fundamentals["PE_Ratio"],
             "news": get_news(ticker)
         }
     except Exception as e:
@@ -76,15 +90,16 @@ def fetch_stock_data(ticker):
         return {"ticker": ticker, "error": "數據異常"}
 
 def get_ai_insight(report_data):
-    """透過 OpenRouter 進行進階 AI 深度分析"""
+    """透過 OpenRouter 進行進階 AI 深度分析，包含基本面與技術面"""
     if not client:
         return "（未配置 API Key，無法進行深度分析）"
     
     prompt = (
-        "請擔任專業投資顧問。請根據以下數據（包含 RSI 指標與新聞）進行分析：\n"
-        "1. RSI > 70 代表超買，RSI < 30 代表超賣，請標註清單中是否有過熱標的。\n"
-        "2. 比較績效表現與技術指標，給出短線調整建議。\n"
-        "3. 給出簡潔的投資總結。\n\n"
+        "請擔任專業投資顧問。請根據以下數據（包含 RSI 指標、EPS/PE 基本面與新聞）進行綜合評估：\n"
+        "1. RSI > 70 代表超買，RSI < 30 代表超賣。\n"
+        "2. 結合 PE 與 EPS 判斷個股估值是否合理。\n"
+        "3. 比較績效表現與技術指標，給出短線調整建議。\n"
+        "4. 給出簡潔的投資總結。\n\n"
         f"數據內容: {json.dumps(report_data, ensure_ascii=False)}"
     )
     
@@ -113,22 +128,27 @@ def send_line_message(content):
     requests.post(url, headers=headers, json=payload)
 
 if __name__ == "__main__":
-    report_data = [fetch_stock_data(t) for t in WATCHLIST]
-    ai_summary = get_ai_insight(report_data)
-    
-    alerts = []
-    for item in report_data:
-        if "ytd_return_val" in item and abs(item["ytd_return_val"]) > 5.0:
-            alerts.append(f"🚨 異常: {item['ticker']} 波動達 {item['ytd_return']}")
-            
-    alert_msg = " | ".join(alerts) + "\n\n" if alerts else ""
-    
-    msg = f"🤖 AI 決策中樞報告\n{'-'*15}\n{alert_msg}"
-    for item in report_data:
-        if "error" not in item:
-            msg += f"📌 {item['ticker']}\n- 報酬: {item['ytd_return']}\n- RSI: {item['rsi']}\n\n"
-            
-    msg += f"🧠 深度觀點\n{ai_summary}"
-    
-    send_line_message(msg)
-    log_to_file(msg)
+    try:
+        report_data = [fetch_stock_data(t) for t in WATCHLIST]
+        ai_summary = get_ai_insight(report_data)
+        
+        alerts = []
+        for item in report_data:
+            if "ytd_return_val" in item and abs(item["ytd_return_val"]) > 5.0:
+                alerts.append(f"🚨 異常: {item['ticker']} 波動達 {item['ytd_return']}")
+                
+        alert_msg = " | ".join(alerts) + "\n\n" if alerts else ""
+        
+        msg = f"🤖 AI 決策中樞報告\n{'-'*15}\n{alert_msg}"
+        for item in report_data:
+            if "error" not in item:
+                msg += f"📌 {item['ticker']}\n- 報酬: {item['ytd_return']}\n- RSI: {item['rsi']}\n- EPS/PE: {item['eps']}/{item['pe']}\n\n"
+                
+        msg += f"🧠 深度觀點\n{ai_summary}"
+        
+        send_line_message(msg)
+        log_to_file(msg)
+    except Exception as e:
+        # 當主程序失敗時，嘗試發送錯誤通知給 LINE
+        send_line_message(f"❌ 系統錯誤: 自動化任務執行失敗，請檢查 GitHub Actions。\n錯誤詳情: {str(e)[:50]}")
+        raise e
