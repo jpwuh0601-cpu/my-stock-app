@@ -1,29 +1,29 @@
 name: AI 自動化健檢每日任務
 
 on:
-  schedule:
-    - cron: '30 0 * * *'
-  workflow_dispatch:
+schedule:
+- cron: '30 0 * * *'
+workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: 檢出程式碼
-        uses: actions/checkout@v3
+build:
+runs-on: ubuntu-latest
+steps:
+- name: 檢出程式碼
+uses: actions/checkout@v3
 
-      - name: 設定 Python 環境
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
+  - name: 設定 Python 環境
+    uses: actions/setup-python@v4
+    with:
+      python-version: '3.9'
 
-      - name: 安裝依賴套件
-        run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt
-        
-      - name: 執行 AI 健檢任務
-        env:
-          LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
-        run: |
-          python worker.py
+  - name: 安裝依賴套件
+    run: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+    
+  - name: 執行 AI 健檢任務
+    env:
+      LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
+    run: |
+      python worker.py
