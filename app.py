@@ -43,7 +43,7 @@ if menu == "🤖 個股深度分析":
     
     with st.expander("⚠️ 若分析失敗，請檢查："):
         st.write("1. 確保代號為台灣上市櫃股票 (如 2330, 2454)。")
-        st.write("2. Yahoo Finance 若查無數據，請確認該代號是否正確或已下市。")
+        st.write("2. Yahoo Finance 若查無數據，請確認該代號是否正確。")
         st.write("3. 嘗試手動加上 .TW (上市) 或 .TWO (上櫃) 後綴。")
 
     if st.button("啟動專業分析"):
@@ -67,17 +67,17 @@ if menu == "🤖 個股深度分析":
                         break
                 
                 if hist is None or hist.empty:
-                    st.error(f"無法在 Yahoo Finance 找到代號 **{t}** 的相關數據。")
+                    st.error(f"無法找到代號 **{t}** 的數據。")
                 else:
                     hist = calculate_indicators(hist)
                     info = stock.info
                     
                     # 抓取數據
-                    curr = info.get('currentPrice', 'N/A')
+                    curr = info.get('currentPrice', 0.0)
                     prev_close = info.get('previousClose', curr)
                     
                     # 計算漲跌金額與幅度
-                    delta_val = curr - prev_close if isinstance(curr, (int, float)) and isinstance(prev_close, (int, float)) else 0
+                    delta_val = curr - prev_close if curr and prev_close else 0
                     change_pct = (delta_val / prev_close * 100) if prev_close and prev_close != 0 else 0
                     
                     eps = info.get('trailingEps', 'N/A')
@@ -95,23 +95,23 @@ if menu == "🤖 個股深度分析":
                     
                     st.divider()
 
-                    # 預估明年股價功能 (使用 session state 處理互動)
+                    # 預估明年股價功能
                     if 'show_forecast' not in st.session_state:
                         st.session_state.show_forecast = False
                     
-                    if st.button("預估明年股價分析"):
+                    if st.button("預估明年股價"):
                         st.session_state.show_forecast = True
                     
                     if st.session_state.show_forecast:
-                        st.markdown("### 🔮 預估數據面板 (AI 輔助推算)")
+                        st.markdown("### 🔮 預估明年數據面板")
                         p1, p2, p3, p4 = st.columns(4)
                         
                         est_eps = float(eps) * 1.1 if isinstance(eps, (int, float)) else "N/A"
                         est_price = float(curr) * 1.1 if isinstance(curr, (int, float)) else "N/A"
                         
-                        p1.metric("預估明年股價", f"{est_price:.2f}")
+                        p1.metric("預估股價", f"{est_price:.2f}")
                         p2.metric("預估 EPS", f"{est_eps}")
-                        p3.metric("本益比", f"{pe}")
+                        p3.metric("預估本益比", f"{pe}")
                         p4.metric("每股淨值", f"{bv}")
 
                     # AI 分析
@@ -126,7 +126,7 @@ if menu == "🤖 個股深度分析":
                     st.plotly_chart(fig, width='stretch')
 
             except Exception as e:
-                st.error(f"錯誤: {e}")
+                st.error(f"分析過程發生錯誤: {e}")
 
 elif menu == "💼 部位管理":
     st.subheader("我的持股看板")
