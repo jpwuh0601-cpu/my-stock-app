@@ -1,11 +1,25 @@
+name: Daily Stock Analysis
+on:
+schedule:
+- cron: '30 0 * * *'
+workflow_dispatch:
+jobs:
+run-script:
+runs-on: ubuntu-latest
 steps:
-      - name: Run worker script
-        # ... 原有的步驟 ...
-      - name: Notify on failure
-        if: failure()
-        env:
-          LINE_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
-        run: |
-          curl -X POST -H "Authorization: Bearer $LINE_TOKEN" -F "message=❌ 每日任務失敗！請檢查 GitHub Actions Log。" https://notify-api.line.me/api/notify
-
-這樣修改後，如果腳本因為任何原因（如API連線中斷、環境變數遺失）崩潰，您的 LINE 會立刻收到錯誤通知，而不僅是默默失敗。
+- uses: actions/checkout@v3
+- name: Set up Python
+uses: actions/setup-python@v4
+with:
+python-version: '3.9'
+- name: Install dependencies
+run: |
+pip install twstock pandas openai requests yfinance
+- name: Run worker script
+env:
+OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+GOOGLE_CSE_ID: ${{ secrets.GOOGLE_CSE_ID }}
+run: |
+python worker.py
