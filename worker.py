@@ -1,48 +1,46 @@
 import os
 import requests
 import yfinance as yf
+from bs4 import BeautifulSoup
 from datetime import datetime
 
-def get_market_sentiment():
-    """抓取市場數據並產出摘要"""
+def get_market_news():
+    """抓取市場關鍵新聞摘要"""
     try:
-        # 抓取台股大盤資料
+        # 使用 yfinance 抓取大盤資訊
         ticker = yf.Ticker("^TWII")
-        data = ticker.history(period="5d")
         news = ticker.news
+        if not news:
+            return "目前無即時重大財經新聞。"
         
-        if data.empty:
-            return "市場數據讀取失敗。"
-        
-        # 計算簡單的技術趨勢
-        last_price = data['Close'].iloc[-1]
-        change = (data['Close'].iloc[-1] - data['Close'].iloc[-2]) / data['Close'].iloc[-2] * 100
-        
-        # 整理新聞摘要 (取前兩則)
-        news_summary = ""
-        if news:
-            news_summary = "\n📰 今日頭條：\n" + "\n".join([f"- {n['title']}" for n in news[:2]])
-        
-        status = "穩定" if change > -1 else "⚠️ 風險警告"
-        
-        msg = (f"📊 每日股市健檢 ({datetime.now().strftime('%Y-%m-%d')})\n"
-               f"指數收盤: {last_price:.2f} ({change:+.2f}%)\n"
-               f"市場狀態: {status}\n"
-               f"{news_summary}")
-        return msg
-        
+        # 提取前兩則新聞標題作為摘要
+        summary = "\n".join([f"- {n['title']}" for n in news[:2]])
+        return summary
     except Exception as e:
-        return f"健檢系統異常：{str(e)}"
+        return f"新聞抓取異常: {e}"
 
-def send_to_line(message):
-    token = os.getenv("LINE_NOTIFY_TOKEN")
-    if not token:
-        return
-    
-    headers = {"Authorization": f"Bearer {token}"}
-    requests.post("https://notify-api.line.me/api/notify", 
-                  headers=headers, data={"message": message})
+def run_smart_report():
+    """執行智慧晨報任務"""
+    try:
+        # 1. 基礎健檢
+        data = yf.download("^TWII", period="2d")
+        change = data['Close'].pct_change().iloc[-1]
+        status = "穩定" if change > -0.02 else "⚠️ 風險警告"
+        
+        # 2. 獲取新聞
+        news_summary = get_market_news()
+        
+        # 3. 發送 LINE
+        token = os.getenv("LINE_NOTIFY_TOKEN")
+        if token:
+            msg = (f"\n🌅 每日智慧晨報 ({datetime.now().strftime('%Y-%m-%d')})\n"
+                   f"狀態: {status}\n\n"
+                   f"關鍵市場動態:\n{news_summary}")
+            requests.post("https://notify-api.line.me/api/notify", 
+                          headers={"Authorization": f"Bearer {token}"}, 
+                          data={"message": msg})
+    except Exception as e:
+        print(f"任務執行錯誤: {e}")
 
 if __name__ == "__main__":
-    content = get_market_sentiment()
-    send_to_line(content)
+    run_smart_report()
