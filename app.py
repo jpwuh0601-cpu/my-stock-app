@@ -8,7 +8,7 @@ from datetime import datetime
 # 設定頁面風格
 st.set_page_config(layout="wide", page_title="AI 專業投資儀表板", page_icon="📈")
 
-# 自定義 CSS - 優化配色與鮮豔度
+# 自定義 CSS
 st.markdown("""
     <style>
     .metric-card { 
@@ -40,63 +40,59 @@ if menu == "🤖 個股深度分析":
             hist = stock.history(period="6mo")
             info = stock.info
             
-            # 安全數據獲取，增加預設值保護
             curr = info.get('currentPrice') or info.get('regularMarketPrice', 0.0)
             eps = info.get('trailingEps', 0.0)
             pe = info.get('trailingPE', 0.0)
             bv = info.get('bookValue', 0.0)
             
-            # 確保 shares 和 revenue 不為 0 或空，以免計算錯誤
+            # 使用更積極的預設值，確保計算不崩潰
             shares = info.get('sharesOutstanding') or 100000000.0
-            prev_revenue = info.get('totalRevenue') or 5000000000.0 
+            prev_revenue = info.get('totalRevenue') or 1000000000.0 
 
             st.markdown("### 📊 即時市場動態")
             col1, col2, col3, col4 = st.columns(4)
-            with col1: st.metric("即時股價", f"{curr:.2f}")
-            with col2: st.metric("EPS", f"{eps:.2f}")
-            with col3: st.metric("本益比", f"{pe:.2f}")
-            with col4: st.metric("每股淨值", f"{bv:.2f}")
+            col1.metric("即時股價", f"{curr:.2f}")
+            col2.metric("EPS", f"{eps:.2f}")
+            col3.metric("本益比", f"{pe:.2f}")
+            col4.metric("每股淨值", f"{bv:.2f}")
             
             st.divider()
 
-            if 'show_forecast' not in st.session_state: st.session_state.show_forecast = False
-            if st.button("查看預估明年股價"): st.session_state.show_forecast = True
-            
-            if st.session_state.show_forecast:
-                st.markdown("### 🔮 明年專業推算數據 (八步驟邏輯)")
-                with st.expander("📝 調整參數 (若自動抓取為 0，請務必手動修正)", expanded=True):
-                    c1, c2, c3, c4 = st.columns(4)
-                    manual_prev_revenue = c1.number_input("上年度營收 (元)", value=float(prev_revenue), step=1e7)
-                    yoy = c2.number_input("累積營收年增率 (%)", value=10.0) / 100
-                    margin = c3.number_input("稅後淨利率 (%)", value=15.0) / 100
-                    payout = c4.number_input("盈餘分配率 (%)", value=60.0) / 100
-                    
-                    c5, c6 = st.columns(2)
-                    target_pe = c5.number_input("預期本益比 (P/E)", value=float(pe) if pe and pe > 0 else 15.0)
-                    manual_shares = c6.number_input("發行股數", value=float(shares), step=1e6)
+            st.markdown("### 🔮 明年專業推算數據 (八步驟邏輯)")
+            # 將輸入參數直接展開顯示，確保即使數據抓取為 0 也能立刻修正
+            with st.expander("📝 請確認或調整推算參數", expanded=True):
+                c1, c2, c3, c4 = st.columns(4)
+                manual_prev_revenue = c1.number_input("上年度營收 (元)", value=float(prev_revenue), step=1e7)
+                yoy = c2.number_input("累積營收年增率 (%)", value=10.0) / 100
+                margin = c3.number_input("稅後淨利率 (%)", value=15.0) / 100
+                payout = c4.number_input("盈餘分配率 (%)", value=60.0) / 100
                 
-                # 推算邏輯執行
-                est_revenue = manual_prev_revenue * (1 + yoy)
-                est_net_profit = est_revenue * margin
-                est_eps = est_net_profit / manual_shares if manual_shares > 0 else 0
-                est_dividend = est_eps * payout
-                est_price = est_eps * target_pe
+                c5, c6 = st.columns(2)
+                target_pe = c5.number_input("預期本益比 (P/E)", value=float(pe) if pe and pe > 0 else 15.0)
+                manual_shares = c6.number_input("發行股數", value=float(shares), step=1e6)
+            
+            # 推算邏輯執行
+            est_revenue = manual_prev_revenue * (1 + yoy)
+            est_net_profit = est_revenue * margin
+            est_eps = est_net_profit / manual_shares if manual_shares > 0 else 0
+            est_dividend = est_eps * payout
+            est_price = est_eps * target_pe
 
-                st.markdown("---")
-                p1, p2, p3, p4 = st.columns(4)
-                p1.metric("預估明年股價", f"{est_price:.2f}", delta=f"{est_price - curr:.2f}")
-                p2.metric("預估 EPS", f"{est_eps:.2f}")
-                p3.metric("預估現金股利", f"{est_dividend:.2f}")
-                p4.metric("預估今年營收", f"{est_revenue/1e9:.2f} B")
+            st.markdown("---")
+            p1, p2, p3, p4 = st.columns(4)
+            p1.metric("預估明年股價", f"{est_price:.2f}")
+            p2.metric("預估 EPS", f"{est_eps:.2f}")
+            p3.metric("預估現金股利", f"{est_dividend:.2f}")
+            p4.metric("預估今年營收", f"{est_revenue/1e9:.2f} B")
 
             if not hist.empty:
-                st.markdown("### 📈 股價走勢 (最近 6 個月)")
+                st.markdown("### 📈 股價走勢")
                 st.line_chart(hist['Close'], use_container_width=True)
             else:
                 st.warning("查無歷史股價走勢資料。")
 
         except Exception as e:
-            st.error(f"分析過程錯誤 (請檢查代號是否正確): {e}")
+            st.error(f"分析錯誤: {e}，請檢查輸入代號。")
 
 elif menu == "💼 部位管理":
     st.subheader("💼 我的持股管理")
