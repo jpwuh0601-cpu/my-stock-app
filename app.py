@@ -32,7 +32,7 @@ def calculate_indicators(data):
     
     # MACD
     exp1 = data['Close'].ewm(span=12, adjust=False).mean()
-    exp2 = data['Close'].ewm(span=26, adjust=False).mean()
+    exp2 = data['Close'].ढ(span=26, adjust=False).mean()
     data['MACD'] = exp1 - exp2
     data['Signal'] = data['MACD'].ewm(span=9, adjust=False).mean()
     return data
@@ -41,18 +41,25 @@ if menu == "🤖 個股深度分析":
     st.subheader("個股即時數據健檢")
     t = st.text_input("輸入股票代號 (例如 2330)", "2330")
     
+    # 提供用戶常見代號檢查提示
+    with st.expander("⚠️ 若分析失敗，請檢查："):
+        st.write("1. 確保代號為台灣上市櫃股票 (如 2330, 2454)。")
+        st.write("2. 若為 Yahoo Finance 未收錄的冷門股或剛上市股票，暫無法取得數據。")
+        st.write("3. 檢查網路連線或 Yahoo Finance API 回應狀況。")
+
     if st.button("啟動專業分析"):
         with st.spinner("正在進行多維度分析..."):
             try:
-                ticker_symbol = f"{t}.TW"
-                stock = yf.Ticker(ticker_symbol)
+                # 簡單自動補全代號，若用戶未加 .TW 則自動補上
+                ticker_formatted = f"{t}.TW" if not t.endswith(".TW") else t
+                stock = yf.Ticker(ticker_formatted)
                 hist = stock.history(period="6mo")
                 
-                # 檢查是否取得有效資訊
+                # 深度數據檢查
                 if hist.empty:
-                    st.error(f"無法在 Yahoo Finance 找到代號 {ticker_symbol} 的數據，請確認代號是否正確。")
+                    st.error(f"無法在 Yahoo Finance 找到代號 **{ticker_formatted}** 的數據。請嘗試輸入正確的代號或檢查該代號是否符合 Yahoo 格式。")
                 elif len(hist) < 14:
-                    st.error("該股票歷史數據不足（可能剛上市或交易稀疏），無法計算技術指標。")
+                    st.error("該股票歷史數據不足，無法進行 RSI/MACD 等指標計算。")
                 else:
                     hist = calculate_indicators(hist)
                     info = stock.info
@@ -70,16 +77,13 @@ if menu == "🤖 個股深度分析":
                     col3.metric("MACD 差值", f"{macd_val:.2f}")
                     col4.metric("產業別", info.get('sector', 'N/A'))
                     
-                    # AI 分析
+                    # AI 分析指令
                     prompt = f"""
-                    請針對 {ticker_symbol} 進行全方位深度分析：
-                    1. 【新聞動態分析】：市場觀點與近期重要新聞。
-                    2. 【基本面與財務狀況】：PE、EPS、PB 等數據分析。
-                    3. 【技術指標分析】：
-                       - RSI 為 {rsi_val:.2f} (70以上超買, 30以下超賣)。
-                       - MACD ({macd_val:.2f}) 與訊號線 ({signal_val:.2f}) 之關係。
-                    4. 【黑天鵝警示】：分析潛在的結構性風險。
-                    5. 【最終策略】：具體進出場建議。
+                    請針對 {ticker_formatted} 進行全方位深度分析：
+                    1. 【新聞動態】：市場觀點與近期重要新聞。
+                    2. 【技術指標判讀】：RSI ({rsi_val:.2f}) 與 MACD ({macd_val:.2f}) 之趨勢分析。
+                    3. 【風險評估】：針對該股進行黑天鵝風險評估。
+                    4. 【策略建議】：給出具體進出場判斷。
                     """
                     response = client.chat.completions.create(
                         model="openai/gpt-4o-mini", 
@@ -89,13 +93,13 @@ if menu == "🤖 個股深度分析":
                     st.markdown("### 🎯 AI 綜合戰情報告")
                     st.write(response.choices[0].message.content)
                     
-                    st.markdown("### 📊 股價與技術指標分析")
+                    st.markdown("### 📊 股價走勢")
                     fig = go.Figure()
-                    fig.add_trace(go.Scatter(x=hist.index, y=hist['Close'], name="收盤價"))
-                    st.plotly_chart(fig, width='stretch')
+                    fig.add_trace(go.Scatter(x=hist.index, y=hist['Close'], name="收盤價", line=dict(color='royalblue')))
+                    st.plotly_chart(fig, use_container_width=True)
 
             except Exception as e:
-                st.error(f"系統分析異常: {e}")
+                st.error(f"分析過程發生非預期錯誤: {e}")
 
 elif menu == "💼 部位管理":
     st.subheader("我的持股看板")
@@ -113,5 +117,3 @@ elif menu == "💼 部位管理":
     
     if not st.session_state.portfolio.empty:
         st.table(st.session_state.portfolio)
-        if st.button("計算總損益"):
-            st.success("總市值計算中...")
