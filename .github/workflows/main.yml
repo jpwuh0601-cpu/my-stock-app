@@ -40,10 +40,13 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          # 強制設定 remote URL 以確保使用 GITHUB_TOKEN 進行認證
+          
+          # 強制設定 remote URL
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
           
+          # 清除所有暫存區，確保僅處理數據檔案
           git reset
+          # 僅添加數據檔案，明確避開 .github/ 目錄
           git add market_data.json
           
           if git diff --cached --quiet; then
