@@ -46,8 +46,14 @@ if data:
             return f'color: {"red" if val > 0 else "green"}'
         
         if not df_inst.empty:
-            # 加入 use_container_width=True 以優化版面呈現
+            # 優化版面，加入容器寬度自動調整
             st.dataframe(df_inst.style.applymap(color_map, subset=['買賣超']), use_container_width=True)
+            
+            # 加入籌碼集中度簡易指標
+            total_buy = df_inst[df_inst['買賣超'] > 0]['買賣超'].sum()
+            total_sell = abs(df_inst[df_inst['買賣超'] < 0]['買賣超'].sum())
+            if total_buy + total_sell > 0:
+                st.progress(total_buy / (total_buy + total_sell), text="籌碼買進集中度")
         
         st.subheader("籌碼面細項統計")
         col_a, col_b = st.columns(2)
@@ -55,7 +61,8 @@ if data:
         
         st.write("---")
         st.subheader("主力券商與自營商買賣統計")
-        st.write(data.get('top_brokers', '無即時數據'))
+        # 使用 JSON 預覽格式讓券商列表更整潔
+        st.json(data.get('top_brokers', {}))
 
     with tab3:
         st.subheader("最新市場新聞")
