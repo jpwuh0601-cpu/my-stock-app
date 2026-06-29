@@ -3,7 +3,7 @@ name: Daily Stock Analysis
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:
+  workflow_dispatch:# 強制重新啟用工作流
   schedule:
     - cron: '30 0 * * *'
 
