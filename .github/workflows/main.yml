@@ -1,0 +1,48 @@
+name: Daily Stock Analysis
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+  schedule:
+    - cron: '30 0 * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          persist-credentials: true
+
+      - name: 設定 Python 環境
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: 安裝套件
+        run: pip install pandas requests yfinance openai beautifulsoup4
+
+      - name: 執行分析任務
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: python worker.py
+
+      - name: 推送數據至 GitHub
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add market_data.json
+          git commit -m "chore: auto-update market data" || echo "No changes to commit"
+          git push
+```eof
+
+3. **同步至 GitHub**：回到終端機，執行以下指令將新的設定檔推送到 GitHub：
+
+```powershell
+git add .github/workflows/main.yml
+git commit -m "fix: restore daily stock analysis workflow"
+git push origin main
