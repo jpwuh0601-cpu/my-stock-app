@@ -53,6 +53,7 @@ jobs:
             echo "沒有資料變更，跳過推送。"
           else
             git commit -m "chore: auto-update market data"
-            git pull --rebase origin main
+            # 增加 --allow-unrelated-histories 以解決歷史紀錄衝突
+            git pull --rebase origin main --allow-unrelated-histories
             git push origin main
           fi
