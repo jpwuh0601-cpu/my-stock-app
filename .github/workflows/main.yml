@@ -43,6 +43,8 @@ jobs:
           if [ -f market_data.json ]; then
             git add market_data.json
             git commit -m "chore: auto-update market data" || echo "No changes to commit"
+            # 先同步遠端變更，再進行推播
+            git pull --rebase origin main
             git push origin main
           else
             echo "market_data.json not found, skipping push."
