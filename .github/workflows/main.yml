@@ -1,36 +1,45 @@
 name: AI 自動化健檢與日記任務
 
 on:
-push:
-workflow_dispatch:
+  push:
+  workflow_dispatch:
 
 permissions:
-contents: write
+  contents: write
 
 jobs:
-build:
-runs-on: ubuntu-latest
-steps:
-- uses: actions/checkout@v3
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
 
-  - name: 設定 Python 環境
-    uses: actions/setup-python@v4
-    with:
-      python-version: '3.9'
+      - name: 設定 Python 環境
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
 
-  - name: 安裝套件
-    run: pip install pandas requests yfinance openai beautifulsoup4
+      - name: 安裝套件
+        run: pip install pandas requests yfinance openai beautifulsoup4
 
-  - name: 執行分析任務
-    env:
-      LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
-      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-    run: python worker.py
+      - name: 執行分析任務
+        env:
+          LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
+          # 這裡我們將 Secret 的值傳入 OPENAI_API_KEY，這樣 worker.py 就能直接抓到
+          OPENAI_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: python worker.py
 
-  - name: 推送數據至 GitHub
-    run: |
-      git config --global user.name "github-actions[bot]"
-      git config --global user.email "github-actions[bot]@users.noreply.github.com"
-      git add market_data.json
-      git commit -m "chore: auto-update market data" || echo "No changes"
-      git push
+      - name: 推送數據至 GitHub
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add market_data.json
+          git commit -m "chore: auto-update market data" || echo "No changes"
+          git push
+```eof
+
+### 下一步建議：
+1. **更新 `main.yml`：** 複製上述內容並貼上存檔。
+2. **推送到 GitHub：** 執行 `git add .`、`git commit`、`git push`。
+3. **檢查執行結果：** GitHub Actions 這次抓到 `OPENAI_API_KEY` 後，應該就會開始正常運作了。
+
+如果執行後還是報錯，請告訴我最新的錯誤訊息！
