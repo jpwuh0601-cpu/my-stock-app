@@ -7,15 +7,19 @@ st.set_page_config(page_title="專業投資決策儀表板", layout="wide")
 st.title("📈 專業投資決策儀表板")
 
 def load_and_validate_data():
-    """載入並回測資料來源是否正確"""
+    """載入並回測資料來源是否正確，並增加詳細欄位檢核"""
     try:
         with open("market_data.json", "r", encoding="utf-8") as f:
             data = json.load(f)
-            # 簡單回測：檢查必要的關鍵欄位是否存在
+            # 檢查基礎必要欄位
             required_keys = ['price', 'bvps', 'financials', 'institutional_investors', 'news', 'technical_indicators']
-            for key in required_keys:
+            # 檢查您要求的專業欄位
+            required_advanced_keys = ['est_revenue', 'est_eps', 'est_dividend', 'ai_prediction', 'margin_ratio', 'black_swan_alert', 'ai_stock_selection']
+            
+            all_required = required_keys + required_advanced_keys
+            for key in all_required:
                 if key not in data:
-                    st.error(f"資料檢核異常：缺少關鍵欄位 '{key}'，請檢查 worker.py 數據產出")
+                    st.error(f"資料檢核異常：缺少欄位 '{key}'，請確認 worker.py 是否已正確計算並寫入數據")
                     return None
             return data
     except Exception as e:
@@ -32,8 +36,6 @@ if data:
     col1, col2, col3 = st.columns(3)
     col1.metric("即時股價", f"${data.get('price', 0)}")
     col2.metric("每股淨值 (BVPS)", f"${data.get('bvps', 0)}")
-    
-    # 新增：AI 選股狀態與通知監控
     col3.metric("LINE 通知狀態", "已連線" if data.get('line_status') else "未連線")
 
     st.divider()
@@ -46,20 +48,26 @@ if data:
         
         st.subheader("年度財務預估")
         f_col1, f_col2, f_col3 = st.columns(3)
-        f_col1.metric("預估今年營收", f"{data.get('est_revenue', 'N/A')}")
-        f_col2.metric("預估 EPS", f"{data.get('est_eps', 'N/A')}")
-        f_col3.metric("預估股利", f"{data.get('est_dividend', 'N/A')}")
+        f_col1.metric("預估今年營收", f"{data.get('est_revenue')}")
+        f_col2.metric("預估 EPS", f"{data.get('est_eps')}")
+        f_col3.metric("預估股利", f"{data.get('est_dividend')}")
             
         st.subheader("AI 財報預測")
-        st.info(data.get('ai_prediction', '無預測數據'))
+        st.info(data.get('ai_prediction'))
 
     with tab2:
         st.subheader("三大法人買賣超 (近10日)")
-        df_inst = pd.DataFrame(data.get('institutional_investors', []))
+        # 確保是列表格式並處理數據
+        inst_data = data.get('institutional_investors', [])
+        df_inst = pd.DataFrame(inst_data)
+        
         def color_map(val):
             return f'color: {"red" if val > 0 else "green"}'
-        if not df_inst.empty:
+            
+        if not df_inst.empty and '買賣超' in df_inst.columns:
             st.dataframe(df_inst.style.applymap(color_map, subset=['買賣超']), use_container_width=True)
+        else:
+            st.warning("法人買賣超數據格式錯誤或為空。")
         
         st.subheader("籌碼面統計")
         col_a, col_b = st.columns(2)
@@ -75,8 +83,9 @@ if data:
             
         st.subheader("黑天鵝警示系統")
         swan_data = data.get('black_swan_alert', {})
-        if swan_data.get('is_triggered'):
-            st.error(f"⚠️ 偵測到警示: {swan_data.get('reason')}")
+        # 確保 black_swan_alert 是字典且包含對應鍵值
+        if isinstance(swan_data, dict) and swan_data.get('is_triggered'):
+            st.error(f"⚠️ 偵測到警示: {swan_data.get('reason', '無詳細原因')}")
         else:
             st.success("目前無異常市場風險。")
 
