@@ -1,0 +1,44 @@
+{
+    "update_date": "2026-06-29",
+    "price": 230.5,
+    "bvps": 150.2,
+    "est_revenue": "10.5億",
+    "est_eps": "5.2",
+    "est_dividend": "3.5",
+    "big_investor_volume": 500,
+    "retail_investor_volume": 50,
+    "institutional_investors": [
+        {
+            "機構": "外資",
+            "買賣超": 500
+        },
+        {
+            "機構": "自營商",
+            "買賣超": -100
+        }
+    ],
+    "margin_ratio": 1.25,
+    "top_brokers": [
+        {
+            "券商": "凱基",
+            "買進": 500,
+            "賣出": 0
+        },
+        {
+            "券商": "富邦",
+            "買進": 100,
+            "賣出": 50
+        }
+    ],
+    "ai_prediction": "AI 分析：預計未來趨勢呈現震盪向上，建議關注外資動向。",
+    "news": [
+        "公司獲利創新高",
+        "市場信心增強"
+    ],
+    "financials": {
+        "2025Q1": {
+            "EPS": 5.2,
+            "淨值": 150.2
+        }
+    }
+}
