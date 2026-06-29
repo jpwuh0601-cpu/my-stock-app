@@ -1,7 +1,37 @@
-- name: 推送數據更新
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add market_data.json
-          git commit -m "chore: update market data [skip ci]" || echo "No changes"
-          git push
+name: AI 自動化健檢每日任務
+
+on:
+schedule:
+- cron: '30 0 * * *'
+workflow_dispatch:
+
+jobs:
+build:
+runs-on: ubuntu-latest
+permissions:
+contents: write
+steps:
+- name: 檢出程式碼
+uses: actions/checkout@v3
+
+  - name: 設定 Python 環境
+    uses: actions/setup-python@v4
+    with:
+      python-version: '3.9'
+
+  - name: 安裝套件
+    run: pip install pandas requests yfinance openai beautifulsoup4
+
+  - name: 執行分析任務
+    env:
+      LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    run: python worker.py
+
+  - name: 推送數據至 GitHub
+    run: |
+      git config --global user.name "github-actions[bot]"
+      git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      git add market_data.json
+      git commit -m "chore: auto-update market data [skip ci]" || echo "No changes to commit"
+      git push
