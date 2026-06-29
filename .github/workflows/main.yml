@@ -25,9 +25,10 @@ jobs:
       - name: 安裝套件
         run: |
           python -m pip install --upgrade pip
-          # 將 pandas-ta 分開安裝，並移除可能會干擾的快取，確保環境純淨
+          # 先安裝 pandas-ta 依賴的基礎套件
           pip install pandas requests yfinance openai beautifulsoup4
-          pip install pandas_ta --upgrade
+          # 使用 --index-url 確保從官方 PyPI 安裝，避免解析錯誤
+          pip install pandas-ta --index-url https://pypi.org/simple
 
       - name: 執行分析任務
         env:
