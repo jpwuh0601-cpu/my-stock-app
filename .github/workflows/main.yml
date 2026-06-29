@@ -42,7 +42,7 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 明確設定 pull 策略，解決分歧分支合併錯誤
+          # 明確設定 pull 策略
           git config --global pull.rebase true
           
           # 強制設定 remote URL
@@ -51,17 +51,18 @@ jobs:
           # 強制更新遠端分支資訊
           git fetch origin main
           
-          # 清除所有暫存區，確保僅處理數據檔案
-          git reset
-          # 僅添加數據檔案，明確避開 .github/ 目錄
-          git add market_data.json
-          
-          if git diff --cached --quiet; then
-            echo "沒有資料變更，跳過推送。"
+          # 檢查檔案是否存在後再進行操作
+          if [ -f market_data.json ]; then
+            git reset
+            git add market_data.json
+            
+            if git diff --cached --quiet; then
+              echo "沒有資料變更，跳過推送。"
+            else
+              git commit -m "chore: auto-update market data"
+              git pull --rebase origin main --allow-unrelated-histories
+              git push origin HEAD:main
+            fi
           else
-            git commit -m "chore: auto-update market data"
-            # 優先進行 rebase，若發生衝突則強制以遠端為主
-            git pull --rebase origin main --allow-unrelated-histories
-            # 確保推送到 main 分支
-            git push origin HEAD:main
+            echo "market_data.json 未生成，跳過推送步驟。"
           fi
