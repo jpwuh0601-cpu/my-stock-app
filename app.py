@@ -16,6 +16,10 @@ def load_data():
 data = load_data()
 
 if data:
+    # 顯示數據更新日期 (假設 JSON 內包含 update_date 欄位)
+    update_date = data.get('update_date', '未知日期')
+    st.caption(f"最後更新時間: {update_date}")
+
     # 1. Row 1: 即時股價與每股淨值
     col1, col2 = st.columns(2)
     col1.metric("即時股價", f"${data.get('price', 0)}")
@@ -74,3 +78,4 @@ if data:
 
 else:
     st.warning("數據更新中，請稍候...")
+    
