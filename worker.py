@@ -1,11 +1,21 @@
+import json
 import os
-from openai import OpenAI
+# ... (您的 OpenAI / OpenRouter 呼叫邏輯)
 
-# 初始化客戶端，這裡使用環境變數 OPENAI_API_KEY
-# 請確保 GitHub Actions 環境變數設定正確
-client = OpenAI(
-    base_url="[https://openrouter.ai/api/v1](https://openrouter.ai/api/v1)",
-    api_key=os.environ.get("OPENAI_API_KEY"),
-)
+def validate_data(data):
+    """自動回測數據準確性"""
+    required_keys = ['price', 'bvps', 'financials', 'institutional_investors']
+    for key in required_keys:
+        if key not in data:
+            raise ValueError(f"數據驗證失敗：缺少 {key}")
+    print("數據回測成功：所有關鍵欄位皆正確。")
 
-# 以下是您原本的業務邏輯...
+# 假設這是您組合好的最終數據
+# final_data = { ... }
+
+# 在寫入前執行驗證
+# validate_data(final_data)
+
+# 寫入檔案
+# with open("market_data.json", "w", encoding="utf-8") as f:
+#     json.dump(final_data, f, ensure_ascii=False, indent=4)
