@@ -1,1 +1,20 @@
+忽略敏感設定檔
 
+.env
+
+忽略 Python 編譯產生的檔案與快取
+
+pycache/
+*.py[cod]
+*$py.class
+
+忽略虛擬環境資料夾
+
+venv/
+env/
+.env/
+
+忽略作業系統產生的檔案
+
+.DS_Store
+Thumbs.db
