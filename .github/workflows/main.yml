@@ -20,15 +20,14 @@ jobs:
       - name: 設定 Python 環境
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: '3.10'
 
       - name: 安裝套件
         run: |
           python -m pip install --upgrade pip
-          # 先安裝 pandas-ta 依賴的基礎套件
-          pip install pandas requests yfinance openai beautifulsoup4
-          # 使用 --index-url 確保從官方 PyPI 安裝，避免解析錯誤
-          pip install pandas-ta --index-url https://pypi.org/simple
+          # 使用最單純的安裝指令，並確保 pandas 先行安裝以解決依賴解析
+          pip install pandas==2.2.2 requests yfinance openai beautifulsoup4
+          pip install pandas-ta
 
       - name: 執行分析任務
         env:
