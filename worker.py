@@ -66,4 +66,3 @@ def run_analysis_and_update():
 
 if __name__ == "__main__":
     run_analysis_and_update()
-    
