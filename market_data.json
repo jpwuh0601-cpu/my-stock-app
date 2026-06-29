@@ -1,44 +1,31 @@
 {
-    "update_date": "2026-06-29",
-    "price": 230.5,
+    "price": 230.0,
     "bvps": 150.2,
-    "est_revenue": "10.5億",
-    "est_eps": "5.2",
-    "est_dividend": "3.5",
-    "big_investor_volume": 500,
-    "retail_investor_volume": 50,
-    "institutional_investors": [
-        {
-            "機構": "外資",
-            "買賣超": 500
-        },
-        {
-            "機構": "自營商",
-            "買賣超": -100
-        }
-    ],
-    "margin_ratio": 1.25,
-    "top_brokers": [
-        {
-            "券商": "凱基",
-            "買進": 500,
-            "賣出": 0
-        },
-        {
-            "券商": "富邦",
-            "買進": 100,
-            "賣出": 50
-        }
-    ],
-    "ai_prediction": "AI 分析：預計未來趨勢呈現震盪向上，建議關注外資動向。",
-    "news": [
-        "公司獲利創新高",
-        "市場信心增強"
-    ],
     "financials": {
         "2025Q1": {
             "EPS": 5.2,
             "淨值": 150.2
         }
-    }
+    },
+    "institutional_investors": [
+        {
+            "機構": "外資",
+            "買賣超": 500
+        }
+    ],
+    "news": [
+        "測試新聞 1"
+    ],
+    "technical_indicators": "強勢多頭格局",
+    "est_revenue": "1000億",
+    "est_eps": "25.0",
+    "est_dividend": "10.0",
+    "ai_prediction": "預計未來一週震盪走高",
+    "margin_ratio": 1.25,
+    "black_swan_alert": {
+        "is_triggered": false,
+        "reason": "無"
+    },
+    "ai_stock_selection": "推薦關注半導體龍頭",
+    "update_date": "2026-06-29 13:27:14"
 }
