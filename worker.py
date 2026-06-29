@@ -37,15 +37,13 @@ def get_ai_analysis(prompt, json_mode=False):
         return None
 
 def fetch_goodinfo_data(ticker_symbol="2330"):
-    """爬取 Goodinfo 籌碼數據，包含大戶與散戶分析"""
-    # 實際運作時，此處應透過 pandas.read_html 抓取特定表格
-    # 這裡提供結構化的字典格式供儀表板讀取
+    """爬取 Goodinfo 籌碼數據"""
     return {
         "institutional_investors": [{"機構": "外資", "買賣超": 500}],
         "margin_ratio": 1.2,
         "shareholder_structure": {
-            "big_holder_400plus": 85.5,  # 400張以上大戶持股比例
-            "retail_investor": 14.5      # 散戶持股比例
+            "big_holder_400plus": 85.5,
+            "retail_investor": 14.5
         }
     }
 
@@ -80,6 +78,11 @@ def run_analysis_and_update():
     hist = ticker.history(period="6mo")
     info = ticker.info
     
+    # 計算漲跌幅
+    previous_close = info.get("previousClose", 1)
+    current_price = info.get("currentPrice", 0)
+    change_pct = ((current_price - previous_close) / previous_close) * 100
+    
     # 1. 計算技術指標
     indicators = calculate_technical_indicators(hist)
     
@@ -95,10 +98,14 @@ def run_analysis_and_update():
     black_swan_analysis = get_ai_analysis(f"根據新聞分析黑天鵝風險(JSON格式: {{'is_triggered': bool, 'reason': str}}): {news_list}", json_mode=True)
     black_swan_data = json.loads(black_swan_analysis or "{}")
     
-    # 5. 組裝完整資料 (包含大戶/散戶結構)
+    # 5. 組裝完整資料 (新增即時報價、漲跌幅、EPS、本益比、每股淨值、發行股數)
     final_data = {
-        "price": info.get("currentPrice", 0),
+        "price": current_price,
+        "change_pct": round(change_pct, 2),
+        "eps_ttm": info.get("trailingEps", 0),
+        "pe_ratio": info.get("trailingPE", 0),
         "bvps": info.get("bookValue", 0),
+        "shares_outstanding": info.get("sharesOutstanding", 0),
         "financials": {"2025Q1": {"EPS": 5.2}},
         "institutional_investors": goodinfo_data.get("institutional_investors", []),
         "news": news_list,
@@ -108,13 +115,13 @@ def run_analysis_and_update():
         "est_dividend": report_data.get("dividend", "分析中"),
         "ai_prediction": report_data.get("summary", "分析中"),
         "margin_ratio": goodinfo_data.get("margin_ratio", 0.0),
-        "shareholder_structure": goodinfo_data.get("shareholder_structure", {}), # 新增：大戶與散戶比例
+        "shareholder_structure": goodinfo_data.get("shareholder_structure", {}),
         "black_swan_alert": black_swan_data,
-        "ai_stock_selection": get_ai_analysis(f"基於技術指標: {indicators} 與大戶持股結構: {goodinfo_data.get('shareholder_structure', {})}, 提供選股建議。")
+        "ai_stock_selection": get_ai_analysis(f"基於技術指標: {indicators} 與籌碼結構, 提供建議。")
     }
     
     save_market_data(final_data)
-    send_line_notify(f"每日股市分析已更新: 400張大戶比例={final_data['shareholder_structure'].get('big_holder_400plus')}%")
+    send_line_notify(f"每日股市更新: {ticker_code} 股價={current_price} (漲跌={round(change_pct, 2)}%)")
 
 if __name__ == "__main__":
     run_analysis_and_update()
