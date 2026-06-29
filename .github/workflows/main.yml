@@ -24,7 +24,7 @@ jobs:
           python-version: '3.9'
 
       - name: 安裝套件
-        run: pip install pandas requests yfinance openai beautifulsoup4
+        run: pip install pandas requests yfinance openai beautifulsoup4 python-dotenv
 
       - name: 執行分析任務
         env:
@@ -38,3 +38,12 @@ jobs:
           git add market_data.json
           git commit -m "chore: auto-update market data" || echo "No changes to commit"
           git push
+```eof
+
+### 第二步：正確執行 Git 指令（只複製這段代碼）
+請**只複製**以下指令，並在 VS Code 的終端機按右鍵貼上執行：
+
+```powershell
+git add .github/workflows/main.yml
+git commit -m "fix: add python-dotenv to installation steps"
+git push origin main
