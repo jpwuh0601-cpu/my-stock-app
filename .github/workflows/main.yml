@@ -39,12 +39,15 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          # 僅針對數據檔案進行提交，避免誤觸 Workflow 資料夾保護限制
-          if [ -f market_data.json ]; then
-            git add market_data.json
-            git commit -m "chore: auto-update market data" || echo "No changes to commit"
+          # 強制重置 Git 狀態，確保僅處理數據檔案
+          git reset
+          # 僅添加數據檔案，確保不會觸碰 Workflow 資料夾
+          git add market_data.json
+          # 若沒有異動則跳過，避免無效提交
+          if git diff --cached --quiet; then
+            echo "沒有資料變更，跳過推送。"
+          else
+            git commit -m "chore: auto-update market data"
             git pull --rebase origin main
             git push origin main
-          else
-            echo "market_data.json not found, skipping push."
           fi
