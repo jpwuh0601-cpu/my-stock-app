@@ -19,6 +19,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           persist-credentials: true
+          fetch-depth: 0
 
       - name: 設定 Python 環境
         uses: actions/setup-python@v4
@@ -53,7 +54,8 @@ jobs:
             echo "沒有資料變更，跳過推送。"
           else
             git commit -m "chore: auto-update market data"
-            # 增加 --allow-unrelated-histories 以解決歷史紀錄衝突
+            # 確保遠端資訊更新且允許合併不同歷史
             git pull --rebase origin main --allow-unrelated-histories
-            git push origin main
+            # 明確指定分支名稱以解決 refspec 錯誤
+            git push origin HEAD:main
           fi
