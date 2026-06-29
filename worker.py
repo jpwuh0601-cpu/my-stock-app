@@ -3,6 +3,7 @@ import requests
 import os
 import yfinance as yf
 import pandas as pd
+import pandas_ta as ta
 from datetime import datetime
 from openai import OpenAI
 from bs4 import BeautifulSoup
@@ -51,31 +52,49 @@ def save_market_data(data):
     with open("market_data.json", "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
+def calculate_technical_indicators(df):
+    """計算 RSI, KD, MACD 指標"""
+    # 計算 RSI
+    df['RSI'] = ta.rsi(df['Close'], length=14)
+    # 計算 KD (Stochastic Oscillator)
+    stoch = ta.stoch(df['High'], df['Low'], df['Close'])
+    # 計算 MACD
+    macd = ta.macd(df['Close'])
+    
+    return {
+        "RSI": round(df['RSI'].iloc[-1], 2),
+        "KD": stoch.iloc[-1].to_dict() if stoch is not None else {},
+        "MACD": macd.iloc[-1].to_dict() if macd is not None else {}
+    }
+
 def run_analysis_and_update():
     ticker = yf.Ticker("2330.TW")
-    hist = ticker.history(period="1mo")
+    hist = ticker.history(period="6mo") # 取得較長數據以計算指標
     info = ticker.info
     
-    # 1. 強化財報預測 (強制輸出 JSON)
+    # 1. 計算技術指標
+    indicators = calculate_technical_indicators(hist)
+    
+    # 2. 強化財報預測 (強制輸出 JSON)
     report_prompt = "請分析台積電，並以 JSON 格式回傳: {'revenue': '金額', 'eps': '數值', 'dividend': '金額', 'summary': '分析內容'}"
     report_data = json.loads(get_ai_analysis(report_prompt, json_mode=True) or "{}")
     
-    # 2. 新聞與黑天鵝分析
+    # 3. 新聞與黑天鵝分析
     news_list = fetch_news()
     black_swan_analysis = get_ai_analysis(f"根據新聞分析黑天鵝風險(JSON格式: {{'is_triggered': bool, 'reason': str}}): {news_list}", json_mode=True)
     black_swan_data = json.loads(black_swan_analysis or "{}")
     
-    # 3. 選股邏輯
-    ai_selection = get_ai_analysis("基於當前市場氛圍，提供簡短選股建議。")
+    # 4. 選股邏輯 (加入技術指標作為參考)
+    ai_selection = get_ai_analysis(f"當前技術指標為: {indicators}。基於此與市場氛圍，提供選股建議。")
 
-    # 4. 組裝完整資料
+    # 5. 組裝完整資料
     final_data = {
         "price": info.get("currentPrice", 0),
         "bvps": info.get("bookValue", 0),
         "financials": {"2025Q1": {"EPS": 5.2}},
         "institutional_investors": [],
         "news": news_list,
-        "technical_indicators": f"近期收盤均價: {hist['Close'].mean():.2f}",
+        "technical_indicators": indicators, # 傳入計算好的指標
         "est_revenue": report_data.get("revenue", "分析中"),
         "est_eps": report_data.get("eps", "分析中"),
         "est_dividend": report_data.get("dividend", "分析中"),
@@ -86,7 +105,7 @@ def run_analysis_and_update():
     }
     
     save_market_data(final_data)
-    send_line_notify(f"每日股市分析已更新: {final_data['price']}元")
+    send_line_notify(f"每日股市分析已更新: RSI={indicators['RSI']}")
 
 if __name__ == "__main__":
     run_analysis_and_update()
