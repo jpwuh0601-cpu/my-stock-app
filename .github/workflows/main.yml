@@ -45,6 +45,9 @@ jobs:
           # 強制設定 remote URL
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
           
+          # 強制更新遠端分支資訊
+          git fetch origin main
+          
           # 清除所有暫存區，確保僅處理數據檔案
           git reset
           # 僅添加數據檔案，明確避開 .github/ 目錄
@@ -54,8 +57,8 @@ jobs:
             echo "沒有資料變更，跳過推送。"
           else
             git commit -m "chore: auto-update market data"
-            # 確保遠端資訊更新且允許合併不同歷史
+            # 優先進行 rebase，若發生衝突則強制以遠端為主
             git pull --rebase origin main --allow-unrelated-histories
-            # 明確指定分支名稱以解決 refspec 錯誤
+            # 確保推送到 main 分支
             git push origin HEAD:main
           fi
