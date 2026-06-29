@@ -16,6 +16,8 @@ jobs:
     steps:
       - name: 檢出程式碼
         uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 設定 Python 環境
         uses: actions/setup-python@v4
@@ -41,7 +43,7 @@ jobs:
           if [ -f market_data.json ]; then
             git add market_data.json
             git commit -m "chore: auto-update market data" || echo "No changes to commit"
-            git push
+            git push origin main
           else
             echo "market_data.json not found, skipping push."
           fi
