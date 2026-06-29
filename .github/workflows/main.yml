@@ -1,9 +1,9 @@
 name: Daily Stock Analysis
-# Trigger update: v1
+
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:# 強制重新啟用工作流
+  workflow_dispatch:
   schedule:
     - cron: '30 0 * * *'
 
@@ -24,16 +24,21 @@ jobs:
           python-version: '3.9'
 
       - name: 安裝套件
-       run: pip install pandas requests yfinance openai beautifulsoup4 python-dotenv
+        run: pip install pandas requests yfinance openai beautifulsoup4 python-dotenv
+
       - name: 執行分析任務
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: python worker.py
-# Refreshing workflow
+
       - name: 推送數據至 GitHub
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add market_data.json
-          git commit -m "chore: auto-update market data" || echo "No changes to commit"
-          git push
+          if [ -f market_data.json ]; then
+            git add market_data.json
+            git commit -m "chore: auto-update market data" || echo "No changes to commit"
+            git push
+          else
+            echo "market_data.json not found, skipping push."
+          fi
