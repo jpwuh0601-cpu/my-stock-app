@@ -7,7 +7,7 @@ from datetime import datetime
 # 使用 base_url 指向 OpenRouter，並從環境變數讀取 API Key (請確保 GitHub Secrets 已更新)
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
-    api_key=os.getenv("OPENAI_API_KEY") 
+    api_key=os.getenv("OPENROUTER_API_KEY") 
 )
 
 def get_ai_analysis(news, price, financials):
