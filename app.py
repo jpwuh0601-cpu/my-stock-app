@@ -46,12 +46,15 @@ if data:
             return f'color: {"red" if val > 0 else "green"}'
         
         if not df_inst.empty:
-            st.dataframe(df_inst.style.applymap(color_map, subset=['買賣超']))
+            # 加入 use_container_width=True 以優化版面呈現
+            st.dataframe(df_inst.style.applymap(color_map, subset=['買賣超']), use_container_width=True)
         
-        st.subheader("10日資券比")
-        st.metric("資券比", f"{data.get('margin_ratio', 0)}%")
+        st.subheader("籌碼面細項統計")
+        col_a, col_b = st.columns(2)
+        col_a.metric("10日資券比", f"{data.get('margin_ratio', 0)}%")
         
-        st.subheader("主力券商買賣")
+        st.write("---")
+        st.subheader("主力券商與自營商買賣統計")
         st.write(data.get('top_brokers', '無即時數據'))
 
     with tab3:
