@@ -78,10 +78,22 @@ def run_analysis_and_update():
     hist = ticker.history(period="6mo")
     info = ticker.info
     
-    # 計算漲跌幅
-    previous_close = info.get("previousClose", 1)
-    current_price = info.get("currentPrice", 0)
-    change_pct = ((current_price - previous_close) / previous_close) * 100
+    # 財務預測邏輯
+    # 1. 獲取財務數據 (假設使用 info 中的數據或簡易模擬)
+    last_year_revenue = info.get("totalRevenue", 2500000000000) # 預設範例值
+    yoy_growth = 0.20 # 假設最新營收年增率為 20%
+    tax_margin = 0.40 # 假設稅後淨利率 40%
+    payout_ratio = 0.50 # 假設盈餘分配率 50%
+    shares = info.get("sharesOutstanding", 25930000000)
+
+    # 3. 計算今年預估營收
+    est_revenue = last_year_revenue * (1 + yoy_growth)
+    # 5. 計算預估稅後淨利
+    est_net_profit = est_revenue * tax_margin
+    # 6. 計算預估 EPS
+    est_eps = est_net_profit / shares
+    # 8. 計算預估現金股利
+    est_dividend = est_eps * payout_ratio
     
     # 1. 計算技術指標
     indicators = calculate_technical_indicators(hist)
@@ -89,39 +101,35 @@ def run_analysis_and_update():
     # 2. 爬取 Goodinfo 籌碼面數據
     goodinfo_data = fetch_goodinfo_data(ticker_code)
     
-    # 3. 強化財報預測
-    report_prompt = "請分析台積電，並以 JSON 格式回傳: {'revenue': '金額', 'eps': '數值', 'dividend': '金額', 'summary': '分析內容'}"
-    report_data = json.loads(get_ai_analysis(report_prompt, json_mode=True) or "{}")
-    
     # 4. 新聞與黑天鵝分析
     news_list = fetch_news()
     black_swan_analysis = get_ai_analysis(f"根據新聞分析黑天鵝風險(JSON格式: {{'is_triggered': bool, 'reason': str}}): {news_list}", json_mode=True)
     black_swan_data = json.loads(black_swan_analysis or "{}")
     
-    # 5. 組裝完整資料 (新增即時報價、漲跌幅、EPS、本益比、每股淨值、發行股數)
+    # 5. 組裝完整資料
     final_data = {
-        "price": current_price,
-        "change_pct": round(change_pct, 2),
+        "price": info.get("currentPrice", 0),
+        "change_pct": round(((info.get("currentPrice", 0) - info.get("previousClose", 1)) / info.get("previousClose", 1)) * 100, 2),
         "eps_ttm": info.get("trailingEps", 0),
         "pe_ratio": info.get("trailingPE", 0),
         "bvps": info.get("bookValue", 0),
-        "shares_outstanding": info.get("sharesOutstanding", 0),
+        "shares_outstanding": shares,
         "financials": {"2025Q1": {"EPS": 5.2}},
         "institutional_investors": goodinfo_data.get("institutional_investors", []),
         "news": news_list,
         "technical_indicators": indicators,
-        "est_revenue": report_data.get("revenue", "分析中"),
-        "est_eps": report_data.get("eps", "分析中"),
-        "est_dividend": report_data.get("dividend", "分析中"),
-        "ai_prediction": report_data.get("summary", "分析中"),
+        "est_revenue": round(est_revenue, 0),
+        "est_eps": round(est_eps, 2),
+        "est_dividend": round(est_dividend, 2),
+        "ai_prediction": "基於營收年增率與淨利率自動推算之財務預測。",
         "margin_ratio": goodinfo_data.get("margin_ratio", 0.0),
         "shareholder_structure": goodinfo_data.get("shareholder_structure", {}),
         "black_swan_alert": black_swan_data,
-        "ai_stock_selection": get_ai_analysis(f"基於技術指標: {indicators} 與籌碼結構, 提供建議。")
+        "ai_stock_selection": get_ai_analysis(f"基於技術指標: {indicators} 與財報預測, 提供選股建議。")
     }
     
     save_market_data(final_data)
-    send_line_notify(f"每日股市更新: {ticker_code} 股價={current_price} (漲跌={round(change_pct, 2)}%)")
+    send_line_notify(f"每日股市更新: {ticker_code} 預估EPS={round(est_eps, 2)}，預估股利={round(est_dividend, 2)}")
 
 if __name__ == "__main__":
     run_analysis_and_update()
