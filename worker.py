@@ -1,20 +1,22 @@
 import json
-import yfinance as yf
-import pandas as pd
+import os
 from datetime import datetime
+from openai import OpenAI
+from dotenv import load_dotenv
+
+# 自動載入 .env 檔案中的設定
+load_dotenv()
 
 def calculate_investor_volume(broker_data):
     """
     計算大戶與散戶的買賣超。
-    假設 broker_data 為列表，包含 {'券商': '...', '買進': 100, '賣出': 20}
+    大戶標準：單一券商分點淨買賣超絕對值 > 400 張
     """
     big_investor_volume = 0
     retail_investor_volume = 0
     
     for broker in broker_data:
-        # 計算淨買賣超
         net = broker.get('買進', 0) - broker.get('賣出', 0)
-        # 大戶標準：單一券商淨買賣超絕對值大於 400 張
         if abs(net) > 400:
             big_investor_volume += net
         else:
@@ -23,10 +25,14 @@ def calculate_investor_volume(broker_data):
     return big_investor_volume, retail_investor_volume
 
 def run_analysis():
-    # 這裡為您的資料抓取邏輯 (以下為範例結構)
-    # 建議您在此處替換成實際的 API 抓取邏輯
-    
-    # 模擬數據結構 (請替換為真實資料來源)
+    # 初始化 OpenAI Client
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    client = OpenAI(
+        api_key=api_key,
+        base_url="https://openrouter.ai/api/v1"
+    )
+
+    # 模擬數據結構 (實際應用時請替換為 API 抓取邏輯)
     broker_data = [
         {"券商": "凱基", "買進": 500, "賣出": 0},
         {"券商": "富邦", "買進": 100, "賣出": 50}
@@ -52,13 +58,10 @@ def run_analysis():
         "financials": {"2025Q1": {"EPS": 5.2, "淨值": 150.2}}
     }
     
-    # 數據校驗：確保重要數值非空
-    if market_data['price'] > 0:
-        with open("market_data.json", "w", encoding="utf-8") as f:
-            json.dump(market_data, f, ensure_ascii=False, indent=4)
-        print("分析完成，數據已更新至 market_data.json")
-    else:
-        raise ValueError("數據驗證失敗：價格為 0")
+    # 寫入 JSON
+    with open("market_data.json", "w", encoding="utf-8") as f:
+        json.dump(market_data, f, ensure_ascii=False, indent=4)
+    print("分析完成，數據已更新至 market_data.json")
 
 if __name__ == "__main__":
     run_analysis()
