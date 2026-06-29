@@ -25,8 +25,9 @@ jobs:
       - name: 安裝套件
         run: |
           python -m pip install --upgrade pip
-          # 使用最單純的安裝指令，並確保 pandas 先行安裝以解決依賴解析
+          # 分步驟安裝，確保相依性解析正常
           pip install pandas==2.2.2 requests yfinance openai beautifulsoup4
+          # 使用明確的安裝指令
           pip install pandas-ta
 
       - name: 執行分析任務
