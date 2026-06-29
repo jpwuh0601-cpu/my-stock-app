@@ -38,11 +38,3 @@ jobs:
           git add market_data.json
           git commit -m "chore: auto-update market data" || echo "No changes to commit"
           git push
-```eof
-
-3. **同步至 GitHub**：回到終端機，執行以下指令將新的設定檔推送到 GitHub：
-
-```powershell
-git add .github/workflows/main.yml
-git commit -m "fix: restore daily stock analysis workflow"
-git push origin main
