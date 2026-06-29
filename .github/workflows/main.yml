@@ -38,15 +38,3 @@ jobs:
           git add market_data.json
           git commit -m "chore: auto-update market data" || echo "No changes to commit"
           git push
-```eof
-
-### 最後一個重要檢查
-檔案建立好後，請別忘了設定 **API 金鑰**，否則程式會跑失敗：
-1. 在 GitHub 專案頁面，點擊 **「Settings」** (頂端選單)。
-2. 左側選單點選 **「Secrets and variables」** > **「Actions」**。
-3. 點選 **「New repository secret」**。
-4. Name 輸入：`OPENROUTER_API_KEY`
-5. Secret 輸入：您的 OpenRouter API Key。
-6. 按下 **「Add secret」**。
-
-做完這一步，GitHub 就會自動偵測到設定檔並開始執行您的分析任務了！這方法完全不需要動用 VS Code 的 Git，非常乾淨！
