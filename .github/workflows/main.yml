@@ -18,6 +18,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
 
       - name: 設定 Python 環境
         uses: actions/setup-python@v4
@@ -39,11 +40,12 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          # 強制重置 Git 狀態，確保僅處理數據檔案
+          # 強制設定 remote URL 以確保使用 GITHUB_TOKEN 進行認證
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          
           git reset
-          # 僅添加數據檔案，確保不會觸碰 Workflow 資料夾
           git add market_data.json
-          # 若沒有異動則跳過，避免無效提交
+          
           if git diff --cached --quiet; then
             echo "沒有資料變更，跳過推送。"
           else
