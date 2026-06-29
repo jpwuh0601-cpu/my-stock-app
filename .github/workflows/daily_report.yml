@@ -1,7 +1,8 @@
-- name: 推送更新至 GitHub
+# ... (其他部分不變)
+      - name: 推送更新至 GitHub
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add market_data.json
-          git commit -m "chore: auto-update market data" || echo "No changes to commit"
+          git add market_data.json  # 這裡要改成 market_data.json
+          git commit -m "chore: auto-update market data" || echo "No changes"
           git push
