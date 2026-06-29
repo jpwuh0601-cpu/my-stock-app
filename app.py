@@ -16,7 +16,6 @@ def load_data():
 data = load_data()
 
 if data:
-    # 顯示數據更新日期 (假設 JSON 內包含 update_date 欄位)
     update_date = data.get('update_date', '未知日期')
     st.caption(f"最後更新時間: {update_date}")
 
@@ -35,25 +34,32 @@ if data:
         st.table(pd.DataFrame(data.get('financials', {})))
         
         st.subheader("年度財務預估")
-        # 顯示預估營收、EPS與股利
         f_col1, f_col2, f_col3 = st.columns(3)
         f_col1.metric("預估今年營收", f"{data.get('est_revenue', 'N/A')}")
         f_col2.metric("預估 EPS", f"{data.get('est_eps', 'N/A')}")
         f_col3.metric("預估股利", f"{data.get('est_dividend', 'N/A')}")
 
     with tab2:
+        st.subheader("大戶與散戶籌碼動向")
+        # 假設後端提供大戶與散戶買賣超數值
+        big_investor = data.get('big_investor_volume', 0)
+        retail_investor = data.get('retail_investor_volume', 0)
+        
+        c1, c2 = st.columns(2)
+        c1.metric("大戶買賣超 (>400張)", f"{big_investor} 張")
+        c2.metric("散戶買賣超 (<=400張)", f"{retail_investor} 張")
+        
+        st.write("---")
+        
         st.subheader("三大法人買賣超 (近10日)")
         df_inst = pd.DataFrame(data.get('institutional_investors', []))
         
-        # 紅買綠賣邏輯
         def color_map(val):
             return f'color: {"red" if val > 0 else "green"}'
         
         if not df_inst.empty:
-            # 優化版面，加入容器寬度自動調整
             st.dataframe(df_inst.style.applymap(color_map, subset=['買賣超']), use_container_width=True)
             
-            # 加入籌碼集中度簡易指標
             total_buy = df_inst[df_inst['買賣超'] > 0]['買賣超'].sum()
             total_sell = abs(df_inst[df_inst['買賣超'] < 0]['買賣超'].sum())
             if total_buy + total_sell > 0:
@@ -65,7 +71,6 @@ if data:
         
         st.write("---")
         st.subheader("主力券商與自營商買賣統計")
-        # 使用 JSON 預覽格式讓券商列表更整潔
         st.json(data.get('top_brokers', {}))
 
     with tab3:
