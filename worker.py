@@ -37,6 +37,11 @@ def send_line_notify(message):
 def calculate_technical_indicators(df):
     """計算技術指標，具備自動降級與空值防護功能"""
     try:
+        # 額外檢查 df 是否包含必要的欄位，防止 Attribute Error
+        required_cols = ['Close', 'High', 'Low']
+        if not all(col in df.columns for col in required_cols):
+            return {"RSI": 0, "KD": {}, "MACD": {}}
+
         if HAS_PANDAS_TA and 'ta' in globals():
             rsi_series = ta.rsi(df['Close'], length=14)
             stoch_df = ta.stoch(df['High'], df['Low'], df['Close'])
@@ -73,12 +78,13 @@ def run_analysis_and_update():
     for i in range(3):
         try:
             hist = ticker.history(period="6mo")
-            if not hist.empty: break
+            if hist is not None and not hist.empty: break
             time.sleep(2)
         except Exception as e:
             print(f"第 {i+1} 次下載失敗: {e}")
             time.sleep(5)
             
+    # 修正：確保指標計算僅在 hist 有資料時執行
     if hist is None or hist.empty:
         print("無法取得歷史數據，跳過指標計算")
         indicators = {"RSI": 0, "KD": {}, "MACD": {}}
