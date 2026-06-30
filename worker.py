@@ -40,8 +40,11 @@ def sanitize_recursive(val):
 
 def calculate_technical_indicators(df):
     """計算技術指標，偵測到 pandas_ta 則使用，否則全面降級為原生 pandas"""
+    # 確保 ta 變數在函數作用域內已定義
+    ta = None
     try:
-        import pandas_ta as ta
+        import pandas_ta
+        ta = pandas_ta
     except ImportError:
         ta = None
 
@@ -50,6 +53,7 @@ def calculate_technical_indicators(df):
         if not all(col in df.columns for col in required_cols):
             return {"RSI": 0, "KD": {}, "MACD": {}}
 
+        # 使用已定義的 ta 變數進行指標計算
         if ta is not None:
             try:
                 rsi_series = ta.rsi(df['Close'], length=14)
@@ -61,9 +65,10 @@ def calculate_technical_indicators(df):
                 macd_val = macd_df.iloc[-1].to_dict() if macd_df is not None and not macd_df.empty else {}
                 
                 return {"RSI": rsi_val, "KD": kd_val, "MACD": macd_val}
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"pandas_ta 計算過程錯誤，降級處理: {e}")
         
+        # 原生 pandas 計算邏輯 (Fallback)
         delta = df['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
