@@ -20,7 +20,8 @@ def send_line_notify(message):
     if not token: return
     url = "https://notify-api.line.me/api/notify"
     headers = {"Authorization": f"Bearer {token}"}
-    payload = {"message": message}
+    # 確保傳入的 message 已強制轉為字串
+    payload = {"message": str(message)}
     try:
         requests.post(url, headers=headers, data=payload)
     except Exception as e:
@@ -61,7 +62,6 @@ def calculate_technical_indicators(df):
                 stoch_df = ta.stoch(df['High'], df['Low'], df['Close'])
                 macd_df = ta.macd(df['Close'])
                 
-                # 使用 is None 檢查，避免觸發 Series 的歧義判定
                 rsi_val = float(rsi_series.iloc[-1]) if rsi_series is not None and not pd.isna(rsi_series.iloc[-1]) else 0
                 kd_val = stoch_df.iloc[-1].to_dict() if stoch_df is not None and not stoch_df.empty else {}
                 macd_val = macd_df.iloc[-1].to_dict() if macd_df is not None and not macd_df.empty else {}
@@ -70,8 +70,6 @@ def calculate_technical_indicators(df):
             except Exception as e:
                 print(f"pandas_ta 計算過程錯誤，降級處理: {e}")
         
-        # 原生 pandas 計算邏輯 (Fallback)
-        # 使用 .mask() 或 .where() 時，條件應為 bool Series，直接運算
         delta = df['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
@@ -152,7 +150,9 @@ def run_analysis_and_update():
         print(f"寫入檔案發生嚴重錯誤: {e}")
         return 
         
-    send_line_notify(f"每日股市更新: {ticker_code} 預估EPS={round(sanitize(est_eps), 2)}")
+    # 這裡確保所有輸出的數值都已轉為字串
+    eps_msg = str(round(sanitize(est_eps), 2))
+    send_line_notify("每日股市更新: " + ticker_code + " 預估EPS=" + eps_msg)
 
 if __name__ == "__main__":
     run_analysis_and_update()
