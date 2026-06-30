@@ -29,17 +29,18 @@ def load_and_validate_data():
         return None
 
 def get_scalar(val):
-    """確保數值為有限標量，若為列表則取最後一項或轉換，過濾非有限值"""
+    """確保數值為有限標量，並強制轉換為 float，過濾非有限值"""
     try:
         if val is None:
             return 0.0
         if isinstance(val, list):
             val = val[-1] if val else 0
+        # 強制轉換為浮點數，解決乘法時型別錯誤問題
         f = float(val)
         if math.isfinite(f):
             return f
         return 0.0
-    except:
+    except (ValueError, TypeError):
         return 0.0
 
 data = load_and_validate_data()
@@ -57,7 +58,6 @@ if data:
     margin_ratio = get_scalar(data.get('margin_ratio', 0))
 
     col1, col2, col3 = st.columns(3)
-    # 將 metric 改為數值顯示，以符合 Streamlit API 規範
     col1.metric("即時股價", value=f"${price:,.2f}")
     col2.metric("每股淨值 (BVPS)", value=f"${bvps:,.2f}")
     col3.metric("LINE 通知狀態", value="已連線" if data.get('line_status') else "未連線")
