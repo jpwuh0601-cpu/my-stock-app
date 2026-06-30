@@ -7,6 +7,7 @@ from datetime import datetime
 from openai import OpenAI
 from bs4 import BeautifulSoup
 import time
+import math
 
 # 設定 OpenRouter API
 client = OpenAI(
@@ -71,7 +72,6 @@ def run_analysis_and_update():
     ticker_code = "2330"
     ticker = yf.Ticker(f"{ticker_code}.TW")
     
-    # 下載數據重試機制
     hist = None
     for i in range(3):
         try:
@@ -88,28 +88,40 @@ def run_analysis_and_update():
     else:
         indicators = calculate_technical_indicators(hist)
     
-    # 修正：確保 ticker.info 不為 None
     try:
         info = ticker.info or {}
     except Exception as e:
         print(f"取得 ticker.info 失敗: {e}")
         info = {}
         
-    shares = info.get("sharesOutstanding", 25930000000)
-    est_eps = (info.get("totalRevenue", 0) * 0.20 * 0.40) / shares if shares > 0 else 0
+    # 嚴格數值處理，防止 ValueError: Cannot convert non-finite values (NA or inf) to integer
+    shares = info.get("sharesOutstanding")
+    if shares is None or shares <= 0:
+        shares = 25930000000 # 給予一個合理的預設值
+        
+    revenue = info.get("totalRevenue", 0) or 0
+    est_eps = (revenue * 0.20 * 0.40) / shares
     est_dividend = est_eps * 0.50
     
+    # 確保數值轉為 float 且無窮大或 NaN 值被替換
+    def sanitize(val):
+        try:
+            f = float(val)
+            return 0 if math.isnan(f) or math.isinf(f) else f
+        except:
+            return 0
+
     final_data = {
         "update_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "price": info.get("currentPrice", 0),
-        "bvps": info.get("bookValue", 0),
+        "price": sanitize(info.get("currentPrice", 0)),
+        "bvps": sanitize(info.get("bookValue", 0)),
         "financials": {"2025Q1": {"EPS": 5.2}},
         "institutional_investors": [{"機構": "外資", "買賣超": 500}],
         "news": ["市場動態更新"],
         "technical_indicators": indicators,
-        "est_revenue": round(info.get("totalRevenue", 0) * 1.2, 0),
-        "est_eps": round(est_eps, 2),
-        "est_dividend": round(est_dividend, 2),
+        "est_revenue": sanitize(revenue * 1.2),
+        "est_eps": round(sanitize(est_eps), 2),
+        "est_dividend": round(sanitize(est_dividend), 2),
         "ai_prediction": "基於營收預測分析。",
         "margin_ratio": 1.2,
         "black_swan_alert": {"is_triggered": False},
@@ -125,7 +137,7 @@ def run_analysis_and_update():
     except Exception as e:
         print(f"寫入檔案失敗: {e}")
         
-    send_line_notify(f"每日股市更新: {ticker_code} 預估EPS={round(est_eps, 2)}")
+    send_line_notify(f"每日股市更新: {ticker_code} 預估EPS={round(sanitize(est_eps), 2)}")
 
 if __name__ == "__main__":
     run_analysis_and_update()
