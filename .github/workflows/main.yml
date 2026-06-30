@@ -30,23 +30,23 @@ jobs:
       - name: 安裝套件至本地目錄
         run: |
           python -m pip install --upgrade pip
-          # 清除可能衝突的舊目錄
+          # 清除舊目錄並安裝套件
           rm -rf ./libs
           mkdir -p ./libs
-          # 採用更標準的安裝方式，並確保所有套件升級到最新版
           pip install --upgrade pandas requests yfinance openai beautifulsoup4 pandas_ta --target=./libs
           
       - name: 執行分析任務
         env:
           LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          # 確保優先讀取我們乾淨安裝的 ./libs 目錄
+          # 確保 Python 環境變數包含 libs
           PYTHONPATH: ${{ github.workspace }}/libs
         run: |
-          if [ -f "worker.py" ]; then
+          # 執行前再次確認 libs 路徑存在
+          if [ -d "libs" ]; then
             python worker.py
           else
-            echo "找不到 worker.py"
+            echo "錯誤：libs 目錄不存在，安裝步驟可能失敗。"
             exit 1
           fi
 
