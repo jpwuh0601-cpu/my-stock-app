@@ -49,10 +49,10 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           if [ -f "market_data.json" ]; then
             git add market_data.json
+            # 強制提交以覆蓋潛在衝突
             git commit -m "chore: auto-update market data [skip ci]" || echo "No changes to commit"
-            # 加入 --allow-unrelated-histories 以強制解決歷史不重疊衝突
-            git pull origin main --rebase --allow-unrelated-histories
-            git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main
+            # 移除 git pull --rebase，改為強制推送最新的變更，確保數據為最新版
+            git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main --force
           else
             echo "market_data.json 未產生，跳過推送。"
           fi
