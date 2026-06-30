@@ -27,7 +27,10 @@ def send_line_notify(message):
         print(f"LINE 通知失敗: {e}")
 
 def sanitize_recursive(val):
-    """遞迴檢查物件結構，確保沒有 NaN 或 inf"""
+    """遞迴檢查物件結構，將 pandas Series/Index 轉換為 list，並排除 NaN/inf"""
+    if isinstance(val, (pd.Series, pd.Index)):
+        val = val.tolist()
+    
     if isinstance(val, dict):
         return {k: sanitize_recursive(v) for k, v in val.items()}
     elif isinstance(val, list):
@@ -40,7 +43,6 @@ def sanitize_recursive(val):
 
 def calculate_technical_indicators(df):
     """計算技術指標，偵測到 pandas_ta 則使用，否則全面降級為原生 pandas"""
-    # 確保 ta 變數在函數作用域內已定義
     ta = None
     try:
         import pandas_ta
@@ -53,13 +55,13 @@ def calculate_technical_indicators(df):
         if not all(col in df.columns for col in required_cols):
             return {"RSI": 0, "KD": {}, "MACD": {}}
 
-        # 使用已定義的 ta 變數進行指標計算
         if ta is not None:
             try:
                 rsi_series = ta.rsi(df['Close'], length=14)
                 stoch_df = ta.stoch(df['High'], df['Low'], df['Close'])
                 macd_df = ta.macd(df['Close'])
                 
+                # 確保轉為 Python 原生型別
                 rsi_val = float(rsi_series.iloc[-1]) if rsi_series is not None and not pd.isna(rsi_series.iloc[-1]) else 0
                 kd_val = stoch_df.iloc[-1].to_dict() if stoch_df is not None and not stoch_df.empty else {}
                 macd_val = macd_df.iloc[-1].to_dict() if macd_df is not None and not macd_df.empty else {}
@@ -68,7 +70,6 @@ def calculate_technical_indicators(df):
             except Exception as e:
                 print(f"pandas_ta 計算過程錯誤，降級處理: {e}")
         
-        # 原生 pandas 計算邏輯 (Fallback)
         delta = df['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
