@@ -33,18 +33,18 @@ def send_line_notify(message):
         print(f"LINE 通知失敗: {e}")
 
 def calculate_technical_indicators(df):
-    """計算技術指標，具備自動降級功能"""
+    """計算技術指標，具備自動降級與空值防護功能"""
     try:
         if HAS_PANDAS_TA:
-            # 使用函數式調用 pandas_ta
-            rsi = ta.rsi(df['Close'], length=14)
-            stoch = ta.stoch(df['High'], df['Low'], df['Close'])
-            macd = ta.macd(df['Close'])
+            # 安全地呼叫指標，並檢查回傳是否為 None
+            rsi_series = ta.rsi(df['Close'], length=14)
+            stoch_df = ta.stoch(df['High'], df['Low'], df['Close'])
+            macd_df = ta.macd(df['Close'])
             
             return {
-                "RSI": float(rsi.iloc[-1]) if rsi is not None and not pd.isna(rsi.iloc[-1]) else 0,
-                "KD": stoch.iloc[-1].to_dict() if stoch is not None else {},
-                "MACD": macd.iloc[-1].to_dict() if macd is not None else {}
+                "RSI": float(rsi_series.iloc[-1]) if rsi_series is not None and not pd.isna(rsi_series.iloc[-1]) else 0,
+                "KD": stoch_df.iloc[-1].to_dict() if stoch_df is not None and not stoch_df.empty else {},
+                "MACD": macd_df.iloc[-1].to_dict() if macd_df is not None and not macd_df.empty else {}
             }
         else:
             # 原生 Pandas 備援計算：RSI
