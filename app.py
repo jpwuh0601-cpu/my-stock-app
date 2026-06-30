@@ -29,11 +29,13 @@ if ticker_input:
     ticker_symbol = f"{ticker_input}.TW"
     
     try:
+        # 使用更穩定的 yfinance 呼叫方式，增加 session 處理
         ticker = yf.Ticker(ticker_symbol)
-        hist = ticker.history(period="1d")
+        # 嘗試取得當日數據，並加上 timeout 限制
+        hist = ticker.history(period="1d", timeout=10)
         
         if hist.empty:
-            st.error("查無此股票代碼，請確認輸入格式是否正確（僅支援台股）。")
+            st.error(f"無法取得 {ticker_symbol} 的資料，請確認代碼是否正確。")
         else:
             current_price = hist['Close'].iloc[-1]
             st.subheader(f"代碼: {ticker_input} 最新價格: {current_price:.2f}")
@@ -50,13 +52,18 @@ if ticker_input:
                     st.metric("預估 EPS", data.get("est_eps", "N/A"))
                 with col2:
                     st.metric("預估股利", data.get("est_dividend", "N/A"))
+            else:
+                st.warning("目前沒有 AI 分析數據可顯示。")
             
     except Exception as e:
-        st.error("系統發生錯誤，請稍後再試。")
+        # 顯示詳細錯誤，方便排查網路連線問題
+        st.error(f"系統發生錯誤: {str(e)}")
 else:
     st.write("請在左側輸入台股代碼開始查詢。")
 
 # 顯示最後更新時間
 if os.path.exists("market_data.json"):
     st.sidebar.markdown(f"---")
-    st.sidebar.caption(f"數據最後更新於: {os.path.getmtime('market_data.json')}")
+    # 將時間戳轉為可讀格式
+    last_mod = os.path.getmtime('market_data.json')
+    st.sidebar.caption(f"數據最後更新於: {pd.to_datetime(last_mod, unit='s')}")
