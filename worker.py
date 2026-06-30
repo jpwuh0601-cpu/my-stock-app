@@ -6,6 +6,7 @@ import pandas as pd
 from datetime import datetime
 from openai import OpenAI
 from bs4 import BeautifulSoup
+import time
 
 # 設定 OpenRouter API
 client = OpenAI(
@@ -35,10 +36,7 @@ def send_line_notify(message):
 
 def calculate_technical_indicators(df):
     """計算技術指標，具備自動降級與空值防護功能"""
-    # 確保 pd 可用
-    global pd 
     try:
-        # 使用防禦性判斷
         if HAS_PANDAS_TA and 'ta' in globals():
             rsi_series = ta.rsi(df['Close'], length=14)
             stoch_df = ta.stoch(df['High'], df['Low'], df['Close'])
@@ -69,14 +67,28 @@ def calculate_technical_indicators(df):
 def run_analysis_and_update():
     ticker_code = "2330"
     ticker = yf.Ticker(f"{ticker_code}.TW")
-    hist = ticker.history(period="6mo")
-    info = ticker.info
     
+    # 增加下載重試機制，解決 yfinance 下載失敗問題
+    hist = None
+    for i in range(3):
+        try:
+            hist = ticker.history(period="6mo")
+            if not hist.empty: break
+            time.sleep(2)
+        except Exception as e:
+            print(f"第 {i+1} 次下載失敗: {e}")
+            time.sleep(5)
+            
+    if hist is None or hist.empty:
+        print("無法取得歷史數據，跳過指標計算")
+        indicators = {"RSI": 0, "KD": {}, "MACD": {}}
+    else:
+        indicators = calculate_technical_indicators(hist)
+    
+    info = ticker.info
     shares = info.get("sharesOutstanding", 25930000000)
     est_eps = (info.get("totalRevenue", 0) * 0.20 * 0.40) / shares
     est_dividend = est_eps * 0.50
-    
-    indicators = calculate_technical_indicators(hist)
     
     final_data = {
         "update_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -96,14 +108,13 @@ def run_analysis_and_update():
         "line_status": True
     }
     
-    # 修正寫入邏輯：明確指定寫入目錄為當前目錄，並加入權限檢查
     try:
         output_path = os.path.join(os.getcwd(), "market_data.json")
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(final_data, f, ensure_ascii=False, indent=4)
         print(f"數據成功寫入至: {output_path}")
     except Exception as e:
-        print(f"寫入檔案失敗 (Error 154): {e}")
+        print(f"寫入檔案失敗: {e}")
         
     send_line_notify(f"每日股市更新: {ticker_code} 預估EPS={round(est_eps, 2)}")
 
