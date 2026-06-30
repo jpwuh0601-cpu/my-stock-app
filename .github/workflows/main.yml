@@ -1,68 +1,51 @@
 name: Trigger Stock Workflow
 
 on:
-workflow_dispatch:
-
-push:
-branches:
-- main
-
-schedule:
-- cron: '30 0 * * *'
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+  schedule:
+    - cron: '30 0 * * *'
 
 permissions:
-contents: write
+  contents: write
 
 jobs:
-build:
-runs-on: ubuntu-latest
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 檢出程式碼
+        uses: actions/checkout@v3
 
-```
-steps:
-  - name: 檢出程式碼
-    uses: actions/checkout@v3
-    with:
-      fetch-depth: 0
+      - name: 設定 Python 環境
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
 
-  - name: 設定 Python
-    uses: actions/setup-python@v4
-    with:
-      python-version: '3.10'
+      - name: 安裝所有必要套件
+        run: |
+          python -m pip install --upgrade pip
+          # 確保核心套件安裝並鎖定版本
+          pip install pandas==2.2.0 numpy==1.26.4 requests yfinance openai==2.44.0 beautifulsoup4 bottleneck==1.3.8 line-bot-sdk
+          # 嘗試透過標準方式安裝 pandas-ta，若失敗則透過 pip 忽略錯誤繼續執行
+          pip install pandas-ta || echo "pandas-ta 安裝步驟略過，將由 worker.py 自動降級處理"
 
-  - name: 安裝套件
-    run: |
-      python -m pip install --upgrade pip
+      - name: 執行分析任務
+        env:
+          LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          python worker.py
 
-      pip install \
-      pandas==2.2.0 \
-      numpy==1.26.4 \
-      requests \
-      yfinance \
-      openai==2.44.0 \
-      beautifulsoup4 \
-      bottleneck==1.3.8 \
-      line-bot-sdk
-
-  - name: 執行程式
-    env:
-      LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
-      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-    run: |
-      python worker.py
-
-  - name: 推送資料
-    run: |
-      git config --global user.name "github-actions[bot]"
-      git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-      if [ -f "market_data.json" ]; then
-
-        git add market_data.json
-
-        git commit -m "chore: auto-update market data" || echo "No changes"
-
-        git pull --rebase origin main
-
-        git push
-      fi
-```
+      - name: 推送數據
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          if [ -f "market_data.json" ]; then
+            git add market_data.json
+            git commit -m "chore: auto-update market data" || echo "No changes to commit"
+            git push
+          fi
