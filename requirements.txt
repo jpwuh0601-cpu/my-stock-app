@@ -5,4 +5,3 @@ yfinance
 python-dotenv
 openai
 beautifulsoup4
-pandas_ta
