@@ -30,10 +30,9 @@ jobs:
       - name: 安裝套件至本地目錄
         run: |
           python -m pip install --upgrade pip
-          # 使用 --target 將所有依賴套件安裝到當前工作目錄的 libs 資料夾
-          mkdir -p libs
-          pip install pandas requests yfinance openai beautifulsoup4 pandas_ta --target=./libs
-
+          # 強制更新並安裝最新相容版本的 Pandas 與其他依賴，確保 isna 等屬性正常
+          pip install --upgrade pandas requests yfinance openai beautifulsoup4 pandas_ta --target=./libs
+          
       - name: 執行分析任務
         env:
           LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
