@@ -37,7 +37,6 @@ def send_line_notify(message):
 def calculate_technical_indicators(df):
     """計算技術指標，具備自動降級與空值防護功能"""
     try:
-        # 額外檢查 df 是否包含必要的欄位，防止 Attribute Error
         required_cols = ['Close', 'High', 'Low']
         if not all(col in df.columns for col in required_cols):
             return {"RSI": 0, "KD": {}, "MACD": {}}
@@ -53,7 +52,6 @@ def calculate_technical_indicators(df):
                 "MACD": macd_df.iloc[-1].to_dict() if macd_df is not None and not macd_df.empty else {}
             }
         else:
-            # 原生 Pandas 備援計算
             delta = df['Close'].diff()
             gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
             loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
@@ -73,7 +71,7 @@ def run_analysis_and_update():
     ticker_code = "2330"
     ticker = yf.Ticker(f"{ticker_code}.TW")
     
-    # 增加下載重試機制，解決 yfinance 下載失敗問題
+    # 下載數據重試機制
     hist = None
     for i in range(3):
         try:
@@ -81,19 +79,24 @@ def run_analysis_and_update():
             if hist is not None and not hist.empty: break
             time.sleep(2)
         except Exception as e:
-            print(f"第 {i+1} 次下載失敗: {e}")
+            print(f"歷史數據下載失敗: {e}")
             time.sleep(5)
             
-    # 修正：確保指標計算僅在 hist 有資料時執行
     if hist is None or hist.empty:
         print("無法取得歷史數據，跳過指標計算")
         indicators = {"RSI": 0, "KD": {}, "MACD": {}}
     else:
         indicators = calculate_technical_indicators(hist)
     
-    info = ticker.info
+    # 修正：確保 ticker.info 不為 None
+    try:
+        info = ticker.info or {}
+    except Exception as e:
+        print(f"取得 ticker.info 失敗: {e}")
+        info = {}
+        
     shares = info.get("sharesOutstanding", 25930000000)
-    est_eps = (info.get("totalRevenue", 0) * 0.20 * 0.40) / shares
+    est_eps = (info.get("totalRevenue", 0) * 0.20 * 0.40) / shares if shares > 0 else 0
     est_dividend = est_eps * 0.50
     
     final_data = {
