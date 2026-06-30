@@ -27,15 +27,17 @@ jobs:
       - name: 安裝所有必要套件
         run: |
           python -m pip install --upgrade pip
-          # 保持基礎環境，不強求安裝 pandas-ta
+          # 安裝基礎穩定依賴
           pip install pandas==2.2.0 numpy==1.26.4 requests yfinance openai beautifulsoup4 bottleneck==1.3.8
+          # 使用 git 直接從來源安裝，避開 PyPI 版本匹配問題，並加上 --no-cache-dir 確保安裝成功
+          pip install git+https://github.com/twopirllc/pandas-ta.git@development --no-cache-dir
 
       - name: 執行分析任務
         env:
           LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
-          # 執行分析程式，現在錯誤將會由 worker.py 內部的邏輯處理
+          # 執行分析程式
           python worker.py
 
       - name: 推送數據
