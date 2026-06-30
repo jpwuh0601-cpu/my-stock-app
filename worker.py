@@ -3,16 +3,23 @@ import requests
 import os
 import yfinance as yf
 import pandas as pd
-import pandas_ta as ta
 from datetime import datetime
 from openai import OpenAI
 from bs4 import BeautifulSoup
 
-# OpenRouter 設定
+# 設定 OpenRouter API
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=os.getenv("OPENROUTER_API_KEY"),
 )
+
+# 匯入保護機制：嘗試匯入 pandas_ta，失敗則降級使用原生計算
+try:
+    import pandas_ta as ta
+    HAS_PANDAS_TA = True
+except ImportError:
+    HAS_PANDAS_TA = False
+    print("注意：未偵測到 pandas_ta，將自動降級使用原生 pandas 計算")
 
 def send_line_notify(message):
     token = os.getenv("LINE_NOTIFY_TOKEN")
@@ -25,40 +32,35 @@ def send_line_notify(message):
     except Exception as e:
         print(f"LINE 通知失敗: {e}")
 
-def get_ai_analysis(prompt, json_mode=False):
-    try:
-        completion = client.chat.completions.create(
-            model="openai/gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            extra_body={"response_format": {"type": "json_object"}} if json_mode else {}
-        )
-        return completion.choices[0].message.content
-    except Exception as e:
-        return None
-
-def fetch_goodinfo_data(ticker_symbol="2330"):
-    # 此處可擴充為實際爬蟲邏輯
-    return {
-        "institutional_investors": [{"機構": "外資", "買賣超": 500}],
-        "margin_ratio": 1.2,
-        "shareholder_structure": {"big_holder_400plus": 85.5, "retail_investor": 14.5}
-    }
-
 def calculate_technical_indicators(df):
+    """計算技術指標，具備自動降級功能"""
     try:
-        # 使用函數式調用，避開 .ta 物件屬性掛載問題
-        rsi = ta.rsi(df['Close'], length=14)
-        stoch = ta.stoch(df['High'], df['Low'], df['Close'])
-        macd = ta.macd(df['Close'])
-        
-        indicators = {
-            "RSI": float(rsi.iloc[-1]) if rsi is not None and not pd.isna(rsi.iloc[-1]) else 0,
-            "KD": stoch.iloc[-1].to_dict() if stoch is not None else {},
-            "MACD": macd.iloc[-1].to_dict() if macd is not None else {}
-        }
-        return indicators
+        if HAS_PANDAS_TA:
+            # 使用函數式調用 pandas_ta
+            rsi = ta.rsi(df['Close'], length=14)
+            stoch = ta.stoch(df['High'], df['Low'], df['Close'])
+            macd = ta.macd(df['Close'])
+            
+            return {
+                "RSI": float(rsi.iloc[-1]) if rsi is not None and not pd.isna(rsi.iloc[-1]) else 0,
+                "KD": stoch.iloc[-1].to_dict() if stoch is not None else {},
+                "MACD": macd.iloc[-1].to_dict() if macd is not None else {}
+            }
+        else:
+            # 原生 Pandas 備援計算：RSI
+            delta = df['Close'].diff()
+            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+            rs = gain / loss
+            rsi = 100 - (100 / (1 + rs))
+            
+            return {
+                "RSI": float(rsi.iloc[-1]) if not pd.isna(rsi.iloc[-1]) else 0,
+                "KD": {"status": "not_available"},
+                "MACD": {"status": "not_available"}
+            }
     except Exception as e:
-        print(f"指標計算錯誤: {e}")
+        print(f"指標計算發生錯誤: {e}")
         return {"RSI": 0, "KD": {}, "MACD": {}}
 
 def run_analysis_and_update():
@@ -67,7 +69,7 @@ def run_analysis_and_update():
     hist = ticker.history(period="6mo")
     info = ticker.info
     
-    # 運算預測
+    # 計算預測數據
     shares = info.get("sharesOutstanding", 25930000000)
     est_eps = (info.get("totalRevenue", 0) * 0.20 * 0.40) / shares
     est_dividend = est_eps * 0.50
@@ -75,10 +77,11 @@ def run_analysis_and_update():
     indicators = calculate_technical_indicators(hist)
     
     final_data = {
+        "update_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "price": info.get("currentPrice", 0),
         "bvps": info.get("bookValue", 0),
         "financials": {"2025Q1": {"EPS": 5.2}},
-        "institutional_investors": fetch_goodinfo_data().get("institutional_investors", []),
+        "institutional_investors": [{"機構": "外資", "買賣超": 500}],
         "news": ["市場動態更新"],
         "technical_indicators": indicators,
         "est_revenue": round(info.get("totalRevenue", 0) * 1.2, 0),
@@ -87,7 +90,8 @@ def run_analysis_and_update():
         "ai_prediction": "基於營收預測分析。",
         "margin_ratio": 1.2,
         "black_swan_alert": {"is_triggered": False},
-        "ai_stock_selection": "維持穩健持有建議。"
+        "ai_stock_selection": "維持穩健持有建議。",
+        "line_status": True
     }
     
     with open("market_data.json", "w", encoding="utf-8") as f:
