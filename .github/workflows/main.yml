@@ -30,7 +30,7 @@ jobs:
           # 安裝基礎穩定套件
           pip install pandas==2.2.0 numpy==1.26.4 requests yfinance openai beautifulsoup4 bottleneck==1.3.8
           # 修正套件名稱為 pandas_ta (底線)，並移除可能造成衝突的 index-url
-          pip install pandas_ta
+       
 
       - name: 執行分析任務
         env:
