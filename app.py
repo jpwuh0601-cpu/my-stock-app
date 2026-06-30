@@ -31,6 +31,8 @@ def load_and_validate_data():
 def get_scalar(val):
     """確保數值為有限標量，若為列表則取最後一項或轉換，過濾非有限值"""
     try:
+        if val is None:
+            return 0.0
         if isinstance(val, list):
             val = val[-1] if val else 0
         f = float(val)
@@ -49,6 +51,10 @@ if data:
     # 使用優化後的數值獲取函數，強制轉為 float 並檢查有限性
     price = get_scalar(data.get('price', 0))
     bvps = get_scalar(data.get('bvps', 0))
+    est_revenue = get_scalar(data.get('est_revenue', 0))
+    est_eps = get_scalar(data.get('est_eps', 0))
+    est_dividend = get_scalar(data.get('est_dividend', 0))
+    margin_ratio = get_scalar(data.get('margin_ratio', 0))
 
     col1, col2, col3 = st.columns(3)
     # 將 metric 改為數值顯示，以符合 Streamlit API 規範
@@ -66,9 +72,9 @@ if data:
         
         st.subheader("年度財務預估")
         f_col1, f_col2, f_col3 = st.columns(3)
-        f_col1.metric("預估今年營收", value=f"{data.get('est_revenue', 0)}")
-        f_col2.metric("預估 EPS", value=f"{data.get('est_eps', 0)}")
-        f_col3.metric("預估股利", value=f"{data.get('est_dividend', 0)}")
+        f_col1.metric("預估今年營收", value=f"{est_revenue:,.0f}")
+        f_col2.metric("預估 EPS", value=f"{est_eps:,.2f}")
+        f_col3.metric("預估股利", value=f"{est_dividend:,.2f}")
             
         st.subheader("AI 財報預測")
         st.info(data.get('ai_prediction', '系統分析中...'))
@@ -82,7 +88,7 @@ if data:
         
         st.subheader("籌碼面統計")
         col_a, col_b = st.columns(2)
-        col_a.metric("資券比", value=f"{data.get('margin_ratio', 0)}%")
+        col_a.metric("資券比", value=f"{margin_ratio:.2f}%")
 
     with tab3:
         st.subheader("最新市場新聞與分析")
