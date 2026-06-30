@@ -30,13 +30,15 @@ jobs:
       - name: 安裝所有必要套件
         run: |
           python -m pip install --upgrade pip
+          # 直接安裝，並將安裝路徑匯出至環境變數
           pip install pandas requests yfinance openai beautifulsoup4 pandas_ta
+          # 自動獲取 Python 套件路徑並設定至 PYTHONPATH
+          echo "PYTHONPATH=$(python -c 'import site; print(site.getsitepackages()[0])')" >> $GITHUB_ENV
           
       - name: 執行分析任務
         env:
           LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          PYTHONPATH: /opt/hostedtoolcache/Python/3.10.14/x64/lib/python3.10/site-packages:/home/runner/.local/lib/python3.10/site-packages
         run: python worker.py
 
       - name: 推送數據至 GitHub
