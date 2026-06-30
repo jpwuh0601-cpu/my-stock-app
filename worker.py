@@ -47,10 +47,25 @@ def calculate_technical_indicators(df):
             stoch_df = ta.stoch(df['High'], df['Low'], df['Close'])
             macd_df = ta.macd(df['Close'])
             
+            # 針對指標計算結果進行強健性檢查，避免 NoneType 錯誤
+            rsi_val = float(rsi_series.iloc[-1]) if rsi_series is not None and not pd.isna(rsi_series.iloc[-1]) else 0
+            
+            kd_val = {}
+            if stoch_df is not None and not stoch_df.empty:
+                kd_row = stoch_df.iloc[-1]
+                if kd_row is not None:
+                    kd_val = kd_row.to_dict()
+                    
+            macd_val = {}
+            if macd_df is not None and not macd_df.empty:
+                macd_row = macd_df.iloc[-1]
+                if macd_row is not None:
+                    macd_val = macd_row.to_dict()
+            
             return {
-                "RSI": float(rsi_series.iloc[-1]) if rsi_series is not None and not pd.isna(rsi_series.iloc[-1]) else 0,
-                "KD": stoch_df.iloc[-1].to_dict() if stoch_df is not None and not stoch_df.empty else {},
-                "MACD": macd_df.iloc[-1].to_dict() if macd_df is not None and not macd_df.empty else {}
+                "RSI": rsi_val,
+                "KD": kd_val,
+                "MACD": macd_val
             }
         else:
             delta = df['Close'].diff()
@@ -94,16 +109,14 @@ def run_analysis_and_update():
         print(f"取得 ticker.info 失敗: {e}")
         info = {}
         
-    # 嚴格數值處理，防止 ValueError: Cannot convert non-finite values (NA or inf) to integer
     shares = info.get("sharesOutstanding")
     if shares is None or shares <= 0:
-        shares = 25930000000 # 給予一個合理的預設值
+        shares = 25930000000
         
     revenue = info.get("totalRevenue", 0) or 0
     est_eps = (revenue * 0.20 * 0.40) / shares
     est_dividend = est_eps * 0.50
     
-    # 確保數值轉為 float 且無窮大或 NaN 值被替換
     def sanitize(val):
         try:
             f = float(val)
