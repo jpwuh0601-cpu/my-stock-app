@@ -18,11 +18,9 @@ def load_and_validate_data():
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
-            # 確保 data 為字典結構
             if not isinstance(data, dict):
                 return None
             
-            # 檢查基礎必要欄位
             required_keys = ['price', 'bvps', 'financials', 'institutional_investors', 'news', 'technical_indicators']
             
             for key in required_keys:
@@ -37,10 +35,8 @@ def get_scalar(val):
     try:
         if val is None:
             return 0.0
-        # 如果是 pandas Series，取最後一個值
         if isinstance(val, pd.Series):
             val = val.iloc[-1]
-        # 如果是列表，取最後一個值
         if isinstance(val, list):
             val = val[-1] if val else 0
         
@@ -57,7 +53,6 @@ if data:
     update_date = data.get('update_date', '未知日期')
     st.caption(f"最後更新時間: {update_date}")
 
-    # 使用優化後的數值獲取函數
     price = get_scalar(data.get('price', 0))
     bvps = get_scalar(data.get('bvps', 0))
     est_revenue = get_scalar(data.get('est_revenue', 0))
@@ -76,12 +71,11 @@ if data:
 
     with tab1:
         st.subheader("每季財務報表")
-        # 確保 financials 存在且為可轉為 DataFrame 的格式
         financials = data.get('financials')
         try:
             if financials and isinstance(financials, (dict, list)):
-                df_fin = pd.DataFrame(financials)
-                st.table(df_fin)
+                # 使用最基礎的寫法以兼容所有版本
+                st.table(pd.DataFrame(financials))
             else:
                 st.write("目前無財務報表數據。")
         except Exception:
@@ -99,11 +93,10 @@ if data:
     with tab2:
         st.subheader("三大法人買賣超")
         inst_data = data.get('institutional_investors', [])
-        # 防禦性渲染 DataFrame，移除不相容的參數
         try:
             if isinstance(inst_data, (list, dict)) and len(inst_data) > 0:
-                df_inst = pd.DataFrame(inst_data)
-                st.dataframe(df_inst)
+                # 移除所有參數，確保相容性
+                st.dataframe(pd.DataFrame(inst_data))
             else:
                 st.write("目前無籌碼分析數據。")
         except Exception:
