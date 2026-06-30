@@ -27,14 +27,13 @@ def send_line_notify(message):
         print(f"LINE 通知失敗: {e}")
 
 def calculate_technical_indicators(df):
-    """計算技術指標，具備自動降級與空值防護功能"""
-    # 重新在函式內進行 pandas_ta 測試，確保名稱空間安全
+    """計算技術指標，優先使用 pandas_ta，若無則自動降級為原生 pandas 計算"""
+    use_ta = False
     try:
         import pandas_ta as ta
         use_ta = True
     except ImportError:
-        use_ta = False
-        print("注意：pandas_ta 未安裝，切換至原生運算")
+        print("注意：偵測到 pandas_ta 未安裝，將使用原生 pandas 進行技術指標計算。")
 
     try:
         required_cols = ['Close', 'High', 'Low']
@@ -48,24 +47,12 @@ def calculate_technical_indicators(df):
             
             rsi_val = float(rsi_series.iloc[-1]) if rsi_series is not None and not pd.isna(rsi_series.iloc[-1]) else 0
             
-            kd_val = {}
-            if stoch_df is not None and not stoch_df.empty:
-                kd_row = stoch_df.iloc[-1]
-                if kd_row is not None:
-                    kd_val = kd_row.to_dict()
-                    
-            macd_val = {}
-            if macd_df is not None and not macd_df.empty:
-                macd_row = macd_df.iloc[-1]
-                if macd_row is not None:
-                    macd_val = macd_row.to_dict()
+            kd_val = stoch_df.iloc[-1].to_dict() if stoch_df is not None and not stoch_df.empty else {}
+            macd_val = macd_df.iloc[-1].to_dict() if macd_df is not None and not macd_df.empty else {}
             
-            return {
-                "RSI": rsi_val,
-                "KD": kd_val,
-                "MACD": macd_val
-            }
+            return {"RSI": rsi_val, "KD": kd_val, "MACD": macd_val}
         else:
+            # 原生 pandas 計算 RSI
             delta = df['Close'].diff()
             gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
             loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
@@ -74,11 +61,11 @@ def calculate_technical_indicators(df):
             
             return {
                 "RSI": float(rsi.iloc[-1]) if not pd.isna(rsi.iloc[-1]) else 0,
-                "KD": {"status": "not_available"},
-                "MACD": {"status": "not_available"}
+                "KD": {"status": "native_fallback"},
+                "MACD": {"status": "native_fallback"}
             }
     except Exception as e:
-        print(f"指標計算發生錯誤: {e}")
+        print(f"指標計算發生異常: {e}")
         return {"RSI": 0, "KD": {}, "MACD": {}}
 
 def run_analysis_and_update():
@@ -101,7 +88,6 @@ def run_analysis_and_update():
     else:
         indicators = calculate_technical_indicators(hist)
     
-    # 更嚴謹的 ticker.info 取得方式
     info = {}
     try:
         raw_info = ticker.info
@@ -111,7 +97,6 @@ def run_analysis_and_update():
         print(f"取得 ticker.info 失敗: {e}")
         
     def sanitize(val):
-        """強制處理無效數值 (NaN, inf)"""
         try:
             if val is None: return 0
             f = float(val)
