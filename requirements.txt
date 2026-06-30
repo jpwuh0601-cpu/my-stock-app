@@ -1,7 +1,9 @@
 streamlit
-pandas
-requests
 yfinance
-python-dotenv
-openai
+pandas2.2.0
+numpy1.26.4
+openai2.44.0
+requests
 beautifulsoup4
+line-bot-sdk
+bottleneck1.3.8
