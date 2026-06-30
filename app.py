@@ -3,22 +3,11 @@ import json
 import os
 import yfinance as yf
 import pandas as pd
-import time
 
 # 設定頁面配置
 st.set_page_config(page_title="AI 智能投資決策儀表板", layout="wide")
 
 st.title("📊 AI 智能投資決策儀表板")
-
-# 使用快取來避免觸發 Rate Limit
-@st.cache_data(ttl=600)
-def get_stock_data(symbol):
-    try:
-        ticker = yf.Ticker(symbol)
-        hist = ticker.history(period="1mo") # 擴大至一個月以利技術指標分析
-        return hist
-    except Exception as e:
-        return None
 
 # 讀取分析數據
 def load_market_data():
@@ -31,6 +20,11 @@ def load_market_data():
             return None
     return None
 
+# 格式化法人買賣超顯示 (紅綠燈)
+def format_institutional_data(value):
+    color = "red" if value > 0 else "green"
+    return f":{color}[{value:+,}]"
+
 # 側邊欄查詢
 st.sidebar.header("股票搜尋")
 ticker_input = st.sidebar.text_input("輸入台股代碼 (例如: 2330)")
@@ -39,8 +33,9 @@ search_button = st.sidebar.button("開始搜尋")
 if search_button and ticker_input:
     ticker_symbol = f"{ticker_input}.TW"
     
-    with st.spinner("正在進行 AI 深度分析..."):
-        hist = get_stock_data(ticker_symbol)
+    with st.spinner("正在進行 AI 深度籌碼與財報分析..."):
+        ticker = yf.Ticker(ticker_symbol)
+        hist = ticker.history(period="1mo")
         data = load_market_data()
         
         if hist is None or hist.empty:
@@ -50,27 +45,37 @@ if search_button and ticker_input:
             st.subheader(f"代碼: {ticker_input} 最新價格: {current_price:.2f}")
             
             # --- 儀表板顯示 ---
-            tab1, tab2, tab3 = st.tabs(["AI 智能分析與策略", "技術指標與警示", "新聞與基本面"])
+            tab1, tab2, tab3, tab4 = st.tabs(["基本面與財報", "籌碼面分析", "技術指標", "AI 預測與新聞"])
             
             with tab1:
-                st.write("### 🤖 GPT AI 綜合評估")
-                st.info(data.get("ai_prediction", "暫無分析數據"))
-                st.success(f"選股建議: {data.get('ai_stock_selection', '持平')}")
+                st.write("### 財報分析")
+                col1, col2 = st.columns(2)
+                col1.metric("每股淨值 (BVPS)", f"{data.get('bvps', 0):.2f}")
+                col2.metric("預估 EPS", data.get("est_eps", "N/A"))
+                st.write("今年與去年季度報表：(數據載入中...)")
+                st.table(pd.DataFrame(data.get("financials", {})))
             
             with tab2:
-                col1, col2, col3 = st.columns(3)
-                ti = data.get("technical_indicators", {})
-                col1.metric("RSI (強弱)", f"{ti.get('RSI', 0):.2f}")
-                col2.write(f"MACD: {ti.get('MACD', 'N/A')}")
-                col3.error(f"黑天鵝警示: {'⚠️ 已觸發' if data.get('black_swan_alert', {}).get('is_triggered') else '✅ 安全'}")
+                st.write("### 10日法人買賣超 (紅漲綠跌)")
+                st.write("外資:", format_institutional_data(500)) # 模擬數據
+                st.write("### 10日資券比")
+                st.metric("當前資券比", f"{data.get('margin_ratio', 0):.2f}")
             
             with tab3:
+                st.write("### 技術指標")
+                ti = data.get("technical_indicators", {})
+                col1, col2, col3 = st.columns(3)
+                col1.metric("RSI (強弱)", f"{ti.get('RSI', 0):.2f}")
+                col2.write(f"MACD: {ti.get('MACD', 'N/A')}")
+                col3.write(f"KD指標: {ti.get('KD', 'N/A')}")
+            
+            with tab4:
                 st.write("### 🗞️ 市場新聞")
                 for news in data.get("news", ["無最新新聞"]):
                     st.write(f"- {news}")
-                col1, col2 = st.columns(2)
-                col1.metric("預估 EPS", data.get("est_eps", "N/A"))
-                col2.metric("預估股利", data.get("est_dividend", "N/A"))
+                st.write("### 🤖 AI 財報預測")
+                st.info(data.get("ai_prediction", "暫無分析數據"))
+                st.error(f"黑天鵝警示: {'⚠️ 已觸發' if data.get('black_swan_alert', {}).get('is_triggered') else '✅ 安全'}")
             
 elif search_button and not ticker_input:
     st.sidebar.warning("請先輸入代碼！")
