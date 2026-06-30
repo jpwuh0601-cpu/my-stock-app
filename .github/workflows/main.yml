@@ -27,19 +27,24 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: 安裝套件
+      - name: 安裝核心套件 (排除 pandas_ta)
         run: |
           python -m pip install --upgrade pip
-          # 使用 --prefix 參數指定安裝目錄到當前目錄下的 .local，完全繞過系統權限限制
-          mkdir -p .local
-          pip install --prefix=.local pandas==2.2.2 requests yfinance openai beautifulsoup4 pandas_ta
+          pip install pandas==2.2.2 requests yfinance openai beautifulsoup4
           
+      - name: 手動部署 pandas_ta
+        run: |
+          # 直接 clone 官方儲存庫並安裝，繞過 pip 索引限制
+          git clone https://github.com/twopirllc/pandas-ta.git
+          cd pandas-ta
+          python setup.py install --user
+
       - name: 執行分析任務
         env:
           LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          # 明確指定 Python 從我們指定的安裝路徑中載入套件
-          PYTHONPATH: ${{ github.workspace }}/.local/lib/python3.10/site-packages
+          # 確保 Python 可以找到手動安裝的路徑
+          PYTHONPATH: /home/runner/.local/lib/python3.10/site-packages
         run: python worker.py
 
       - name: 推送數據至 GitHub
