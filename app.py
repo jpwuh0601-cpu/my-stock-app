@@ -99,11 +99,11 @@ if data:
     with tab2:
         st.subheader("三大法人買賣超")
         inst_data = data.get('institutional_investors', [])
-        # 防禦性渲染 DataFrame
+        # 防禦性渲染 DataFrame，移除不相容的參數
         try:
             if isinstance(inst_data, (list, dict)) and len(inst_data) > 0:
                 df_inst = pd.DataFrame(inst_data)
-                st.dataframe(df_inst, use_container_width=True)
+                st.dataframe(df_inst)
             else:
                 st.write("目前無籌碼分析數據。")
         except Exception:
