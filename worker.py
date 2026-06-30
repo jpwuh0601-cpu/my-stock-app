@@ -61,7 +61,7 @@ def calculate_technical_indicators(df):
                 stoch_df = ta.stoch(df['High'], df['Low'], df['Close'])
                 macd_df = ta.macd(df['Close'])
                 
-                # 確保轉為 Python 原生型別
+                # 使用 is None 檢查，避免觸發 Series 的歧義判定
                 rsi_val = float(rsi_series.iloc[-1]) if rsi_series is not None and not pd.isna(rsi_series.iloc[-1]) else 0
                 kd_val = stoch_df.iloc[-1].to_dict() if stoch_df is not None and not stoch_df.empty else {}
                 macd_val = macd_df.iloc[-1].to_dict() if macd_df is not None and not macd_df.empty else {}
@@ -70,6 +70,8 @@ def calculate_technical_indicators(df):
             except Exception as e:
                 print(f"pandas_ta 計算過程錯誤，降級處理: {e}")
         
+        # 原生 pandas 計算邏輯 (Fallback)
+        # 使用 .mask() 或 .where() 時，條件應為 bool Series，直接運算
         delta = df['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
