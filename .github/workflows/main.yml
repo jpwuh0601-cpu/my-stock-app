@@ -27,22 +27,24 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: 安裝所有必要套件
+      - name: 安裝套件至本地目錄
         run: |
           python -m pip install --upgrade pip
-          pip install --user pandas requests yfinance openai beautifulsoup4 pandas_ta
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          # 使用 --target 將所有依賴套件安裝到當前工作目錄的 libs 資料夾
+          mkdir -p libs
+          pip install pandas requests yfinance openai beautifulsoup4 pandas_ta --target=./libs
 
       - name: 執行分析任務
         env:
           LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          PYTHONPATH: /home/runner/.local/lib/python3.10/site-packages
+          # 強制設定 PYTHONPATH 為當前工作目錄下的 libs，確保執行時優先讀取
+          PYTHONPATH: ${{ github.workspace }}/libs
         run: |
           if [ -f "worker.py" ]; then
             python worker.py
           else
-            echo "找不到 worker.py，請確認檔案是否位於儲存庫根目錄。"
+            echo "找不到 worker.py"
             exit 1
           fi
 
@@ -51,7 +53,6 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 顯式利用 GITHUB_TOKEN 進行認證
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
           git fetch origin main
           
