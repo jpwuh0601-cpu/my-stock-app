@@ -1,4 +1,4 @@
-name: Daily Stock Analysis
+name: Trigger Stock Workflow
 
 on:
   push:
@@ -37,20 +37,16 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           export PYTHONPATH=$PYTHONPATH:$(python -m site --user-site)
-          # 使用更穩健的驗證方式，測試是否能正確呼叫指標函數
           python -c "
 import pandas as pd
 import pandas_ta as ta
 try:
-    # 檢查是否能透過 ta.strategy 存取，或使用更通用的方式
     test_df = pd.DataFrame({'close': [100, 101, 102, 101, 100]})
-    # 嘗試呼叫指標函數
     rsi = ta.rsi(test_df['close'], length=2)
-    print('pandas_ta 指標函數測試成功')
-except AttributeError:
-    print('pandas_ta 匯入成功但找不到屬性，檢查函數名稱')
+    print('pandas_ta 函數式調用測試成功')
 except Exception as e:
     print(f'測試失敗: {e}')
+    exit(1)
 "
           python worker.py
 
