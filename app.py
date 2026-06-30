@@ -29,9 +29,12 @@ def load_and_validate_data():
 
 def get_scalar(val):
     """確保數值為標量，若為列表則取最後一項或轉換"""
-    if isinstance(val, list):
-        return val[-1] if val else 0
-    return val
+    try:
+        if isinstance(val, list):
+            val = val[-1] if val else 0
+        return float(val)
+    except:
+        return 0.0
 
 data = load_and_validate_data()
 
@@ -39,14 +42,15 @@ if data:
     update_date = data.get('update_date', '未知日期')
     st.caption(f"最後更新時間: {update_date}")
 
-    # 使用優化後的數值獲取函數
+    # 使用優化後的數值獲取函數，強制轉為 float
     price = get_scalar(data.get('price', 0))
     bvps = get_scalar(data.get('bvps', 0))
 
     col1, col2, col3 = st.columns(3)
-    col1.metric("即時股價", f"${float(price):,.2f}")
-    col2.metric("每股淨值 (BVPS)", f"${float(bvps):,.2f}")
-    col3.metric("LINE 通知狀態", "已連線" if data.get('line_status') else "未連線")
+    # 將 metric 改為數值顯示，以符合 Streamlit API 規範
+    col1.metric("即時股價", value=f"${price:,.2f}")
+    col2.metric("每股淨值 (BVPS)", value=f"${bvps:,.2f}")
+    col3.metric("LINE 通知狀態", value="已連線" if data.get('line_status') else "未連線")
 
     st.divider()
 
@@ -58,9 +62,9 @@ if data:
         
         st.subheader("年度財務預估")
         f_col1, f_col2, f_col3 = st.columns(3)
-        f_col1.metric("預估今年營收", f"{data.get('est_revenue', 0)}")
-        f_col2.metric("預估 EPS", f"{data.get('est_eps', 0)}")
-        f_col3.metric("預估股利", f"{data.get('est_dividend', 0)}")
+        f_col1.metric("預估今年營收", value=f"{data.get('est_revenue', 0)}")
+        f_col2.metric("預估 EPS", value=f"{data.get('est_eps', 0)}")
+        f_col3.metric("預估股利", value=f"{data.get('est_dividend', 0)}")
             
         st.subheader("AI 財報預測")
         st.info(data.get('ai_prediction', '系統分析中...'))
@@ -74,7 +78,7 @@ if data:
         
         st.subheader("籌碼面統計")
         col_a, col_b = st.columns(2)
-        col_a.metric("資券比", f"{data.get('margin_ratio', 0)}%")
+        col_a.metric("資券比", value=f"{data.get('margin_ratio', 0)}%")
 
     with tab3:
         st.subheader("最新市場新聞與分析")
