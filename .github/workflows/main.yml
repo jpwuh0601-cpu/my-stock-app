@@ -30,16 +30,16 @@ jobs:
       - name: 安裝套件
         run: |
           python -m pip install --upgrade pip
-          pip install --user pandas==2.2.2 requests yfinance openai beautifulsoup4 pandas_ta
-          # 設定路徑，確保環境變數能正確指向使用者安裝目錄
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          # 使用 --prefix 參數指定安裝目錄到當前目錄下的 .local，完全繞過系統權限限制
+          mkdir -p .local
+          pip install --prefix=.local pandas==2.2.2 requests yfinance openai beautifulsoup4 pandas_ta
           
       - name: 執行分析任務
         env:
           LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          # 直接將用戶目錄加入 PYTHONPATH，強制解決 ModuleNotFound 錯誤
-          PYTHONPATH: ${{ github.workspace }}:/home/runner/.local/lib/python3.10/site-packages
+          # 明確指定 Python 從我們指定的安裝路徑中載入套件
+          PYTHONPATH: ${{ github.workspace }}/.local/lib/python3.10/site-packages
         run: python worker.py
 
       - name: 推送數據至 GitHub
@@ -49,7 +49,6 @@ jobs:
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
           git fetch origin main
           
-          # 增加檢查：僅在檔案確實存在時才進行 git add
           if [ -f market_data.json ]; then
             git add market_data.json
             git commit -m "chore: auto-update market data" || echo "No changes to commit"
