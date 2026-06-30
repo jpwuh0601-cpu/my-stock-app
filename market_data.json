@@ -1,23 +1,38 @@
 {
-    "price": 2370.0,
+    "update_date": "2026-06-30 13:12:18",
+    "price": 2410.0,
     "bvps": 227.166,
     "financials": {
         "2025Q1": {
             "EPS": 5.2
         }
     },
-    "institutional_investors": [],
-    "news": [],
-    "technical_indicators": "近期收盤均價: 2365.90",
-    "est_revenue": "新台幣 2.26 兆元",
-    "est_eps": "新台幣 7.54 元",
-    "est_dividend": "新台幣 1.5 元",
-    "ai_prediction": "台積電作為全球領先的半導體代工廠，持續吸引大量客戶並擴大市場份額。隨著5G和人工智慧的推動，需求持續增長。儘管面臨不確定的全球經濟環境，台積電仍顯示出穩定的財務表現，淨利和每股盈餘均持續上升，顯示出其強大的競爭力和穩健的商業模式。",
-    "margin_ratio": 0.0,
-    "black_swan_alert": {
-        "is_triggered": false,
-        "reason": "目前沒有明顯的黑天鵝事件被報導或預測，全球經濟和政治情勢相對穩定。"
+    "institutional_investors": [
+        {
+            "機構": "外資",
+            "買賣超": 500.0
+        }
+    ],
+    "news": [
+        "市場動態更新"
+    ],
+    "technical_indicators": {
+        "RSI": 59.566137125819225,
+        "KD": {
+            "status": "native_fallback"
+        },
+        "MACD": {
+            "status": "native_fallback"
+        }
     },
-    "ai_stock_selection": "基於當前市場氛圍，以下是幾個簡短的選股建議：\n\n1. **科技股**：隨著數位轉型加速，考慮投資於雲端服務、人工智慧或半導體相關的科技公司。例如，市場領導者如亞馬遜、微軟或英偉達。\n\n2. **可再生能源**：隨著全球對可持續發展的重視，太陽能、風能及電動車相關公司如特斯拉、NextEra Energy等值得關注。\n\n3. **醫療健康**：隨著老齡化社會及健康意識提高，生技和製藥公司（如輝瑞、Moderna）可能會有穩定的增長潛力。\n\n4. **消費品**：在經濟不確定性下，必需品公司的表現可能較穩定，考慮大型快消品公司如寶潔、可口可樂等。\n\n請根據個人風險承受能力及投資期限進行詳細分析，並諮詢專業的財務顧問。",
-    "update_date": "2026-06-29 13:37:25"
+    "est_revenue": 4924684999065.6,
+    "est_eps": 12.66,
+    "est_dividend": 6.33,
+    "ai_prediction": "基於營收預測分析。",
+    "margin_ratio": 1.2,
+    "black_swan_alert": {
+        "is_triggered": 0.0
+    },
+    "ai_stock_selection": "維持穩健持有建議。",
+    "line_status": 1.0
 }
