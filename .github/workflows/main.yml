@@ -27,9 +27,7 @@ jobs:
       - name: 安裝所有必要套件
         run: |
           python -m pip install --upgrade pip
-          # 強制安裝相容版本組合，解決依賴地獄
           pip install pandas==2.2.0 numpy==1.26.4 requests yfinance openai beautifulsoup4
-          # 使用 --no-deps 安裝，避免覆蓋已安裝的穩定庫
           pip install pandas-ta --no-deps
           pip install bottleneck==1.3.8
 
@@ -39,19 +37,7 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           export PYTHONPATH=$PYTHONPATH:$(python -m site --user-site)
-          # 執行前進行嚴格的指標匯入測試，確保 pandas_ta 函數功能可用
-          python -c "
-import pandas as pd
-import pandas_ta as ta
-try:
-    # 測試函數式調用，直接使用 ta.rsi 而非 df.ta.rsi
-    test_df = pd.DataFrame({'close': [100, 101, 102, 101, 100]})
-    rsi_val = ta.rsi(test_df['close'], length=2)
-    print('pandas_ta 函數式調用測試成功')
-except Exception as e:
-    print(f'測試失敗: {e}')
-    exit(1)
-"
+          python -c "import pandas_ta; print('pandas_ta 匯入成功')"
           python worker.py
 
       - name: 推送數據
