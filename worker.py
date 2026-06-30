@@ -36,7 +36,6 @@ def calculate_technical_indicators(df):
     """計算技術指標，具備自動降級與空值防護功能"""
     try:
         if HAS_PANDAS_TA:
-            # 安全地呼叫指標，並檢查回傳是否為 None
             rsi_series = ta.rsi(df['Close'], length=14)
             stoch_df = ta.stoch(df['High'], df['Low'], df['Close'])
             macd_df = ta.macd(df['Close'])
@@ -47,8 +46,6 @@ def calculate_technical_indicators(df):
                 "MACD": macd_df.iloc[-1].to_dict() if macd_df is not None and not macd_df.empty else {}
             }
         else:
-            # 原生 Pandas 備援計算：RSI
-            # 確保使用全域或傳入的 pd 物件
             delta = df['Close'].diff()
             gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
             loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
@@ -70,7 +67,6 @@ def run_analysis_and_update():
     hist = ticker.history(period="6mo")
     info = ticker.info
     
-    # 計算預測數據
     shares = info.get("sharesOutstanding", 25930000000)
     est_eps = (info.get("totalRevenue", 0) * 0.20 * 0.40) / shares
     est_dividend = est_eps * 0.50
@@ -95,8 +91,14 @@ def run_analysis_and_update():
         "line_status": True
     }
     
-    with open("market_data.json", "w", encoding="utf-8") as f:
-        json.dump(final_data, f, ensure_ascii=False, indent=4)
+    # 修正寫入邏輯：明確指定寫入目錄為當前目錄，並加入權限檢查
+    try:
+        output_path = os.path.join(os.getcwd(), "market_data.json")
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(final_data, f, ensure_ascii=False, indent=4)
+        print(f"數據成功寫入至: {output_path}")
+    except Exception as e:
+        print(f"寫入檔案失敗 (Error 154): {e}")
         
     send_line_notify(f"每日股市更新: {ticker_code} 預估EPS={round(est_eps, 2)}")
 
