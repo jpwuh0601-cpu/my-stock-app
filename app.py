@@ -76,12 +76,16 @@ if data:
 
     with tab1:
         st.subheader("每季財務報表")
-        # 確保 financials 存在且為字典或數據框格式，否則顯示空表格
+        # 確保 financials 存在且為可轉為 DataFrame 的格式
         financials = data.get('financials')
-        if isinstance(financials, dict):
-            st.table(pd.DataFrame(financials))
-        else:
-            st.write("目前無財務報表數據。")
+        try:
+            if financials and isinstance(financials, (dict, list)):
+                df_fin = pd.DataFrame(financials)
+                st.table(df_fin)
+            else:
+                st.write("目前無財務報表數據。")
+        except Exception:
+            st.write("財務數據格式無法解析。")
         
         st.subheader("年度財務預估")
         f_col1, f_col2, f_col3 = st.columns(3)
@@ -95,11 +99,15 @@ if data:
     with tab2:
         st.subheader("三大法人買賣超")
         inst_data = data.get('institutional_investors', [])
-        if isinstance(inst_data, list) and len(inst_data) > 0:
-            df_inst = pd.DataFrame(inst_data)
-            st.dataframe(df_inst, use_container_width=True)
-        else:
-            st.write("目前無籌碼分析數據。")
+        # 防禦性渲染 DataFrame
+        try:
+            if isinstance(inst_data, (list, dict)) and len(inst_data) > 0:
+                df_inst = pd.DataFrame(inst_data)
+                st.dataframe(df_inst, use_container_width=True)
+            else:
+                st.write("目前無籌碼分析數據。")
+        except Exception:
+            st.write("籌碼數據格式無法解析。")
         
         st.subheader("籌碼面統計")
         col_a, col_b = st.columns(2)
