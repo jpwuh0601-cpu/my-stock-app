@@ -33,7 +33,6 @@ def sanitize_recursive(val):
     elif isinstance(val, list):
         return [sanitize_recursive(v) for v in val]
     elif isinstance(val, (float, int)):
-        # 強制轉換為有限浮點數
         if not math.isfinite(val):
             return 0.0
         return float(val)
@@ -41,6 +40,7 @@ def sanitize_recursive(val):
 
 def calculate_technical_indicators(df):
     """計算技術指標，優先使用 pandas_ta，若無則自動降級為原生 pandas 計算"""
+    # 建立一個區域變數保存模組，確保作用域明確
     ta_module = None
     try:
         import pandas_ta as ta
@@ -53,6 +53,7 @@ def calculate_technical_indicators(df):
         if not all(col in df.columns for col in required_cols):
             return {"RSI": 0, "KD": {}, "MACD": {}}
 
+        # 嚴格使用 ta_module 變數，而非直接引用 'ta' 名稱
         if ta_module is not None:
             try:
                 rsi_series = ta_module.rsi(df['Close'], length=14)
@@ -71,8 +72,9 @@ def calculate_technical_indicators(df):
                 
                 return {"RSI": rsi_val, "KD": kd_val, "MACD": macd_val}
             except Exception as e:
-                print(f"pandas_ta 計算過程異常，降級處理: {e}")
-                
+                print(f"pandas_ta 計算過程異常，觸發降級機制: {e}")
+        
+        # 原生 pandas 計算邏輯 (Fallback)
         delta = df['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
@@ -117,7 +119,7 @@ def run_analysis_and_update():
         print(f"取得 ticker.info 失敗: {e}")
         
     def sanitize(val):
-        """全面數值安全檢查，確保不會產生 inf 或 NaN"""
+        """全面數值安全檢查"""
         try:
             if val is None: return 0.0
             f = float(val)
@@ -126,7 +128,6 @@ def run_analysis_and_update():
         except:
             return 0.0
         
-    # 安全存取與計算
     s_shares = sanitize(info.get("sharesOutstanding") if isinstance(info, dict) else 0)
     shares = s_shares if s_shares > 0 else 25930000000 
     
@@ -134,7 +135,6 @@ def run_analysis_and_update():
     est_eps = (revenue * 0.20 * 0.40) / shares
     est_dividend = est_eps * 0.50
     
-    # 在寫入前，先對所有預估值進行 final sanitize
     final_data = {
         "update_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "price": sanitize(info.get("currentPrice", 0) if isinstance(info, dict) else 0),
@@ -153,7 +153,6 @@ def run_analysis_and_update():
         "line_status": True
     }
     
-    # 進行最終全域數據清理，確保完全沒有 non-finite values
     clean_data = sanitize_recursive(final_data)
     
     output_path = os.path.join(os.getcwd(), "market_data.json")
