@@ -26,6 +26,18 @@ def send_line_notify(message):
     except Exception as e:
         print(f"LINE 通知失敗: {e}")
 
+def sanitize_recursive(val):
+    """遞迴檢查物件結構，確保沒有 NaN 或 inf"""
+    if isinstance(val, dict):
+        return {k: sanitize_recursive(v) for k, v in val.items()}
+    elif isinstance(val, list):
+        return [sanitize_recursive(v) for v in val]
+    elif isinstance(val, (float, int)):
+        if not math.isfinite(val):
+            return 0.0
+        return val
+    return val
+
 def calculate_technical_indicators(df):
     """計算技術指標，優先使用 pandas_ta，若無則自動降級為原生 pandas 計算"""
     try:
@@ -99,7 +111,6 @@ def run_analysis_and_update():
         print(f"取得 ticker.info 失敗: {e}")
         
     def sanitize(val):
-        """全面數值安全檢查，確保不會產生 inf 或 NaN"""
         try:
             if val is None: return 0.0
             f = float(val)
@@ -116,7 +127,6 @@ def run_analysis_and_update():
     est_eps = (revenue * 0.20 * 0.40) / shares
     est_dividend = est_eps * 0.50
     
-    # 確保最終所有數據皆經過 sanitize
     final_data = {
         "update_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "price": sanitize(info.get("currentPrice", 0)),
@@ -135,10 +145,13 @@ def run_analysis_and_update():
         "line_status": True
     }
     
+    # 進行最終全域數據清理
+    clean_data = sanitize_recursive(final_data)
+    
     output_path = os.path.join(os.getcwd(), "market_data.json")
     try:
         with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(final_data, f, ensure_ascii=False, indent=4)
+            json.dump(clean_data, f, ensure_ascii=False, indent=4)
         print(f"數據成功寫入至: {output_path}")
     except Exception as e:
         print(f"寫入檔案發生嚴重錯誤: {e}")
