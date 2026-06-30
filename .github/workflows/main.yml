@@ -48,12 +48,10 @@ jobs:
 
       - name: 推送數據至 GitHub
         run: |
-          # 明確確保工作目錄在儲存庫根目錄
-          cd "${{ github.workspace }}"
-          
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
+          # 顯式利用 GITHUB_TOKEN 進行認證
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
           git fetch origin main
           
