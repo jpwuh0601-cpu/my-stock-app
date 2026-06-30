@@ -109,21 +109,23 @@ def run_analysis_and_update():
         print(f"取得 ticker.info 失敗: {e}")
         info = {}
         
-    shares = info.get("sharesOutstanding")
-    if shares is None or shares <= 0:
-        shares = 25930000000
-        
-    revenue = info.get("totalRevenue", 0) or 0
-    est_eps = (revenue * 0.20 * 0.40) / shares
-    est_dividend = est_eps * 0.50
-    
     def sanitize(val):
+        """強制處理無效數值 (NaN, inf)"""
         try:
+            if val is None: return 0
             f = float(val)
             return 0 if math.isnan(f) or math.isinf(f) else f
         except:
             return 0
-
+        
+    shares = sanitize(info.get("sharesOutstanding"))
+    if shares <= 0:
+        shares = 25930000000 # 給予預設股本
+        
+    revenue = sanitize(info.get("totalRevenue", 0))
+    est_eps = (revenue * 0.20 * 0.40) / shares
+    est_dividend = est_eps * 0.50
+    
     final_data = {
         "update_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "price": sanitize(info.get("currentPrice", 0)),
