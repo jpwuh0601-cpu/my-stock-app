@@ -28,11 +28,13 @@ def send_line_notify(message):
 
 def calculate_technical_indicators(df):
     """計算技術指標，優先使用 pandas_ta，若無則自動降級為原生 pandas 計算"""
-    use_ta = False
+    # 確保匯入狀態安全
     try:
         import pandas_ta as ta
         use_ta = True
     except ImportError:
+        ta = None
+        use_ta = False
         print("注意：偵測到 pandas_ta 未安裝，將使用原生 pandas 進行技術指標計算。")
 
     try:
@@ -40,32 +42,34 @@ def calculate_technical_indicators(df):
         if not all(col in df.columns for col in required_cols):
             return {"RSI": 0, "KD": {}, "MACD": {}}
 
-        if use_ta:
-            rsi_series = ta.rsi(df['Close'], length=14)
-            stoch_df = ta.stoch(df['High'], df['Low'], df['Close'])
-            macd_df = ta.macd(df['Close'])
-            
-            rsi_val = float(rsi_series.iloc[-1]) if rsi_series is not None and not pd.isna(rsi_series.iloc[-1]) else 0
-            
-            kd_val = stoch_df.iloc[-1].to_dict() if stoch_df is not None and not stoch_df.empty else {}
-            macd_val = macd_df.iloc[-1].to_dict() if macd_df is not None and not macd_df.empty else {}
-            
-            return {"RSI": rsi_val, "KD": kd_val, "MACD": macd_val}
-        else:
-            # 原生 pandas 計算 RSI
-            delta = df['Close'].diff()
-            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-            rs = gain / loss
-            rsi = 100 - (100 / (1 + rs))
-            
-            return {
-                "RSI": float(rsi.iloc[-1]) if not pd.isna(rsi.iloc[-1]) else 0,
-                "KD": {"status": "native_fallback"},
-                "MACD": {"status": "native_fallback"}
-            }
+        if use_ta and ta is not None:
+            try:
+                rsi_series = ta.rsi(df['Close'], length=14)
+                stoch_df = ta.stoch(df['High'], df['Low'], df['Close'])
+                macd_df = ta.macd(df['Close'])
+                
+                rsi_val = float(rsi_series.iloc[-1]) if rsi_series is not None and not pd.isna(rsi_series.iloc[-1]) else 0
+                kd_val = stoch_df.iloc[-1].to_dict() if stoch_df is not None and not stoch_df.empty else {}
+                macd_val = macd_df.iloc[-1].to_dict() if macd_df is not None and not macd_df.empty else {}
+                
+                return {"RSI": rsi_val, "KD": kd_val, "MACD": macd_val}
+            except Exception as e:
+                print(f"pandas_ta 計算過程異常，降級處理: {e}")
+                
+        # 原生 pandas 計算 fallback
+        delta = df['Close'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs))
+        
+        return {
+            "RSI": float(rsi.iloc[-1]) if not pd.isna(rsi.iloc[-1]) else 0,
+            "KD": {"status": "native_fallback"},
+            "MACD": {"status": "native_fallback"}
+        }
     except Exception as e:
-        print(f"指標計算發生異常: {e}")
+        print(f"指標計算發生嚴重錯誤: {e}")
         return {"RSI": 0, "KD": {}, "MACD": {}}
 
 def run_analysis_and_update():
