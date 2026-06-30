@@ -1,9 +1,7 @@
 streamlit
 yfinance
-pandas==2.2.0
-numpy==1.26.4
-openai==2.44.0
+pandas
+numpy
+openai
 requests
 beautifulsoup4
-line-bot-sdk
-python-dotenv
