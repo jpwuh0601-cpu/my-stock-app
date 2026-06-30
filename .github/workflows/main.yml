@@ -33,20 +33,20 @@ jobs:
           # 清除舊目錄並安裝套件
           rm -rf ./libs
           mkdir -p ./libs
+          # 採用 --target 安裝，並確保 pandas 與 pandas-ta 版本對齊
           pip install --upgrade pandas requests yfinance openai beautifulsoup4 pandas_ta --target=./libs
           
       - name: 執行分析任務
         env:
           LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          # 確保 Python 環境變數包含 libs
-          PYTHONPATH: ${{ github.workspace }}/libs
         run: |
-          # 執行前再次確認 libs 路徑存在
+          # 在執行時動態將 libs 加入 sys.path，避開環境變數解析問題
+          export PYTHONPATH="${{ github.workspace }}/libs:$PYTHONPATH"
           if [ -d "libs" ]; then
-            python worker.py
+            python -c "import sys; sys.path.insert(0, '${{ github.workspace }}/libs'); import worker; worker.run_analysis_and_update()"
           else
-            echo "錯誤：libs 目錄不存在，安裝步驟可能失敗。"
+            echo "錯誤：libs 目錄不存在。"
             exit 1
           fi
 
