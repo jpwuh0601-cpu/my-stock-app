@@ -1,134 +1,58 @@
 import streamlit as st
+import yfinance as yf
 import pandas as pd
-import json
-import os
-import math
+import numpy as np
 
-st.set_page_config(page_title="專業投資決策儀表板", layout="wide")
+st.set_page_config(page_title="即時投資決策儀表板", layout="wide")
 
-st.title("📈 專業投資決策儀表板")
+st.title("📈 即時投資決策儀表板")
 
-def load_and_validate_data():
-    """載入並檢核資料來源，若檔案不存在或為空則回傳預設結構"""
-    file_path = "market_data.json"
-    
-    if not os.path.exists(file_path) or os.path.getsize(file_path) == 0:
-        return None
+# 側邊欄：搜尋區
+st.sidebar.header("股票搜尋")
+ticker_input = st.sidebar.text_input("輸入台股代號 (例如: 2330)", value="2330")
 
+def get_stock_data(ticker_code):
+    """即時呼叫 yfinance 獲取數據"""
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            if not isinstance(data, dict):
-                return None
-            
-            required_keys = ['price', 'bvps', 'financials', 'institutional_investors', 'news', 'technical_indicators']
-            
-            for key in required_keys:
-                if key not in data:
-                    return None
-            return data
+        ticker = yf.Ticker(f"{ticker_code}.TW")
+        info = ticker.info
+        hist = ticker.history(period="6mo")
+        return info, hist
     except Exception as e:
-        return None
+        return None, None
 
-def get_scalar(val):
-    """確保數值為有限標量，並強制轉換為 float，過濾非有限值，並支援 pandas Series"""
-    try:
-        if val is None:
-            return 0.0
-        if isinstance(val, pd.Series):
-            val = val.iloc[-1]
-        if isinstance(val, list):
-            val = val[-1] if val else 0
+if ticker_input:
+    with st.spinner(f"正在載入 {ticker_input} 的即時數據..."):
+        info, hist = get_stock_data(ticker_input)
         
-        f = float(val)
-        if math.isfinite(f):
-            return f
-        return 0.0
-    except (ValueError, TypeError, AttributeError):
-        return 0.0
-
-data = load_and_validate_data()
-
-if data:
-    update_date = data.get('update_date', '未知日期')
-    st.caption(f"最後更新時間: {update_date}")
-
-    price = get_scalar(data.get('price', 0))
-    bvps = get_scalar(data.get('bvps', 0))
-    est_revenue = get_scalar(data.get('est_revenue', 0))
-    est_eps = get_scalar(data.get('est_eps', 0))
-    est_dividend = get_scalar(data.get('est_dividend', 0))
-    margin_ratio = get_scalar(data.get('margin_ratio', 0))
-
-    col1, col2, col3 = st.columns(3)
-    col1.metric("即時股價", value=f"${price:,.2f}")
-    col2.metric("每股淨值 (BVPS)", value=f"${bvps:,.2f}")
-    col3.metric("LINE 通知狀態", value="已連線" if data.get('line_status') else "未連線")
-
-    st.divider()
-
-    tab1, tab2, tab3, tab4 = st.tabs(["財務績效與預測", "籌碼與主力分析", "市場動態與AI監控", "技術與策略指標"])
-
-    with tab1:
-        st.subheader("每季財務報表")
-        financials = data.get('financials')
-        try:
-            if financials and isinstance(financials, (dict, list)):
-                # 使用最基礎的寫法以兼容所有版本
-                st.table(pd.DataFrame(financials))
-            else:
-                st.write("目前無財務報表數據。")
-        except Exception:
-            st.write("財務數據格式無法解析。")
-        
-        st.subheader("年度財務預估")
-        f_col1, f_col2, f_col3 = st.columns(3)
-        f_col1.metric("預估今年營收", value=f"{est_revenue:,.0f}")
-        f_col2.metric("預估 EPS", value=f"{est_eps:,.2f}")
-        f_col3.metric("預估股利", value=f"{est_dividend:,.2f}")
+        if info and "currentPrice" in info:
+            st.subheader(f"代號: {ticker_input} - {info.get('longName', '')}")
             
-        st.subheader("AI 財報預測")
-        st.info(data.get('ai_prediction', '系統分析中...'))
+            # 指標顯示
+            col1, col2, col3 = st.columns(3)
+            col1.metric("即時股價", value=f"${info.get('currentPrice', 0):,.2f}")
+            col2.metric("每股淨值 (BVPS)", value=f"${info.get('bookValue', 0):,.2f}")
+            col3.metric("市值", value=f"{info.get('marketCap', 0):,.0f}")
 
-    with tab2:
-        st.subheader("三大法人買賣超")
-        inst_data = data.get('institutional_investors', [])
-        try:
-            if isinstance(inst_data, (list, dict)) and len(inst_data) > 0:
-                # 移除所有參數，確保相容性
-                st.dataframe(pd.DataFrame(inst_data))
-            else:
-                st.write("目前無籌碼分析數據。")
-        except Exception:
-            st.write("籌碼數據格式無法解析。")
-        
-        st.subheader("籌碼面統計")
-        col_a, col_b = st.columns(2)
-        col_a.metric("資券比", value=f"{margin_ratio:.2f}%")
+            st.divider()
 
-    with tab3:
-        st.subheader("最新市場新聞與分析")
-        news_list = data.get('news', [])
-        if isinstance(news_list, list):
-            for news in news_list:
-                st.write(f"• {news}")
-        else:
-            st.write("目前無新聞資訊。")
+            tab1, tab2 = st.tabs(["財務與基本面", "技術走勢"])
             
-        st.subheader("黑天鵝警示系統")
-        swan_data = data.get('black_swan_alert', {})
-        if isinstance(swan_data, dict) and swan_data.get('is_triggered'):
-            st.error(f"⚠️ 偵測到警示")
+            with tab1:
+                st.write("### 基本資料")
+                data_df = pd.DataFrame({
+                    "項目": ["產業", "本益比", "股息殖利率"],
+                    "數值": [info.get('sector', 'N/A'), info.get('trailingPE', 0), f"{info.get('dividendYield', 0)*100:.2f}%"]
+                })
+                st.table(data_df)
+            
+            with tab2:
+                st.write("### 近六個月股價走勢")
+                if hist is not None:
+                    st.line_chart(hist['Close'])
+                else:
+                    st.warning("無法取得技術數據。")
         else:
-            st.success("目前無異常市場風險。")
-
-    with tab4:
-        st.subheader("技術分析指標 (GPT AI 判讀)")
-        st.write(data.get('technical_indicators', '目前無分析數據'))
-        
-        st.subheader("AI 選股邏輯建議")
-        st.markdown(data.get('ai_stock_selection', '系統分析中...'))
-
+            st.error("查無此股票代號，請確認輸入格式是否正確（僅支援台股）。")
 else:
-    st.warning("數據源尚未更新，請確保 GitHub Actions 已成功執行並產生 market_data.json。")
-    st.info("系統正處於初始化階段，請稍候排程任務完成。")
+    st.info("請在左側輸入台股代號以開始查詢。")
