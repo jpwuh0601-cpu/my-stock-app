@@ -13,7 +13,8 @@ client = OpenAI(
     api_key=os.getenv("OPENROUTER_API_KEY"),
 )
 
-# 匯入保護機制：嘗試匯入 pandas_ta，失敗則降級使用原生計算
+# 徹底的防禦性匯入：檢查環境是否安裝 pandas_ta
+HAS_PANDAS_TA = False
 try:
     import pandas_ta as ta
     HAS_PANDAS_TA = True
@@ -37,7 +38,8 @@ def calculate_technical_indicators(df):
     # 確保 pd 可用
     global pd 
     try:
-        if HAS_PANDAS_TA:
+        # 使用防禦性判斷
+        if HAS_PANDAS_TA and 'ta' in globals():
             rsi_series = ta.rsi(df['Close'], length=14)
             stoch_df = ta.stoch(df['High'], df['Low'], df['Close'])
             macd_df = ta.macd(df['Close'])
