@@ -33,17 +33,22 @@ def load_and_validate_data():
         return None
 
 def get_scalar(val):
-    """確保數值為有限標量，並強制轉換為 float，過濾非有限值"""
+    """確保數值為有限標量，並強制轉換為 float，過濾非有限值，並支援 pandas Series"""
     try:
         if val is None:
             return 0.0
+        # 如果是 pandas Series，取最後一個值
+        if isinstance(val, pd.Series):
+            val = val.iloc[-1]
+        # 如果是列表，取最後一個值
         if isinstance(val, list):
             val = val[-1] if val else 0
+        
         f = float(val)
         if math.isfinite(f):
             return f
         return 0.0
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, AttributeError):
         return 0.0
 
 data = load_and_validate_data()
