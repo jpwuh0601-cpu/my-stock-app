@@ -143,15 +143,17 @@ def run_analysis_and_update():
         "line_status": True
     }
     
+    # 修改寫入邏輯，確保檔案操作區塊明確
+    output_path = os.path.join(os.getcwd(), "market_data.json")
     try:
-        output_path = os.path.join(os.getcwd(), "market_data.json")
-        # 增加檔案寫入的原子性建議：先寫入暫存檔再取代，減少毀損機率
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(final_data, f, ensure_ascii=False, indent=4)
         print(f"數據成功寫入至: {output_path}")
     except Exception as e:
-        print(f"寫入檔案失敗: {e}")
+        print(f"寫入檔案發生嚴重錯誤: {e}")
+        return # 發生錯誤直接中斷，避免後續存取已關閉的檔案句柄
         
+    # 將 LINE 通知移出檔案寫入區塊
     send_line_notify(f"每日股市更新: {ticker_code} 預估EPS={round(sanitize(est_eps), 2)}")
 
 if __name__ == "__main__":
