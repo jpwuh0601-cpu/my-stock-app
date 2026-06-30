@@ -60,7 +60,6 @@ def calculate_technical_indicators(df):
                 
                 rsi_val = float(rsi_series.iloc[-1]) if rsi_series is not None and not pd.isna(rsi_series.iloc[-1]) else 0
                 
-                # 強化對 DataFrame 處理的安全性
                 kd_val = {}
                 if stoch_df is not None and not stoch_df.empty:
                     kd_val = stoch_df.iloc[-1].to_dict() if hasattr(stoch_df.iloc[-1], 'to_dict') else {}
@@ -73,7 +72,6 @@ def calculate_technical_indicators(df):
             except Exception as e:
                 print(f"pandas_ta 計算過程異常，降級處理: {e}")
                 
-        # 原生 pandas 計算邏輯
         delta = df['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
@@ -119,6 +117,7 @@ def run_analysis_and_update():
         print(f"取得 ticker.info 失敗: {e}")
         
     def sanitize(val):
+        """全面數值安全檢查"""
         try:
             if val is None: return 0.0
             f = float(val)
@@ -127,18 +126,19 @@ def run_analysis_and_update():
         except:
             return 0.0
         
-    shares = sanitize(info.get("sharesOutstanding") if info else 0)
+    # 安全存取 info 的欄位
+    shares = sanitize(info.get("sharesOutstanding") if isinstance(info, dict) else 0)
     if shares <= 0:
         shares = 25930000000 
         
-    revenue = sanitize(info.get("totalRevenue", 0) if info else 0)
+    revenue = sanitize(info.get("totalRevenue", 0) if isinstance(info, dict) else 0)
     est_eps = (revenue * 0.20 * 0.40) / shares
     est_dividend = est_eps * 0.50
     
     final_data = {
         "update_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "price": sanitize(info.get("currentPrice", 0) if info else 0),
-        "bvps": sanitize(info.get("bookValue", 0) if info else 0),
+        "price": sanitize(info.get("currentPrice", 0) if isinstance(info, dict) else 0),
+        "bvps": sanitize(info.get("bookValue", 0) if isinstance(info, dict) else 0),
         "financials": {"2025Q1": {"EPS": 5.2}},
         "institutional_investors": [{"機構": "外資", "買賣超": 500}],
         "news": ["市場動態更新"],
