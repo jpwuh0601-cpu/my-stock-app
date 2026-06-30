@@ -48,6 +48,7 @@ def calculate_technical_indicators(df):
             }
         else:
             # 原生 Pandas 備援計算：RSI
+            # 確保使用全域或傳入的 pd 物件
             delta = df['Close'].diff()
             gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
             loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
