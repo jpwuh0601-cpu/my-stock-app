@@ -33,45 +33,37 @@ def sanitize_recursive(val):
     elif isinstance(val, list):
         return [sanitize_recursive(v) for v in val]
     elif isinstance(val, (float, int)):
-        # 若非有限數值，強制歸零
         if not math.isfinite(val):
             return 0.0
         return float(val)
     return val
 
 def calculate_technical_indicators(df):
-    """計算技術指標，優先使用 pandas_ta，若無則自動降級為原生 pandas 計算"""
-    ta_module = None
+    """計算技術指標，偵測到 pandas_ta 則使用，否則全面降級為原生 pandas"""
+    # 局部模組偵測
     try:
         import pandas_ta as ta
-        ta_module = ta
     except ImportError:
-        print("注意：偵測到 pandas_ta 未安裝，將使用原生 pandas 進行技術指標計算。")
+        ta = None
 
     try:
         required_cols = ['Close', 'High', 'Low']
         if not all(col in df.columns for col in required_cols):
             return {"RSI": 0, "KD": {}, "MACD": {}}
 
-        if ta_module is not None:
+        if ta is not None:
             try:
-                rsi_series = ta_module.rsi(df['Close'], length=14)
-                stoch_df = ta_module.stoch(df['High'], df['Low'], df['Close'])
-                macd_df = ta_module.macd(df['Close'])
+                rsi_series = ta.rsi(df['Close'], length=14)
+                stoch_df = ta.stoch(df['High'], df['Low'], df['Close'])
+                macd_df = ta.macd(df['Close'])
                 
                 rsi_val = float(rsi_series.iloc[-1]) if rsi_series is not None and not pd.isna(rsi_series.iloc[-1]) else 0
-                
-                kd_val = {}
-                if stoch_df is not None and not stoch_df.empty:
-                    kd_val = stoch_df.iloc[-1].to_dict() if hasattr(stoch_df.iloc[-1], 'to_dict') else {}
-                
-                macd_val = {}
-                if macd_df is not None and not macd_df.empty:
-                    macd_val = macd_df.iloc[-1].to_dict() if hasattr(macd_df.iloc[-1], 'to_dict') else {}
+                kd_val = stoch_df.iloc[-1].to_dict() if stoch_df is not None and not stoch_df.empty else {}
+                macd_val = macd_df.iloc[-1].to_dict() if macd_df is not None and not macd_df.empty else {}
                 
                 return {"RSI": rsi_val, "KD": kd_val, "MACD": macd_val}
-            except Exception as e:
-                print(f"pandas_ta 計算過程異常，觸發降級機制: {e}")
+            except Exception:
+                pass
         
         # 原生 pandas 計算邏輯 (Fallback)
         delta = df['Close'].diff()
@@ -86,7 +78,7 @@ def calculate_technical_indicators(df):
             "MACD": {"status": "native_fallback"}
         }
     except Exception as e:
-        print(f"指標計算發生嚴重錯誤: {e}")
+        print(f"指標計算發生錯誤: {e}")
         return {"RSI": 0, "KD": {}, "MACD": {}}
 
 def run_analysis_and_update():
@@ -104,21 +96,13 @@ def run_analysis_and_update():
             time.sleep(5)
             
     if hist is None or hist.empty:
-        print("無法取得歷史數據，跳過指標計算")
         indicators = {"RSI": 0, "KD": {}, "MACD": {}}
     else:
         indicators = calculate_technical_indicators(hist)
     
-    info = {}
-    try:
-        raw_info = ticker.info
-        if raw_info and isinstance(raw_info, dict):
-            info = raw_info
-    except Exception as e:
-        print(f"取得 ticker.info 失敗: {e}")
+    info = ticker.info if isinstance(ticker.info, dict) else {}
         
     def sanitize(val):
-        """全面數值安全檢查，確保不會產生 inf 或 NaN"""
         try:
             if val is None: return 0.0
             f = float(val)
@@ -127,19 +111,17 @@ def run_analysis_and_update():
         except:
             return 0.0
         
-    # 安全存取與計算
-    s_shares = sanitize(info.get("sharesOutstanding") if isinstance(info, dict) else 0)
-    shares = s_shares if s_shares > 0 else 25930000000 
+    shares = sanitize(info.get("sharesOutstanding"))
+    shares = shares if shares > 0 else 25930000000 
     
-    revenue = sanitize(info.get("totalRevenue", 0) if isinstance(info, dict) else 0)
+    revenue = sanitize(info.get("totalRevenue"))
     est_eps = (revenue * 0.20 * 0.40) / shares
     est_dividend = est_eps * 0.50
     
-    # 在產生最終字典前，先將計算結果做一次數值對齊
     final_data = {
         "update_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "price": sanitize(info.get("currentPrice", 0) if isinstance(info, dict) else 0),
-        "bvps": sanitize(info.get("bookValue", 0) if isinstance(info, dict) else 0),
+        "price": sanitize(info.get("currentPrice")),
+        "bvps": sanitize(info.get("bookValue")),
         "financials": {"2025Q1": {"EPS": 5.2}},
         "institutional_investors": [{"機構": "外資", "買賣超": 500}],
         "news": ["市場動態更新"],
@@ -154,14 +136,12 @@ def run_analysis_and_update():
         "line_status": True
     }
     
-    # 進行最終全域數據遞迴清理，確保完全沒有 non-finite values
     clean_data = sanitize_recursive(final_data)
     
     output_path = os.path.join(os.getcwd(), "market_data.json")
     try:
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(clean_data, f, ensure_ascii=False, indent=4)
-        print(f"數據成功寫入至: {output_path}")
     except Exception as e:
         print(f"寫入檔案發生嚴重錯誤: {e}")
         return 
