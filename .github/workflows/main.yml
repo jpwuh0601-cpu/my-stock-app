@@ -15,11 +15,13 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: 檢出程式碼
         uses: actions/checkout@v3
         with:
           persist-credentials: true
+          fetch-depth: 0
 
       - name: 設定 Python 環境
         uses: actions/setup-python@v4
@@ -46,6 +48,8 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           if [ -f "market_data.json" ]; then
             git add market_data.json
-            git commit -m "chore: auto-update market data" || echo "No changes to commit"
-            git push origin HEAD:main
+            git commit -m "chore: auto-update market data [skip ci]" || echo "No changes to commit"
+            git push origin main
+          else
+            echo "market_data.json 未產生，跳過推送。"
           fi
