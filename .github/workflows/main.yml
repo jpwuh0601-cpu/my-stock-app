@@ -30,14 +30,17 @@ jobs:
       - name: 安裝套件至本地目錄
         run: |
           python -m pip install --upgrade pip
-          # 強制更新並安裝最新相容版本的 Pandas 與其他依賴，確保 isna 等屬性正常
+          # 清除可能衝突的舊目錄
+          rm -rf ./libs
+          mkdir -p ./libs
+          # 採用更標準的安裝方式，並確保所有套件升級到最新版
           pip install --upgrade pandas requests yfinance openai beautifulsoup4 pandas_ta --target=./libs
           
       - name: 執行分析任務
         env:
           LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          # 強制設定 PYTHONPATH 為當前工作目錄下的 libs，確保執行時優先讀取
+          # 確保優先讀取我們乾淨安裝的 ./libs 目錄
           PYTHONPATH: ${{ github.workspace }}/libs
         run: |
           if [ -f "worker.py" ]; then
