@@ -40,12 +40,12 @@ def sanitize_recursive(val):
 
 def calculate_technical_indicators(df):
     """計算技術指標，優先使用 pandas_ta，若無則自動降級為原生 pandas 計算"""
+    # 統一管理匯入狀態
+    ta_module = None
     try:
         import pandas_ta as ta
-        use_ta = True
+        ta_module = ta
     except ImportError:
-        ta = None
-        use_ta = False
         print("注意：偵測到 pandas_ta 未安裝，將使用原生 pandas 進行技術指標計算。")
 
     try:
@@ -53,11 +53,12 @@ def calculate_technical_indicators(df):
         if not all(col in df.columns for col in required_cols):
             return {"RSI": 0, "KD": {}, "MACD": {}}
 
-        if use_ta and ta is not None:
+        # 使用局部變數 ta_module，確保作用域明確
+        if ta_module is not None:
             try:
-                rsi_series = ta.rsi(df['Close'], length=14)
-                stoch_df = ta.stoch(df['High'], df['Low'], df['Close'])
-                macd_df = ta.macd(df['Close'])
+                rsi_series = ta_module.rsi(df['Close'], length=14)
+                stoch_df = ta_module.stoch(df['High'], df['Low'], df['Close'])
+                macd_df = ta_module.macd(df['Close'])
                 
                 rsi_val = float(rsi_series.iloc[-1]) if rsi_series is not None and not pd.isna(rsi_series.iloc[-1]) else 0
                 kd_val = stoch_df.iloc[-1].to_dict() if stoch_df is not None and not stoch_df.empty else {}
@@ -67,6 +68,7 @@ def calculate_technical_indicators(df):
             except Exception as e:
                 print(f"pandas_ta 計算過程異常，降級處理: {e}")
                 
+        # 原生 pandas 計算邏輯 (Fallback)
         delta = df['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
