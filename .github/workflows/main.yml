@@ -20,6 +20,7 @@ jobs:
       - name: 檢出程式碼
         uses: actions/checkout@v3
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           persist-credentials: true
           fetch-depth: 0
 
@@ -49,7 +50,7 @@ jobs:
           if [ -f "market_data.json" ]; then
             git add market_data.json
             git commit -m "chore: auto-update market data [skip ci]" || echo "No changes to commit"
-            git push origin main
+            git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main
           else
             echo "market_data.json 未產生，跳過推送。"
           fi
