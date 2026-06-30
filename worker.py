@@ -33,9 +33,10 @@ def sanitize_recursive(val):
     elif isinstance(val, list):
         return [sanitize_recursive(v) for v in val]
     elif isinstance(val, (float, int)):
+        # 強制轉換為有限浮點數
         if not math.isfinite(val):
             return 0.0
-        return val
+        return float(val)
     return val
 
 def calculate_technical_indicators(df):
@@ -107,7 +108,6 @@ def run_analysis_and_update():
     else:
         indicators = calculate_technical_indicators(hist)
     
-    # 嚴謹的 info 獲取與判斷
     info = {}
     try:
         raw_info = ticker.info
@@ -117,7 +117,7 @@ def run_analysis_and_update():
         print(f"取得 ticker.info 失敗: {e}")
         
     def sanitize(val):
-        """全面數值安全檢查"""
+        """全面數值安全檢查，確保不會產生 inf 或 NaN"""
         try:
             if val is None: return 0.0
             f = float(val)
@@ -126,15 +126,15 @@ def run_analysis_and_update():
         except:
             return 0.0
         
-    # 安全存取 info 的欄位
-    shares = sanitize(info.get("sharesOutstanding") if isinstance(info, dict) else 0)
-    if shares <= 0:
-        shares = 25930000000 
-        
+    # 安全存取與計算
+    s_shares = sanitize(info.get("sharesOutstanding") if isinstance(info, dict) else 0)
+    shares = s_shares if s_shares > 0 else 25930000000 
+    
     revenue = sanitize(info.get("totalRevenue", 0) if isinstance(info, dict) else 0)
     est_eps = (revenue * 0.20 * 0.40) / shares
     est_dividend = est_eps * 0.50
     
+    # 在寫入前，先對所有預估值進行 final sanitize
     final_data = {
         "update_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "price": sanitize(info.get("currentPrice", 0) if isinstance(info, dict) else 0),
@@ -153,7 +153,7 @@ def run_analysis_and_update():
         "line_status": True
     }
     
-    # 進行最終全域數據清理
+    # 進行最終全域數據清理，確保完全沒有 non-finite values
     clean_data = sanitize_recursive(final_data)
     
     output_path = os.path.join(os.getcwd(), "market_data.json")
