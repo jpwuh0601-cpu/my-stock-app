@@ -30,36 +30,30 @@ jobs:
       - name: 安裝套件
         run: |
           python -m pip install --upgrade pip
-          # 將套件安裝到當前環境，並確保 pip 檢查依賴路徑
-          pip install pandas==2.2.2 requests yfinance openai beautifulsoup4 pandas_ta
-          # 新增一步驗證，確保套件已可被 python 讀取
-          python -c "import pandas_ta; print('pandas_ta successfully imported')"
+          # 使用 --user 模式安裝，避開系統權限不足問題
+          pip install --user pandas==2.2.2 requests yfinance openai beautifulsoup4 pandas_ta
+          # 設定 PATH 讓後續腳本能找到安裝好的套件
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
           
       - name: 執行分析任務
         env:
           LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          # 確保 Python 可以讀取到安裝路徑
+          PYTHONPATH: $PYTHONPATH:$HOME/.local/lib/python3.10/site-packages
         run: python worker.py
 
       - name: 推送數據至 GitHub
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # 強制設定 remote URL
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-          
-          # 確保取得最新數據
           git fetch origin main
           
           if [ -f market_data.json ]; then
             git add market_data.json
             git commit -m "chore: auto-update market data" || echo "No changes to commit"
-            
-            # 強制拉取遠端變更，若有衝突則選擇保留遠端版本
             git pull --rebase=merge --strategy-option=theirs origin main --allow-unrelated-histories
-            
-            # 推送更新
             git push origin HEAD:main
           else
             echo "market_data.json 未生成，跳過推送步驟。"
