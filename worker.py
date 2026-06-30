@@ -15,15 +15,6 @@ client = OpenAI(
     api_key=os.getenv("OPENROUTER_API_KEY"),
 )
 
-# 徹底的防禦性匯入：檢查環境是否安裝 pandas_ta
-HAS_PANDAS_TA = False
-try:
-    import pandas_ta as ta
-    HAS_PANDAS_TA = True
-except ImportError:
-    HAS_PANDAS_TA = False
-    print("注意：未偵測到 pandas_ta，將自動降級使用原生 pandas 計算")
-
 def send_line_notify(message):
     token = os.getenv("LINE_NOTIFY_TOKEN")
     if not token: return
@@ -37,12 +28,20 @@ def send_line_notify(message):
 
 def calculate_technical_indicators(df):
     """計算技術指標，具備自動降級與空值防護功能"""
+    # 重新在函式內進行 pandas_ta 測試，確保名稱空間安全
+    try:
+        import pandas_ta as ta
+        use_ta = True
+    except ImportError:
+        use_ta = False
+        print("注意：pandas_ta 未安裝，切換至原生運算")
+
     try:
         required_cols = ['Close', 'High', 'Low']
         if not all(col in df.columns for col in required_cols):
             return {"RSI": 0, "KD": {}, "MACD": {}}
 
-        if HAS_PANDAS_TA and 'ta' in globals():
+        if use_ta:
             rsi_series = ta.rsi(df['Close'], length=14)
             stoch_df = ta.stoch(df['High'], df['Low'], df['Close'])
             macd_df = ta.macd(df['Close'])
@@ -108,8 +107,6 @@ def run_analysis_and_update():
         raw_info = ticker.info
         if isinstance(raw_info, dict):
             info = raw_info
-        else:
-            print("ticker.info 回傳結構異常")
     except Exception as e:
         print(f"取得 ticker.info 失敗: {e}")
         
