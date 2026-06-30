@@ -28,7 +28,6 @@ def send_line_notify(message):
 
 def calculate_technical_indicators(df):
     """計算技術指標，優先使用 pandas_ta，若無則自動降級為原生 pandas 計算"""
-    # 確保匯入狀態安全
     try:
         import pandas_ta as ta
         use_ta = True
@@ -56,7 +55,6 @@ def calculate_technical_indicators(df):
             except Exception as e:
                 print(f"pandas_ta 計算過程異常，降級處理: {e}")
                 
-        # 原生 pandas 計算 fallback
         delta = df['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
@@ -101,12 +99,14 @@ def run_analysis_and_update():
         print(f"取得 ticker.info 失敗: {e}")
         
     def sanitize(val):
+        """全面數值安全檢查，確保不會產生 inf 或 NaN"""
         try:
-            if val is None: return 0
+            if val is None: return 0.0
             f = float(val)
-            return 0 if math.isnan(f) or math.isinf(f) else f
+            if not math.isfinite(f): return 0.0
+            return f
         except:
-            return 0
+            return 0.0
         
     shares = sanitize(info.get("sharesOutstanding"))
     if shares <= 0:
@@ -116,6 +116,7 @@ def run_analysis_and_update():
     est_eps = (revenue * 0.20 * 0.40) / shares
     est_dividend = est_eps * 0.50
     
+    # 確保最終所有數據皆經過 sanitize
     final_data = {
         "update_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "price": sanitize(info.get("currentPrice", 0)),
