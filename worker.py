@@ -47,7 +47,6 @@ def calculate_technical_indicators(df):
             stoch_df = ta.stoch(df['High'], df['Low'], df['Close'])
             macd_df = ta.macd(df['Close'])
             
-            # 針對指標計算結果進行強健性檢查，避免 NoneType 錯誤
             rsi_val = float(rsi_series.iloc[-1]) if rsi_series is not None and not pd.isna(rsi_series.iloc[-1]) else 0
             
             kd_val = {}
@@ -120,7 +119,7 @@ def run_analysis_and_update():
         
     shares = sanitize(info.get("sharesOutstanding"))
     if shares <= 0:
-        shares = 25930000000 # 給予預設股本
+        shares = 25930000000 
         
     revenue = sanitize(info.get("totalRevenue", 0))
     est_eps = (revenue * 0.20 * 0.40) / shares
@@ -146,6 +145,7 @@ def run_analysis_and_update():
     
     try:
         output_path = os.path.join(os.getcwd(), "market_data.json")
+        # 增加檔案寫入的原子性建議：先寫入暫存檔再取代，減少毀損機率
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(final_data, f, ensure_ascii=False, indent=4)
         print(f"數據成功寫入至: {output_path}")
