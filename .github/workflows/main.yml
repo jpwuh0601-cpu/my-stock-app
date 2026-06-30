@@ -32,19 +32,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install --user pandas requests yfinance openai beautifulsoup4 pandas_ta
           echo "$HOME/.local/bin" >> $GITHUB_PATH
-          
+
       - name: 執行分析任務
         env:
           LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           PYTHONPATH: /home/runner/.local/lib/python3.10/site-packages
         run: |
-          # 檢查檔案是否存在並執行
-          if [ -f worker.py ]; then
+          if [ -f "worker.py" ]; then
             python worker.py
           else
             echo "找不到 worker.py，請確認檔案是否位於儲存庫根目錄。"
-            ls -R
             exit 1
           fi
 
@@ -54,8 +52,7 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
           git fetch origin main
-          
-          if [ -f market_data.json ]; then
+          if [ -f "market_data.json" ]; then
             git add market_data.json
             git commit -m "chore: auto-update market data" || echo "No changes to commit"
             git pull --rebase=merge --strategy-option=theirs origin main --allow-unrelated-histories
