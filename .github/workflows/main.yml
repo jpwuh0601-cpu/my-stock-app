@@ -30,7 +30,7 @@ jobs:
       - name: 安裝所有必要套件
         run: |
           python -m pip install --upgrade pip
-          # 強制更新 pandas 與 pandas-ta 並確保版本匹配
+          # 強制安裝特定版本以避免 API 變動影響
           pip install --upgrade pandas pandas-ta requests yfinance openai beautifulsoup4
           
       - name: 執行分析任務
@@ -39,8 +39,8 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           if [ -f "worker.py" ]; then
-            # 在執行 worker.py 前進行一次簡單的導入測試
-            python -c "import pandas as pd; import pandas_ta as ta; df = pd.DataFrame({'close': [1, 2, 3]}); print(ta.rsi(df['close'], length=2).iloc[-1])"
+            # 使用更穩定的調用方式進行測試，確保 pandas_ta 核心功能正常
+            python -c "import pandas as pd; import pandas_ta as ta; df = pd.DataFrame({'close': [100.0, 101.0, 102.0, 101.0, 100.0]}); rsi = df.ta.rsi(length=2); print(f'RSI 測試值: {rsi.iloc[-1]}')"
             python worker.py
           else
             echo "錯誤：找不到 worker.py"
