@@ -102,11 +102,16 @@ def run_analysis_and_update():
     else:
         indicators = calculate_technical_indicators(hist)
     
+    # 更嚴謹的 ticker.info 取得方式
+    info = {}
     try:
-        info = ticker.info or {}
+        raw_info = ticker.info
+        if isinstance(raw_info, dict):
+            info = raw_info
+        else:
+            print("ticker.info 回傳結構異常")
     except Exception as e:
         print(f"取得 ticker.info 失敗: {e}")
-        info = {}
         
     def sanitize(val):
         """強制處理無效數值 (NaN, inf)"""
@@ -143,7 +148,6 @@ def run_analysis_and_update():
         "line_status": True
     }
     
-    # 修改寫入邏輯，確保檔案操作區塊明確
     output_path = os.path.join(os.getcwd(), "market_data.json")
     try:
         with open(output_path, "w", encoding="utf-8") as f:
@@ -151,9 +155,8 @@ def run_analysis_and_update():
         print(f"數據成功寫入至: {output_path}")
     except Exception as e:
         print(f"寫入檔案發生嚴重錯誤: {e}")
-        return # 發生錯誤直接中斷，避免後續存取已關閉的檔案句柄
+        return 
         
-    # 將 LINE 通知移出檔案寫入區塊
     send_line_notify(f"每日股市更新: {ticker_code} 預估EPS={round(sanitize(est_eps), 2)}")
 
 if __name__ == "__main__":
