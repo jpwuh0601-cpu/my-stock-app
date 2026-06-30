@@ -30,17 +30,16 @@ jobs:
       - name: 安裝套件
         run: |
           python -m pip install --upgrade pip
-          # 使用 --user 模式安裝，避開系統權限不足問題
           pip install --user pandas==2.2.2 requests yfinance openai beautifulsoup4 pandas_ta
-          # 設定 PATH 讓後續腳本能找到安裝好的套件
+          # 設定路徑，確保環境變數能正確指向使用者安裝目錄
           echo "$HOME/.local/bin" >> $GITHUB_PATH
           
       - name: 執行分析任務
         env:
           LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          # 確保 Python 可以讀取到安裝路徑
-          PYTHONPATH: $PYTHONPATH:$HOME/.local/lib/python3.10/site-packages
+          # 直接將用戶目錄加入 PYTHONPATH，強制解決 ModuleNotFound 錯誤
+          PYTHONPATH: ${{ github.workspace }}:/home/runner/.local/lib/python3.10/site-packages
         run: python worker.py
 
       - name: 推送數據至 GitHub
@@ -50,11 +49,13 @@ jobs:
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
           git fetch origin main
           
+          # 增加檢查：僅在檔案確實存在時才進行 git add
           if [ -f market_data.json ]; then
             git add market_data.json
             git commit -m "chore: auto-update market data" || echo "No changes to commit"
             git pull --rebase=merge --strategy-option=theirs origin main --allow-unrelated-histories
             git push origin HEAD:main
           else
-            echo "market_data.json 未生成，跳過推送步驟。"
+            echo "錯誤：market_data.json 檔案未產生，請檢查 worker.py 是否執行成功。"
+            exit 1
           fi
