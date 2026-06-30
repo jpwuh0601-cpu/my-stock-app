@@ -19,14 +19,19 @@ def load_and_validate_data():
             data = json.load(f)
             # 檢查基礎必要欄位
             required_keys = ['price', 'bvps', 'financials', 'institutional_investors', 'news', 'technical_indicators']
-            all_required = required_keys
             
-            for key in all_required:
+            for key in required_keys:
                 if key not in data:
                     return None
             return data
     except Exception as e:
         return None
+
+def get_scalar(val):
+    """確保數值為標量，若為列表則取最後一項或轉換"""
+    if isinstance(val, list):
+        return val[-1] if val else 0
+    return val
 
 data = load_and_validate_data()
 
@@ -34,9 +39,13 @@ if data:
     update_date = data.get('update_date', '未知日期')
     st.caption(f"最後更新時間: {update_date}")
 
+    # 使用優化後的數值獲取函數
+    price = get_scalar(data.get('price', 0))
+    bvps = get_scalar(data.get('bvps', 0))
+
     col1, col2, col3 = st.columns(3)
-    col1.metric("即時股價", f"${data.get('price', 0)}")
-    col2.metric("每股淨值 (BVPS)", f"${data.get('bvps', 0)}")
+    col1.metric("即時股價", f"${float(price):,.2f}")
+    col2.metric("每股淨值 (BVPS)", f"${float(bvps):,.2f}")
     col3.metric("LINE 通知狀態", "已連線" if data.get('line_status') else "未連線")
 
     st.divider()
