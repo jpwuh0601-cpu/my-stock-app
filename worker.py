@@ -40,7 +40,6 @@ def sanitize_recursive(val):
 
 def calculate_technical_indicators(df):
     """計算技術指標，優先使用 pandas_ta，若無則自動降級為原生 pandas 計算"""
-    # 統一管理匯入狀態
     ta_module = None
     try:
         import pandas_ta as ta
@@ -53,7 +52,6 @@ def calculate_technical_indicators(df):
         if not all(col in df.columns for col in required_cols):
             return {"RSI": 0, "KD": {}, "MACD": {}}
 
-        # 使用局部變數 ta_module，確保作用域明確
         if ta_module is not None:
             try:
                 rsi_series = ta_module.rsi(df['Close'], length=14)
@@ -61,14 +59,21 @@ def calculate_technical_indicators(df):
                 macd_df = ta_module.macd(df['Close'])
                 
                 rsi_val = float(rsi_series.iloc[-1]) if rsi_series is not None and not pd.isna(rsi_series.iloc[-1]) else 0
-                kd_val = stoch_df.iloc[-1].to_dict() if stoch_df is not None and not stoch_df.empty else {}
-                macd_val = macd_df.iloc[-1].to_dict() if macd_df is not None and not macd_df.empty else {}
+                
+                # 強化對 DataFrame 處理的安全性
+                kd_val = {}
+                if stoch_df is not None and not stoch_df.empty:
+                    kd_val = stoch_df.iloc[-1].to_dict() if hasattr(stoch_df.iloc[-1], 'to_dict') else {}
+                
+                macd_val = {}
+                if macd_df is not None and not macd_df.empty:
+                    macd_val = macd_df.iloc[-1].to_dict() if hasattr(macd_df.iloc[-1], 'to_dict') else {}
                 
                 return {"RSI": rsi_val, "KD": kd_val, "MACD": macd_val}
             except Exception as e:
                 print(f"pandas_ta 計算過程異常，降級處理: {e}")
                 
-        # 原生 pandas 計算邏輯 (Fallback)
+        # 原生 pandas 計算邏輯
         delta = df['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
@@ -104,10 +109,11 @@ def run_analysis_and_update():
     else:
         indicators = calculate_technical_indicators(hist)
     
+    # 嚴謹的 info 獲取與判斷
     info = {}
     try:
         raw_info = ticker.info
-        if isinstance(raw_info, dict):
+        if raw_info and isinstance(raw_info, dict):
             info = raw_info
     except Exception as e:
         print(f"取得 ticker.info 失敗: {e}")
@@ -121,18 +127,18 @@ def run_analysis_and_update():
         except:
             return 0.0
         
-    shares = sanitize(info.get("sharesOutstanding"))
+    shares = sanitize(info.get("sharesOutstanding") if info else 0)
     if shares <= 0:
         shares = 25930000000 
         
-    revenue = sanitize(info.get("totalRevenue", 0))
+    revenue = sanitize(info.get("totalRevenue", 0) if info else 0)
     est_eps = (revenue * 0.20 * 0.40) / shares
     est_dividend = est_eps * 0.50
     
     final_data = {
         "update_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "price": sanitize(info.get("currentPrice", 0)),
-        "bvps": sanitize(info.get("bookValue", 0)),
+        "price": sanitize(info.get("currentPrice", 0) if info else 0),
+        "bvps": sanitize(info.get("bookValue", 0) if info else 0),
         "financials": {"2025Q1": {"EPS": 5.2}},
         "institutional_investors": [{"機構": "外資", "買賣超": 500}],
         "news": ["市場動態更新"],
