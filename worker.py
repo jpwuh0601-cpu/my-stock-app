@@ -40,7 +40,6 @@ def sanitize_recursive(val):
 
 def calculate_technical_indicators(df):
     """計算技術指標，偵測到 pandas_ta 則使用，否則全面降級為原生 pandas"""
-    # 局部模組偵測
     try:
         import pandas_ta as ta
     except ImportError:
@@ -65,7 +64,6 @@ def calculate_technical_indicators(df):
             except Exception:
                 pass
         
-        # 原生 pandas 計算邏輯 (Fallback)
         delta = df['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
