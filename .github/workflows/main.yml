@@ -1,12 +1,11 @@
 name: Trigger Stock Workflow
 
 on:
+workflow_dispatch:
+
 push:
 branches:
 - main
-- master
-
-workflow_dispatch:
 
 schedule:
 - cron: '30 0 * * *'
@@ -25,12 +24,12 @@ steps:
     with:
       fetch-depth: 0
 
-  - name: 設定 Python 環境
+  - name: 設定 Python
     uses: actions/setup-python@v4
     with:
       python-version: '3.10'
 
-  - name: 安裝所有必要套件
+  - name: 安裝套件
     run: |
       python -m pip install --upgrade pip
 
@@ -44,14 +43,14 @@ steps:
       bottleneck==1.3.8 \
       line-bot-sdk
 
-  - name: 執行分析任務
+  - name: 執行程式
     env:
       LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
     run: |
       python worker.py
 
-  - name: 推送數據
+  - name: 推送資料
     run: |
       git config --global user.name "github-actions[bot]"
       git config --global user.email "github-actions[bot]@users.noreply.github.com"
@@ -60,7 +59,7 @@ steps:
 
         git add market_data.json
 
-        git commit -m "chore: auto-update market data" || echo "No changes to commit"
+        git commit -m "chore: auto-update market data" || echo "No changes"
 
         git pull --rebase origin main
 
