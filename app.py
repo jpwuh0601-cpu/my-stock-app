@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import json
 import os
+import math
 
 st.set_page_config(page_title="專業投資決策儀表板", layout="wide")
 
@@ -28,11 +29,14 @@ def load_and_validate_data():
         return None
 
 def get_scalar(val):
-    """確保數值為標量，若為列表則取最後一項或轉換"""
+    """確保數值為有限標量，若為列表則取最後一項或轉換，過濾非有限值"""
     try:
         if isinstance(val, list):
             val = val[-1] if val else 0
-        return float(val)
+        f = float(val)
+        if math.isfinite(f):
+            return f
+        return 0.0
     except:
         return 0.0
 
@@ -42,7 +46,7 @@ if data:
     update_date = data.get('update_date', '未知日期')
     st.caption(f"最後更新時間: {update_date}")
 
-    # 使用優化後的數值獲取函數，強制轉為 float
+    # 使用優化後的數值獲取函數，強制轉為 float 並檢查有限性
     price = get_scalar(data.get('price', 0))
     bvps = get_scalar(data.get('bvps', 0))
 
