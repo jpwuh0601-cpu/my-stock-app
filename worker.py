@@ -34,6 +34,8 @@ def send_line_notify(message):
 
 def calculate_technical_indicators(df):
     """計算技術指標，具備自動降級與空值防護功能"""
+    # 確保 pd 可用
+    global pd 
     try:
         if HAS_PANDAS_TA:
             rsi_series = ta.rsi(df['Close'], length=14)
@@ -46,6 +48,7 @@ def calculate_technical_indicators(df):
                 "MACD": macd_df.iloc[-1].to_dict() if macd_df is not None and not macd_df.empty else {}
             }
         else:
+            # 原生 Pandas 備援計算
             delta = df['Close'].diff()
             gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
             loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
