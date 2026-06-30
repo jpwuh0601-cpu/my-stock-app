@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: 檢出程式碼
         uses: actions/checkout@v3
+        with:
+          persist-credentials: true
 
       - name: 設定 Python 環境
         uses: actions/setup-python@v4
@@ -27,10 +29,8 @@ jobs:
       - name: 安裝所有必要套件
         run: |
           python -m pip install --upgrade pip
-          # 確保核心套件安裝並鎖定版本
           pip install pandas==2.2.0 numpy==1.26.4 requests yfinance openai==2.44.0 beautifulsoup4 bottleneck==1.3.8 line-bot-sdk
-          # 嘗試透過標準方式安裝 pandas-ta，若失敗則透過 pip 忽略錯誤繼續執行
-          pip install pandas-ta || echo "pandas-ta 安裝步驟略過，將由 worker.py 自動降級處理"
+          pip install pandas-ta || echo "pandas-ta 安裝步驟略過"
 
       - name: 執行分析任務
         env:
@@ -47,5 +47,5 @@ jobs:
           if [ -f "market_data.json" ]; then
             git add market_data.json
             git commit -m "chore: auto-update market data" || echo "No changes to commit"
-            git push
+            git push origin HEAD:main
           fi
