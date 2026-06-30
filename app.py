@@ -34,11 +34,16 @@ def load_market_data():
 st.sidebar.header("股票搜尋")
 ticker_input = st.sidebar.text_input("輸入台股代碼 (例如: 2330)")
 
-if ticker_input:
+# 加入「開始搜尋」按鈕，解決輸入即觸發導致轉圈圈的問題
+search_button = st.sidebar.button("開始搜尋")
+
+if search_button and ticker_input:
     ticker_symbol = f"{ticker_input}.TW"
     
     try:
-        hist = get_stock_data(ticker_symbol)
+        # 使用狀態顯示避免轉圈圈時無反應
+        with st.spinner(f"正在查詢 {ticker_input} 的即時股價..."):
+            hist = get_stock_data(ticker_symbol)
         
         if hist is None or hist.empty:
             st.error(f"無法取得 {ticker_symbol} 的資料，請確認代碼是否正確。")
@@ -63,8 +68,10 @@ if ticker_input:
             
     except Exception as e:
         st.error(f"系統發生錯誤: {str(e)}")
+elif search_button and not ticker_input:
+    st.sidebar.warning("請先輸入股票代碼！")
 else:
-    st.write("請在左側輸入台股代碼開始查詢。")
+    st.write("請在左側輸入代碼並點選「開始搜尋」按鈕。")
 
 # 顯示最後更新時間
 if os.path.exists("market_data.json"):
