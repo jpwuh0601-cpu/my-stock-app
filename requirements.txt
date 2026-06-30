@@ -6,3 +6,4 @@ openai==2.44.0
 requests
 beautifulsoup4
 line-bot-sdk
+python-dotenv
