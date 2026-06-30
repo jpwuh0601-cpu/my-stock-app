@@ -50,8 +50,8 @@ jobs:
           if [ -f "market_data.json" ]; then
             git add market_data.json
             git commit -m "chore: auto-update market data [skip ci]" || echo "No changes to commit"
-            # 確保同步遠端變更後再嘗試推送
-            git pull origin main --rebase
+            # 加入 --allow-unrelated-histories 以強制解決歷史不重疊衝突
+            git pull origin main --rebase --allow-unrelated-histories
             git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main
           else
             echo "market_data.json 未產生，跳過推送。"
