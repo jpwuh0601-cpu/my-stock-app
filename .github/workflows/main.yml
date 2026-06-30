@@ -43,19 +43,22 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global pull.rebase true
+          
+          # 強制設定 remote URL
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          
+          # 確保取得最新數據
           git fetch origin main
+          
           if [ -f market_data.json ]; then
-            git reset
             git add market_data.json
-            if git diff --cached --quiet; then
-              echo "沒有資料變更，跳過推送。"
-            else
-              git commit -m "chore: auto-update market data"
-              git pull --rebase origin main --allow-unrelated-histories
-              git push origin HEAD:main
-            fi
+            git commit -m "chore: auto-update market data" || echo "No changes to commit"
+            
+            # 強制拉取遠端變更，若有衝突則選擇保留遠端版本，解決合併衝突
+            git pull --rebase=merge --strategy-option=theirs origin main --allow-unrelated-histories
+            
+            # 推送更新
+            git push origin HEAD:main
           else
             echo "market_data.json 未生成，跳過推送步驟。"
           fi
