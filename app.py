@@ -18,6 +18,10 @@ def load_and_validate_data():
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
+            # 確保 data 為字典結構
+            if not isinstance(data, dict):
+                return None
+            
             # 檢查基礎必要欄位
             required_keys = ['price', 'bvps', 'financials', 'institutional_investors', 'news', 'technical_indicators']
             
@@ -35,7 +39,6 @@ def get_scalar(val):
             return 0.0
         if isinstance(val, list):
             val = val[-1] if val else 0
-        # 強制轉換為浮點數，解決乘法時型別錯誤問題
         f = float(val)
         if math.isfinite(f):
             return f
@@ -49,7 +52,7 @@ if data:
     update_date = data.get('update_date', '未知日期')
     st.caption(f"最後更新時間: {update_date}")
 
-    # 使用優化後的數值獲取函數，強制轉為 float 並檢查有限性
+    # 使用優化後的數值獲取函數
     price = get_scalar(data.get('price', 0))
     bvps = get_scalar(data.get('bvps', 0))
     est_revenue = get_scalar(data.get('est_revenue', 0))
@@ -68,7 +71,12 @@ if data:
 
     with tab1:
         st.subheader("每季財務報表")
-        st.table(pd.DataFrame(data.get('financials', {})))
+        # 確保 financials 存在且為字典或數據框格式，否則顯示空表格
+        financials = data.get('financials')
+        if isinstance(financials, dict):
+            st.table(pd.DataFrame(financials))
+        else:
+            st.write("目前無財務報表數據。")
         
         st.subheader("年度財務預估")
         f_col1, f_col2, f_col3 = st.columns(3)
@@ -82,9 +90,11 @@ if data:
     with tab2:
         st.subheader("三大法人買賣超")
         inst_data = data.get('institutional_investors', [])
-        df_inst = pd.DataFrame(inst_data)
-        if not df_inst.empty:
+        if isinstance(inst_data, list) and len(inst_data) > 0:
+            df_inst = pd.DataFrame(inst_data)
             st.dataframe(df_inst, use_container_width=True)
+        else:
+            st.write("目前無籌碼分析數據。")
         
         st.subheader("籌碼面統計")
         col_a, col_b = st.columns(2)
@@ -92,8 +102,12 @@ if data:
 
     with tab3:
         st.subheader("最新市場新聞與分析")
-        for news in data.get('news', []):
-            st.write(f"• {news}")
+        news_list = data.get('news', [])
+        if isinstance(news_list, list):
+            for news in news_list:
+                st.write(f"• {news}")
+        else:
+            st.write("目前無新聞資訊。")
             
         st.subheader("黑天鵝警示系統")
         swan_data = data.get('black_swan_alert', {})
