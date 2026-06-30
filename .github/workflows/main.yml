@@ -36,14 +36,17 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 1. 先抓取遠端變更並進行 Rebase，解決版本衝突問題
+          # 確保工作目錄乾淨，避免 pull 失敗
+          git reset --hard HEAD
+          
+          # 拉取遠端最新變更
           git pull --rebase origin main
           
-          # 2. 加入變更
+          # 加入變更
           git add market_data.json
           
-          # 3. 提交變更，若無變更則忽略錯誤
+          # 提交變更，若無變更則忽略錯誤
           git commit -m "chore: auto-update market data [skip ci]" || echo "No changes to commit"
           
-          # 4. 推送至遠端
+          # 推送至遠端
           git push origin main
