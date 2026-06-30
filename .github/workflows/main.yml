@@ -1,100 +1,31 @@
-import json
-import requests
-import os
-import yfinance as yf
-import pandas as pd
-import pandas_ta as ta
-from datetime import datetime
-from openai import OpenAI
-from bs4 import BeautifulSoup
+name: Python application
 
-# OpenRouter 設定
-client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=os.getenv("OPENROUTER_API_KEY"),
-)
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
-def send_line_notify(message):
-    token = os.getenv("LINE_NOTIFY_TOKEN")
-    if not token: return
-    url = "https://notify-api.line.me/api/notify"
-    headers = {"Authorization": f"Bearer {token}"}
-    payload = {"message": message}
-    try:
-        requests.post(url, headers=headers, data=payload)
-    except Exception as e:
-        print(f"LINE 通知失敗: {e}")
+permissions:
+  contents: read
 
-def get_ai_analysis(prompt, json_mode=False):
-    try:
-        completion = client.chat.completions.create(
-            model="openai/gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            extra_body={"response_format": {"type": "json_object"}} if json_mode else {}
-        )
-        return completion.choices[0].message.content
-    except Exception as e:
-        return None
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-def fetch_goodinfo_data(ticker_symbol="2330"):
-    # 此處可擴充為實際爬蟲邏輯
-    return {
-        "institutional_investors": [{"機構": "外資", "買賣超": 500}],
-        "margin_ratio": 1.2,
-        "shareholder_structure": {"big_holder_400plus": 85.5, "retail_investor": 14.5}
-    }
-
-def calculate_technical_indicators(df):
-    try:
-        # 使用函數式調用，避開 .ta 物件屬性掛載問題
-        rsi = ta.rsi(df['Close'], length=14)
-        stoch = ta.stoch(df['High'], df['Low'], df['Close'])
-        macd = ta.macd(df['Close'])
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
         
-        indicators = {
-            "RSI": float(rsi.iloc[-1]) if rsi is not None and not pd.isna(rsi.iloc[-1]) else 0,
-            "KD": stoch.iloc[-1].to_dict() if stoch is not None else {},
-            "MACD": macd.iloc[-1].to_dict() if macd is not None else {}
-        }
-        return indicators
-    except Exception as e:
-        print(f"指標計算錯誤: {e}")
-        return {"RSI": 0, "KD": {}, "MACD": {}}
-
-def run_analysis_and_update():
-    ticker_code = "2330"
-    ticker = yf.Ticker(f"{ticker_code}.TW")
-    hist = ticker.history(period="6mo")
-    info = ticker.info
-    
-    # 運算預測
-    shares = info.get("sharesOutstanding", 25930000000)
-    est_eps = (info.get("totalRevenue", 0) * 0.20 * 0.40) / shares
-    est_dividend = est_eps * 0.50
-    
-    indicators = calculate_technical_indicators(hist)
-    
-    final_data = {
-        "price": info.get("currentPrice", 0),
-        "bvps": info.get("bookValue", 0),
-        "financials": {"2025Q1": {"EPS": 5.2}},
-        "institutional_investors": fetch_goodinfo_data().get("institutional_investors", []),
-        "news": ["市場動態更新"],
-        "technical_indicators": indicators,
-        "est_revenue": round(info.get("totalRevenue", 0) * 1.2, 0),
-        "est_eps": round(est_eps, 2),
-        "est_dividend": round(est_dividend, 2),
-        "ai_prediction": "基於營收預測分析。",
-        "margin_ratio": 1.2,
-        "black_swan_alert": {"is_triggered": False},
-        "ai_stock_selection": "維持穩健持有建議。"
-    }
-    
-    with open("market_data.json", "w", encoding="utf-8") as f:
-        json.dump(final_data, f, ensure_ascii=False, indent=4)
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
         
-    send_line_notify(f"每日股市更新: {ticker_code} 預估EPS={round(est_eps, 2)}")
-
-# 已還原執行邏輯
-if __name__ == "__main__":
-    run_analysis_and_update()
+    - name: Run script
+      run: |
+        python worker.py
