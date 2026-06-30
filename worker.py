@@ -33,6 +33,7 @@ def sanitize_recursive(val):
     elif isinstance(val, list):
         return [sanitize_recursive(v) for v in val]
     elif isinstance(val, (float, int)):
+        # 若非有限數值，強制歸零
         if not math.isfinite(val):
             return 0.0
         return float(val)
@@ -40,7 +41,6 @@ def sanitize_recursive(val):
 
 def calculate_technical_indicators(df):
     """計算技術指標，優先使用 pandas_ta，若無則自動降級為原生 pandas 計算"""
-    # 建立一個區域變數保存模組，確保作用域明確
     ta_module = None
     try:
         import pandas_ta as ta
@@ -53,7 +53,6 @@ def calculate_technical_indicators(df):
         if not all(col in df.columns for col in required_cols):
             return {"RSI": 0, "KD": {}, "MACD": {}}
 
-        # 嚴格使用 ta_module 變數，而非直接引用 'ta' 名稱
         if ta_module is not None:
             try:
                 rsi_series = ta_module.rsi(df['Close'], length=14)
@@ -119,7 +118,7 @@ def run_analysis_and_update():
         print(f"取得 ticker.info 失敗: {e}")
         
     def sanitize(val):
-        """全面數值安全檢查"""
+        """全面數值安全檢查，確保不會產生 inf 或 NaN"""
         try:
             if val is None: return 0.0
             f = float(val)
@@ -128,6 +127,7 @@ def run_analysis_and_update():
         except:
             return 0.0
         
+    # 安全存取與計算
     s_shares = sanitize(info.get("sharesOutstanding") if isinstance(info, dict) else 0)
     shares = s_shares if s_shares > 0 else 25930000000 
     
@@ -135,6 +135,7 @@ def run_analysis_and_update():
     est_eps = (revenue * 0.20 * 0.40) / shares
     est_dividend = est_eps * 0.50
     
+    # 在產生最終字典前，先將計算結果做一次數值對齊
     final_data = {
         "update_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "price": sanitize(info.get("currentPrice", 0) if isinstance(info, dict) else 0),
@@ -153,6 +154,7 @@ def run_analysis_and_update():
         "line_status": True
     }
     
+    # 進行最終全域數據遞迴清理，確保完全沒有 non-finite values
     clean_data = sanitize_recursive(final_data)
     
     output_path = os.path.join(os.getcwd(), "market_data.json")
