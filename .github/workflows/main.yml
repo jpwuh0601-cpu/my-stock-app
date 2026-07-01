@@ -3,62 +3,41 @@ name: AI 自動化健檢每日任務
 on:
   schedule:
     - cron: '30 0 * * *'
-  workflow_dispatch: # 這一行一定要有，才會出現手動執行按鈕
-jobs:
-build:
-runs-on: ubuntu-latest
+  workflow_dispatch: # 此行即為關鍵，必須存在才會顯示手動執行按鈕
+
 permissions:
-contents: write
-steps:
-# STREAMING_CHUNK:檢出程式碼
-- name: 檢出程式碼
-uses: actions/checkout@v3
-with:
-fetch-depth: 0
+  contents: write
 
-  # STREAMING_CHUNK:設定 Python 環境
-  - name: 設定 Python 環境
-    uses: actions/setup-python@v4
-    with:
-      python-version: '3.12'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          persist-credentials: true
 
-  # STREAMING_CHUNK:安裝套件
-  - name: 安裝套件
-    run: |
-      pip install pandas requests yfinance openai beautifulsoup4 pandas-ta plotly
+      - name: 設定 Python 環境
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
 
-  # STREAMING_CHUNK:檢查目錄結構與檔案列表
-  - name: 檢查目錄結構與檔案列表
-    run: |
-      echo "當前目錄內容："
-      ls -F
-      
-  # STREAMING_CHUNK:執行分析任務
-  - name: 執行分析任務
-    env:
-      LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-    run: |
-      # 強制清除 Python 的編譯快取，確保讀取到最新的 worker.py 和 main_task.py
-      find . -name "*.pyc" -delete
-      find . -name "__pycache__" -delete
-      # 確保環境路徑包含當前目錄
-      export PYTHONPATH=$PYTHONPATH:$(pwd)
-      python main_task.py
+      - name: 安裝套件
+        run: |
+          pip install pandas requests yfinance openai beautifulsoup4
 
-  # STREAMING_CHUNK:推送數據至 GitHub
-  - name: 推送數據至 GitHub
-    run: |
-      git config --global user.name "github-actions[bot]"
-      git config --global user.email "github-actions[bot]@users.noreply.github.com"
-      git add market_data.json
-      
-      # 檢查是否有變更
-      if git diff --staged --quiet; then
-        echo "沒有資料變更，跳過推送。"
-      else
-        git commit -m "chore: auto-update market data [skip ci]"
-        # 先進行 rebase 以防衝突，解決 fetch first 錯誤
-        git pull --rebase origin main
-        git push origin main
-      fi
+      - name: 檢查檔案結構 (除錯用)
+        run: ls -R
+
+      - name: 執行分析並儲存
+        env:
+          LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python main_task.py
+
+      - name: 推送更新至 GitHub
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add market_data.json
+          git commit -m "chore: auto-update market data" || echo "No changes"
+          git push
