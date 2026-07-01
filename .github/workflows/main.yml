@@ -25,17 +25,11 @@ jobs:
         run: |
           pip install pandas requests yfinance openai beautifulsoup4 pandas-ta plotly
 
-      - name: 檢查目錄結構與檔案列表
-        run: |
-          echo "當前目錄結構："
-          ls -R
-          
       - name: 執行分析任務
         env:
           LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          # 確保路徑正確且執行分析
           export PYTHONPATH=$PYTHONPATH:$(pwd)
           python main_task.py
 
@@ -44,14 +38,14 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 確保正確處理 JSON 變更
+          # 檢查是否有檔案變動
           git add market_data.json
           
           if git diff --staged --quiet; then
             echo "沒有資料變更，跳過推送。"
           else
             git commit -m "chore: auto-update market data [skip ci]"
-            # 確保拉取遠端最新變更後再推，避免 rejected 錯誤
-            git pull --rebase origin main
+            # 確保強制同步遠端分支，避免發生同步衝突
+            git pull --rebase --strategy=ours origin main
             git push origin main
           fi
