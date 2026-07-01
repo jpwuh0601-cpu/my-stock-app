@@ -12,11 +12,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: 檢出程式碼
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
         with:
           persist-credentials: true
-          fetch-depth: 0
 
       - name: 設定 Python 環境
         uses: actions/setup-python@v4
@@ -24,8 +22,7 @@ jobs:
           python-version: '3.12'
 
       - name: 安裝套件
-        run: |
-          pip install pandas requests yfinance openai beautifulsoup4
+        run: pip install pandas requests yfinance openai beautifulsoup4
 
       - name: 執行分析任務
         env:
@@ -38,18 +35,16 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 強制重置工作區並清除未追蹤檔案，確保一致性
-          git reset --hard HEAD
-          git clean -fd
+          # 將工作區變更暫存
+          git stash
           
+          # 拉取最新資料
+          git pull --rebase origin main
+          
+          # 恢復變更並加入檔案
+          git stash pop || echo "No stash to pop"
           git add market_data.json
           
-          # 檢查是否有變更
-          if git diff --staged --quiet; then
-            echo "沒有資料變更，跳過推送。"
-          else
-            git commit -m "chore: auto-update market data [skip ci]"
-            # 確保拉取最新遠端變更後再推送
-            git pull --rebase origin main
-            git push origin main
-          fi
+          # 提交並推送
+          git commit -m "chore: auto-update market data [skip ci]" || echo "No changes to commit"
+          git push origin main
