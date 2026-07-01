@@ -11,10 +11,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: 檢出程式碼
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
         with:
-          # 確保取得完整歷史紀錄
           fetch-depth: 0
 
       - name: 設定 Python 環境
@@ -23,32 +21,21 @@ jobs:
           python-version: '3.12'
 
       - name: 安裝套件
-        run: |
-          pip install pandas requests yfinance openai beautifulsoup4 pandas-ta plotly
+        run: pip install pandas requests yfinance openai beautifulsoup4 pandas-ta plotly
 
       - name: 執行分析任務
         env:
-          LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          export PYTHONPATH=$PYTHONPATH:$(pwd)
-          python main_task.py
+        run: python main_task.py
 
-      - name: 推送數據至 GitHub
+      - name: 強制推送數據至 GitHub
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 將 market_data.json 加入暫存區
+          # 將檔案加入並提交
           git add market_data.json
+          git commit -m "chore: update market data" || exit 0
           
-          # 檢查是否有變更
-          if git diff --staged --quiet; then
-            echo "沒有資料變更，跳過推送。"
-          else
-            git commit -m "chore: auto-update market data [skip ci]"
-            
-            # 直接強制推播，不依賴 pull 的 rebase 邏輯，避免衝突導致的 rejected
-            # 這是自動化腳本中最穩定的數據更新方式
-            git push origin HEAD:main --force
-          fi
+          # 強制推送至當前分支
+          git push origin HEAD:main --force
