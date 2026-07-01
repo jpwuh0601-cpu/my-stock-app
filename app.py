@@ -8,24 +8,30 @@ st.set_page_config(page_title="AI 智能投資決策儀表板", layout="wide")
 
 st.title("📊 AI 智能投資決策儀表板")
 
-# 讀取數據函式
+# 【關鍵修復】取得 app.py 所在的資料夾路徑，強制確保讀取到正確的 JSON
+current_dir = os.path.dirname(os.path.abspath(__file__))
+json_path = os.path.join(current_dir, "market_data.json")
+
 def load_data():
-    if os.path.exists("market_data.json"):
+    if os.path.exists(json_path):
         try:
-            with open("market_data.json", "r", encoding="utf-8") as f:
+            with open(json_path, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception:
+        except Exception as e:
+            st.error(f"檔案讀取失敗: {e}")
             return None
-    return None
+    else:
+        st.error(f"找不到檔案: {json_path}") # 除錯用
+        return None
 
 data = load_data()
 
+# 搜尋邏輯
 st.sidebar.header("股票搜尋")
 stock_code = st.sidebar.text_input("輸入台股代碼 (例如: 2330)")
 
 if st.sidebar.button("開始搜尋"):
     if data:
-        # 顯示儀表板數據
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("即時股價", f"{data.get('price', 0)}")
         col2.metric("每股淨值 (BVPS)", f"{data.get('bvps', 0)}")
@@ -43,14 +49,10 @@ if st.sidebar.button("開始搜尋"):
         st.subheader("今年與去年每季財報")
         if isinstance(financials, dict) and financials:
             df = pd.DataFrame.from_dict(financials, orient='index')
-            
-            # 【關鍵修復】不要直接傳入 Styler 物件，改用 st.dataframe 顯示 DataFrame
-            # 若要顏色效果，使用 column_config (Streamlit 較新的推薦做法)
             st.dataframe(df, use_container_width=True)
         else:
             st.write("暫無財報數據")
     else:
-        st.warning("目前沒有數據，請檢查 GitHub Action 是否執行成功。")
-
+        st.warning("目前沒有數據，請確保 market_data.json 已生成。")
 else:
-    st.info("請在左側輸入股票代碼並按下搜尋。")
+    st.info("請輸入代碼後按下搜尋。")
