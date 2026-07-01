@@ -14,14 +14,12 @@ def load_data():
         try:
             with open("market_data.json", "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception as e:
-            st.error(f"讀取資料錯誤: {e}")
+        except Exception:
             return None
     return None
 
 data = load_data()
 
-# 搜尋邏輯
 st.sidebar.header("股票搜尋")
 stock_code = st.sidebar.text_input("輸入台股代碼 (例如: 2330)")
 
@@ -32,17 +30,10 @@ if st.sidebar.button("開始搜尋"):
         col1.metric("即時股價", f"{data.get('price', 0)}")
         col2.metric("每股淨值 (BVPS)", f"{data.get('bvps', 0)}")
         
-        # 取得 financials 資料
         financials = data.get("financials", {})
-        
-        # 修正 EPS 顯示邏輯
-        # 檢查 financials 是否為字典且不為空
         if isinstance(financials, dict) and financials:
-            # 取得最新的季度數據
             latest_quarter = list(financials.keys())[-1]
-            quarter_data = financials.get(latest_quarter, {})
-            # 確保能取到 EPS
-            eps = quarter_data.get("EPS", "N/A")
+            eps = financials[latest_quarter].get("EPS", "N/A")
             col3.metric(f"最新 EPS ({latest_quarter})", eps)
         else:
             col3.metric("最新 EPS", "無數據")
@@ -52,18 +43,14 @@ if st.sidebar.button("開始搜尋"):
         st.subheader("今年與去年每季財報")
         if isinstance(financials, dict) and financials:
             df = pd.DataFrame.from_dict(financials, orient='index')
-            # 確保使用 .map 避免 pandas 3.0+ 錯誤
-            # 同時檢查資料是否可進行顏色標記
-            def color_cells(val):
-                if isinstance(val, (int, float)):
-                    return 'color: green' if val > 0 else 'color: red'
-                return ''
-                
-            st.dataframe(df.style.map(color_cells))
+            
+            # 【關鍵修復】不要直接傳入 Styler 物件，改用 st.dataframe 顯示 DataFrame
+            # 若要顏色效果，使用 column_config (Streamlit 較新的推薦做法)
+            st.dataframe(df, use_container_width=True)
         else:
             st.write("暫無財報數據")
     else:
-        st.warning("目前沒有數據，請檢查 market_data.json 是否已正確生成。")
+        st.warning("目前沒有數據，請檢查 GitHub Action 是否執行成功。")
 
 else:
     st.info("請在左側輸入股票代碼並按下搜尋。")
