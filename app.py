@@ -11,27 +11,37 @@ st.title("📊 AI 智能投資決策儀表板")
 def color_negative_red(val):
     try:
         num = float(val)
-        color = 'red' if num > 0 else 'green'
-        return f'color: {color}'
+        return f'color: {"red" if num > 0 else "green"}'
     except:
         return ''
 
-# 讀取數據函式
+# 讀取數據函式 (修正版：具備除錯資訊)
 def load_data():
-    json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "market_data.json")
-    if os.path.exists(json_path):
-        with open(json_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}
+    # 針對 Streamlit Cloud 的專屬路徑修正
+    possible_paths = [
+        "market_data.json",                               
+        "/mount/src/my-stock-app/market_data.json",       
+        os.path.join(os.path.dirname(__file__), "market_data.json")
+    ]
+    
+    for path in possible_paths:
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f), path
+    return None, None
 
-data = load_data()
+# 執行載入
+data, used_path = load_data()
 
 # 搜尋列
 stock_code = st.sidebar.text_input("輸入台股代碼")
 if st.sidebar.button("開始分析"):
-    if not data:
-        st.error("資料尚未載入，請確認檔案")
+    if data is None:
+        st.error("❌ 找不到 market_data.json，請檢查 GitHub 自動化流程是否已推送。")
+        st.write("系統檢查目錄內容:", os.listdir('.') if os.path.exists('.') else "無法存取目錄")
     else:
+        st.success(f"✅ 資料載入成功 (來源: {used_path})")
+        
         # 1. & 2. 關鍵數據區塊
         st.subheader("核心數據")
         col1, col2, col3, col4, col5, col6 = st.columns(6)
@@ -47,7 +57,7 @@ if st.sidebar.button("開始分析"):
         if "financials" in data:
             st.dataframe(pd.DataFrame(data["financials"]).T, use_container_width=True)
 
-        # 5. 法人買賣超 (紅買綠賣)
+        # 5. 法人買賣超
         st.subheader("三大法人買賣超 (10日)")
         if "institutional_investors" in data:
             df_inst = pd.DataFrame(data["institutional_investors"])
@@ -66,9 +76,5 @@ if st.sidebar.button("開始分析"):
         # 7. AI 財報預測
         st.subheader("AI 財報預測")
         st.info(data.get("ai_prediction", "分析中..."))
-
-        # 資料來源校驗
-        st.divider()
-        st.write("✅ 自動回測結果: 數據來源結構完整，連結正常。")
 else:
     st.info("請輸入代碼並搜尋。")
