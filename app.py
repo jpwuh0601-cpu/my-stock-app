@@ -1,55 +1,47 @@
 import streamlit as st
 import yfinance as yf
-import pandas as pd
 import plotly.graph_objects as go
 import time
 
-# 頁面配置
 st.set_page_config(page_title="AI 智能投資決策儀表板", layout="wide")
 
 st.title("📊 AI 智能投資決策儀表板")
 
-# --- 側邊欄：股票搜尋 ---
+# 側邊欄搜尋
 st.sidebar.header("股票搜尋")
 ticker_input = st.sidebar.text_input("輸入台股代碼 (例如: 2330)", value="2330")
 search_button = st.sidebar.button("開始搜尋")
 
-# --- 數據獲取函式 ---
 @st.cache_data(ttl=3600)
-def get_stock_data(ticker_symbol):
-    """取得股票數據，加入快取避免頻繁請求"""
+def get_stock_data(ticker_code):
     try:
-        # 加上 .TW 後綴
-        ticker = yf.Ticker(f"{ticker_symbol}.TW")
+        time.sleep(1)
+        ticker = yf.Ticker(f"{ticker_code}.TW")
         info = ticker.info
         hist = ticker.history(period="1mo")
         return info, hist
-    except Exception as e:
+    except Exception:
         return None, None
 
-# --- 主邏輯 ---
-if search_button or ticker_input:
-    with st.spinner(f"正在分析 {ticker_input}..."):
+# 當按下搜尋按鈕時才執行
+if search_button:
+    with st.spinner("正在取得數據..."):
         info, hist = get_stock_data(ticker_input)
         
-        if info and 'regularMarketPrice' in info:
-            # 顯示指標
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("即時股價", f"${info.get('regularMarketPrice', 0):,.2f}")
-            col2.metric("本益比", info.get('trailingPE', 'N/A'))
-            col3.metric("每股盈餘", info.get('trailingEps', 'N/A'))
-            col4.metric("市值", f"{info.get('marketCap', 0) / 1e9:.2f} B")
-
-            # 繪圖
-            if hist is not None:
-                st.subheader("近期走勢圖")
-                fig = go.Figure(data=[go.Scatter(x=hist.index, y=hist['Close'], mode='lines', name="收盤價")])
-                fig.update_layout(height=400)
-                st.plotly_chart(fig, use_container_width=True)
-            
-            st.success(f"已成功載入 {ticker_input} 的數據")
+        # --- 關鍵修正：檢查 info 是否為 None ---
+        if info is None or not isinstance(info, dict):
+            st.error("無法取得該股票資料，請檢查代碼是否正確。")
         else:
-            st.error("無法取得該股票數據，請檢查代碼是否正確。")
+            # 安全存取邏輯
+            current_price = info.get("currentPrice", 0)
+            st.subheader(f"代碼: {ticker_input} 最新價格: {current_price}")
 
+            # 顯示其他數據
+            col1, col2, col3 = st.columns(3)
+            col1.metric("本益比", info.get("trailingPE", "N/A"))
+            col2.metric("EPS", info.get("trailingEps", "N/A"))
+            col3.metric("市值", f"{info.get('marketCap', 0)/1e9:.1f} B")
+            
+            st.success("數據載入成功！")
 else:
-    st.info("請在側邊欄輸入代碼並按下「開始搜尋」。")
+    st.info("請在左側輸入股票代碼並按下搜尋。")
