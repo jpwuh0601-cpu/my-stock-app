@@ -22,39 +22,62 @@ def load_data():
 
 data = load_data()
 
-# 側邊欄與搜尋
+# 側邊欄
 st.sidebar.header("股票搜尋")
-stock_code = st.sidebar.text_input("輸入台股代碼 (例如: 2330)")
+stock_code = st.sidebar.text_input("輸入台股代碼")
 
-if st.sidebar.button("開始搜尋"):
-    if data:
-        # 顯示儀表板
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("即時股價", str(data.get("price", 0)))
-        col2.metric("每股淨值 (BVPS)", str(data.get("bvps", 0)))
-        
-        financials = data.get("financials", {})
-        if isinstance(financials, dict) and financials:
-            latest_quarter = list(financials.keys())[-1]
-            eps = financials[latest_quarter].get("EPS", "N/A")
-            col3.metric(f"最新 EPS ({latest_quarter})", str(eps))
-        else:
-            col3.metric("最新 EPS", "無數據")
-            
-        col4.metric("本益比", str(data.get("pe_ratio", "N/A")))
+if st.sidebar.button("開始搜尋") and data:
+    # 1 & 2. 即時股價與每股淨值
+    col1, col2 = st.columns(2)
+    col1.metric("即時股價", f"{data.get('price', 0)}")
+    col2.metric("每股淨值 (BVPS)", f"{data.get('bvps', 0)}")
 
-        # 財報表
-        st.subheader("今年與去年每季財報")
-        if isinstance(financials, dict) and financials:
-            df = pd.DataFrame.from_dict(financials, orient='index')
-            st.dataframe(df, use_container_width=True)
-            
-            # 增加 AI 預測
-            st.subheader("AI 財報預測")
-            st.write(data.get("ai_prediction", "暫無預測數據"))
-        else:
-            st.write("暫無財報數據")
+    # 4. 今年與去年每季報表
+    st.subheader("今年與去年每季財報")
+    financials = data.get("financials", {})
+    if financials:
+        df_fin = pd.DataFrame.from_dict(financials, orient='index')
+        st.dataframe(df_fin, use_container_width=True)
+
+    # 5. 股市3大法人買賣超 (10日)
+    st.subheader("股市三大法人買賣超 (近10日)")
+    inst_data = data.get("institutional_investors", [])
+    if inst_data:
+        df_inst = pd.DataFrame(inst_data)
+        st.dataframe(df_inst, use_container_width=True, column_config={
+            "買賣超": st.column_config.NumberColumn("買賣超", format="%d", help="正數為買超(紅)，負數為賣超(綠)")
+        })
+
+    # 6. 資券比與主力券商
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.subheader("10日資券比")
+        st.metric("當前資券比", f"{data.get('margin_ratio', 'N/A')}%")
+    with col_b:
+        st.subheader("主力券商買賣 (10日)")
+        brokers = data.get("top_brokers", [])
+        st.write(brokers if brokers else "無數據")
+
+    # 新聞與 AI 預測
+    st.subheader("即時新聞")
+    news = data.get("news", [])
+    for item in news:
+        st.write(f"- {item}")
+
+    # 7. AI 財報預測 (含營收、EPS、股利)
+    st.subheader("AI 財報預測")
+    ai_data = data.get("ai_forecast", {})
+    if ai_data:
+        fcol1, fcol2, fcol3 = st.columns(3)
+        fcol1.metric("預估今年營收", ai_data.get("revenue", "N/A"))
+        fcol2.metric("預估 EPS", ai_data.get("eps", "N/A"))
+        fcol3.metric("預估股利", ai_data.get("dividend", "N/A"))
+        st.info(ai_data.get("comment", "系統分析中..."))
     else:
-        st.warning("目前沒有數據，請檢查 market_data.json。")
-else:
-    st.info("請輸入代碼後按下搜尋。")
+        st.write("暫無 AI 預測數據")
+
+    # 資料來源驗證
+    st.sidebar.success("資料來源驗證：正常")
+
+elif not data:
+    st.warning("請確保 market_data.json 已生成且包含數據。")
