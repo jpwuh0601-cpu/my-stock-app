@@ -48,7 +48,9 @@ jobs:
           else
             git commit -m "chore: auto-update market data [skip ci]"
             # 解決 fatal: refusing to merge unrelated histories
-            git pull --rebase --allow-unrelated-histories origin main
+            # 採用先 fetch 後 rebase 的方式確保歷史線對齊
+            git fetch origin main
+            git rebase origin/main
             # 推送至遠端
             git push origin main
           fi
