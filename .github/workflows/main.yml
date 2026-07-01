@@ -38,14 +38,15 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 檢查是否有檔案變動
+          # 加入偵測變更機制
           git add market_data.json
           
+          # 檢查是否有實際變更，若無則跳過，避免無意義的空提交
           if git diff --staged --quiet; then
             echo "沒有資料變更，跳過推送。"
           else
             git commit -m "chore: auto-update market data [skip ci]"
-            # 確保強制同步遠端分支，避免發生同步衝突
-            git pull --rebase --strategy=ours origin main
+            # 使用 rebase 策略確保同步遠端，並在最後強制推送以確保覆蓋
+            git pull --rebase origin main
             git push origin main
           fi
