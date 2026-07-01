@@ -14,7 +14,7 @@ jobs:
       - name: 檢出程式碼
         uses: actions/checkout@v3
         with:
-          # 確保取得完整歷史紀錄，避免 Git Rebase 失敗
+          # 確保取得完整歷史紀錄
           fetch-depth: 0
 
       - name: 設定 Python 環境
@@ -42,13 +42,13 @@ jobs:
           # 將 market_data.json 加入暫存區
           git add market_data.json
           
-          # 檢查是否有變更，若無則不執行 Commit，避免空提交
+          # 檢查是否有變更
           if git diff --staged --quiet; then
             echo "沒有資料變更，跳過推送。"
           else
             git commit -m "chore: auto-update market data [skip ci]"
-            # 確保強制同步遠端分支，並透過 rebase 整合變更
-            git pull --rebase origin main
+            # 解決 fatal: refusing to merge unrelated histories
+            git pull --rebase --allow-unrelated-histories origin main
             # 推送至遠端
             git push origin main
           fi
