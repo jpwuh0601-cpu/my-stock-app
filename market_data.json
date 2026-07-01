@@ -1,11 +1,18 @@
 {
-    "update_date": "2026-07-01 03:12:56",
+    "update_date": "2026-07-01 04:19:48",
+    "ticker": "2330",
     "price": 2490.0,
-    "bvps": 227.166,
-    "financials": {
-        "2025Q1": {
-            "EPS": 5.2
-        }
+    "market_cap": 64571599486976.0,
+    "pe_ratio": 33.87294,
+    "forward_pe": 19.83851,
+    "dividend_yield": 1.0,
+    "beta": 1.25,
+    "book_value": 227.166,
+    "profit_margins": 0.46505,
+    "financials_summary": {
+        "total_revenue": 4103904165888.0,
+        "ebitda": 2856031092736.0,
+        "operating_margins": 0.58105
     },
     "institutional_investors": [
         {
@@ -13,30 +20,11 @@
             "買賣超": 500.0
         }
     ],
-    "news": [
-        "市場動態更新"
-    ],
+    "ai_prediction": "基於多維度財務指標分析，維持穩健看法。",
     "technical_indicators": {
-        "RSI": 62.516478373221204,
-        "KD": {
-            "STOCHk_14_3_3": 65.64102564102564,
-            "STOCHd_14_3_3": 54.70085470085469,
-            "STOCHh_14_3_3": 10.940170940170944
-        },
-        "MACD": {
-            "MACD_12_26_9": 44.016013260195905,
-            "MACDh_12_26_9": -0.792029680401015,
-            "MACDs_12_26_9": 44.80804294059692
-        }
+        "RSI": 50.0,
+        "Status": "Neutral"
     },
-    "est_revenue": 4924684999065.6,
-    "est_eps": 12.66,
-    "est_dividend": 6.33,
-    "ai_prediction": "基於營收預測分析。",
-    "margin_ratio": 1.2,
-    "black_swan_alert": {
-        "is_triggered": 0.0
-    },
-    "ai_stock_selection": "維持穩健持有建議。",
+    "est_eps": 73.51,
     "line_status": 1.0
 }
