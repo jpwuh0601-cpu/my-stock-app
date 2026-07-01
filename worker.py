@@ -52,6 +52,8 @@ def run_analysis_and_update():
         "forward_pe": sanitize(info.get("forwardPE")),
         "dividend_yield": sanitize(info.get("dividendYield")),
         "book_value": sanitize(info.get("bookValue")),
+        "trailing_eps": sanitize(info.get("trailingEps")),
+        "profit_margins": sanitize(info.get("profitMargins")),
         "institutional_investors": [{"機構": "外資", "買賣超": 500}],
         "ai_prediction": "基於當前財報指標，維持穩健分析觀點。",
         "technical_indicators": {"RSI": 50, "Status": "Neutral"}
