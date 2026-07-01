@@ -46,7 +46,8 @@ jobs:
             echo "沒有資料變更，跳過推送。"
           else
             git commit -m "chore: auto-update market data [skip ci]"
-            # 使用強制拉取再推送的方式，確保與遠端同步
+            # 強制拉取遠端變更並進行 Rebase，確保提交紀錄整潔且順序正確
             git pull --rebase origin main
+            # 推送至遠端，若遇衝突可加上 --force-with-lease 確保安全
             git push origin main
           fi
