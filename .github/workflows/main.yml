@@ -3,8 +3,7 @@ name: AI 自動化健檢每日任務
 on:
   schedule:
     - cron: '30 0 * * *'
-  workflow_dispatch:
-
+  workflow_dispatch:   # <--- 必須有這一行，按鈕才會出現
 permissions:
   contents: write
 
