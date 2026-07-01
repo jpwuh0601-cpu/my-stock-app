@@ -14,11 +14,12 @@ st.sidebar.header("股票搜尋")
 ticker_input = st.sidebar.text_input("輸入台股代碼 (例如: 2330)", value="2330")
 search_button = st.sidebar.button("開始搜尋")
 
-# 使用快取降低 API 呼叫頻率
+# 使用快取降低 API 呼叫頻率 (快取 10 分鐘)
 @st.cache_data(ttl=600)
 def get_stock_data(ticker_code):
     try:
-        time.sleep(1) # 增加延遲以避免觸發 Rate Limit
+        # 強制延遲以避免觸發 Rate Limit
+        time.sleep(1.5) 
         ticker = yf.Ticker(f"{ticker_code}.TW")
         info = ticker.info
         hist = ticker.history(period="1mo")
@@ -28,8 +29,11 @@ def get_stock_data(ticker_code):
 
 def load_market_data():
     if os.path.exists("market_data.json"):
-        with open("market_data.json", "r", encoding="utf-8") as f:
-            return json.load(f)
+        try:
+            with open("market_data.json", "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            return None
     return None
 
 # 主邏輯
@@ -38,7 +42,7 @@ if search_button and ticker_input:
         info, hist = get_stock_data(ticker_input)
         market_data = load_market_data()
 
-        if info is None:
+        if info is None or not info:
             st.error("無法取得資料，請檢查代碼或稍後再試 (API 請求限制)。")
         else:
             current_price = info.get("currentPrice", "N/A")
@@ -54,12 +58,19 @@ if search_button and ticker_input:
 
             with tab2:
                 if market_data:
-                    st.write(f"外資買賣超: {market_data.get('institutional_investors', [{}])[0].get('買賣超', 'N/A')}")
+                    investors = market_data.get('institutional_investors', [])
+                    if investors:
+                        st.write(f"外資買賣超: {investors[0].get('買賣超', 'N/A')}")
+                    else:
+                        st.write("目前無外資籌碼數據。")
                 else:
-                    st.write("目前無即時籌碼數據。")
+                    st.write("目前無即時籌碼數據檔案。")
 
             with tab3:
-                st.info(market_data.get('ai_prediction', 'AI 模型分析中...'))
+                if market_data:
+                    st.info(market_data.get('ai_prediction', 'AI 模型分析中...'))
+                else:
+                    st.write("目前無 AI 預測數據。")
 
 # 系統狀態顯示
 st.sidebar.markdown("---")
