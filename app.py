@@ -1,63 +1,39 @@
-import streamlit as st
-import yfinance as yf
-import json
-import os
-import pandas as pd
-import plotly.graph_objects as go
-from datetime import datetime
-
-# 設定頁面配置，提高效能與互動性
-st.set_page_config(page_title="AI 智能投資決策儀表板", layout="wide")
-
-st.title("📊 AI 智能投資決策儀表板")
-
-@st.cache_data(ttl=600)
-def fetch_live_data(ticker_code):
-    """手動觸發的數據更新功能，避免啟動時卡死"""
-    try:
-        ticker = yf.Ticker(f"{ticker_code}.TW")
-        info = ticker.info
-        hist = ticker.history(period="1mo")
-        return info, hist
-    except Exception as e:
-        return None, f"獲取失敗: {str(e)}"
-
-def load_local_data():
-    """優先讀取離線檔案，確保頁面載入速度"""
+def load_market_data():
     if os.path.exists("market_data.json"):
         try:
             with open("market_data.json", "r", encoding="utf-8") as f:
-                return json.load(f)
-        except:
-            return None
-    return None
+                data = json.load(f)
+                # 若讀取內容為 None，回傳空字典作為預設值
+                return data if data is not None else {}
+        except (json.JSONDecodeError, Exception) as e:
+            st.warning("數據檔案格式錯誤，正在嘗試修復...")
+            return {}
+    return {}
+```
 
-ticker_input = st.sidebar.text_input("輸入台股代碼 (預設 2330)", value="2330")
+### 2. 在渲染前檢查資料是否存在
+在 `app.py` 渲染「籌碼面分析」或「AI 預測」區塊前，請務必先確認該鍵值是否存在，避免直接存取：
 
-# 區分：本地預覽與即時獲取
-if st.sidebar.button("載入本地數據"):
-    data = load_local_data()
-    if data:
-        st.subheader("離線數據快照")
-        st.json(data)
-    else:
-        st.warning("找不到本地數據檔案，請先執行 worker.py。")
+```python
+# 錯誤的存取方式 (可能導致 NoneType Error)
+# st.write(market_data['institutional_investors'])
 
-if st.sidebar.button("獲取即時數據 (線上)"):
-    with st.spinner("正在連接 Yahoo Finance 獲取數據..."):
-        info, hist = fetch_live_data(ticker_input)
-        if info and not isinstance(info, str):
-            st.success("數據獲取成功！")
-            col1, col2, col3 = st.columns(3)
-            col1.metric("目前價格", f"{info.get('currentPrice', 'N/A')} TWD")
-            col2.metric("本益比", info.get("trailingPE", "N/A"))
-            col3.metric("市值", f"{info.get('marketCap', 0) / 1e9:.2f} B")
-            
-            if hist is not None and not hist.empty:
-                fig = go.Figure(data=go.Scatter(x=hist.index, y=hist['Close'], mode='lines'))
-                fig.update_layout(title="近一個月股價趨勢")
-                st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.error(f"無法獲取數據：{info}")
+# 建議的正確存取方式 (使用 .get() 並提供預設值)
+investors = market_data.get('institutional_investors', [])
+if investors:
+    st.write(f"外資買賣超: {investors[0].get('買賣超', 'N/A')}")
+else:
+    st.write("目前無外資籌碼數據。")
+```
 
-st.info("💡 提示：為了避免頁面卡死，請使用側邊欄按鈕手動載入數據。")
+### 3. 檢查 JSON 檔案格式
+因為您的截圖顯示 `market_data.json` 可能在 GitHub Action 推送後格式跑掉，請您執行以下動作確認檔案內容：
+1. 前往您的 GitHub 倉庫。
+2. 點開 `market_data.json`。
+3. 確保它看起來像這樣（正確的 JSON 格式）：
+   ```json
+   {
+       "ticker": "2330",
+       "price": 1000.0,
+       "institutional_investors": [{"機構": "外資", "買賣超": 500}]
+   }
