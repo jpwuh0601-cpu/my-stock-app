@@ -12,22 +12,25 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: 檢出程式碼
+        uses: actions/checkout@v3
         with:
           persist-credentials: true
-          fetch-depth: 0 # 確保拉取完整歷史，解決 rebase 衝突
+          fetch-depth: 0
 
       - name: 設定 Python 環境
         uses: actions/setup-python@v4
         with:
-           python-version: '3.12'
+          python-version: '3.12'
+
       - name: 安裝套件
-        run: pip install pandas requests yfinance openai beautifulsoup4
+        run: |
+          pip install pandas requests yfinance openai beautifulsoup4
 
       - name: 執行分析任務
         env:
           LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: python worker.py
 
       - name: 推送數據至 GitHub
@@ -35,18 +38,18 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 清除可能存在的髒狀態
+          # 強制重置工作區並清除未追蹤檔案，確保一致性
           git reset --hard HEAD
+          git clean -fd
           
-          # 加入變更
           git add market_data.json
           
-          # 檢查是否有變更，若無則跳過 commit
+          # 檢查是否有變更
           if git diff --staged --quiet; then
             echo "沒有資料變更，跳過推送。"
           else
             git commit -m "chore: auto-update market data [skip ci]"
-            # 使用 force push 或 pull-rebase 確保一致性
+            # 確保拉取最新遠端變更後再推送
             git pull --rebase origin main
             git push origin main
           fi
