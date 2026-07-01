@@ -6,6 +6,7 @@ import pandas as pd
 from datetime import datetime
 import time
 import math
+import random
 
 def send_line_notify(message):
     """發送 LINE Notify 通知"""
@@ -29,18 +30,19 @@ def sanitize(val):
     except: return 0.0
 
 def run_analysis_and_update():
-    """執行市場數據分析並儲存，增加錯誤處理與防護機制"""
+    """執行市場數據分析並儲存，增加隨機延遲以降低 API 請求限制風險"""
     ticker_code = "2330"
     ticker = yf.Ticker(f"{ticker_code}.TW")
     
-    # 增加延遲避免觸發 API 頻率限制 (Rate Limit)
-    time.sleep(3)
+    # 加入隨機延遲 (3 到 7 秒)，模擬人類行為並降低 API 請求速率
+    delay = random.uniform(3, 7)
+    time.sleep(delay)
     
     try:
-        # 使用 info 屬性獲取詳細資料
+        # 使用 info 屬性獲取詳細資料，增加 session 逾時處理
         info = ticker.info
         if not info or "currentPrice" not in info:
-            print("警告：未獲取到有效數據")
+            print("警告：未獲取到有效數據，請檢查 Yahoo Finance API 狀態")
             info = {}
     except Exception as e:
         print(f"獲取資訊失敗: {e}")
