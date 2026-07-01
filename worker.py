@@ -29,7 +29,7 @@ def sanitize(val):
     except: return 0.0
 
 def run_analysis_and_update():
-    """執行市場數據分析並儲存"""
+    """執行市場數據分析並儲存，增加錯誤處理與防護機制"""
     ticker_code = "2330"
     ticker = yf.Ticker(f"{ticker_code}.TW")
     
@@ -37,12 +37,16 @@ def run_analysis_and_update():
     time.sleep(3)
     
     try:
+        # 使用 info 屬性獲取詳細資料
         info = ticker.info
+        if not info or "currentPrice" not in info:
+            print("警告：未獲取到有效數據")
+            info = {}
     except Exception as e:
         print(f"獲取資訊失敗: {e}")
         info = {}
 
-    # 擴充財務指標欄位，解決數據太簡略的問題
+    # 擴充財務指標欄位，確保資料結構完整
     final_data = {
         "update_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "ticker": ticker_code,
@@ -59,7 +63,7 @@ def run_analysis_and_update():
         "technical_indicators": {"RSI": 50, "Status": "Neutral"}
     }
     
-    # 寫入 JSON 檔案
+    # 寫入 JSON 檔案並加入異常處理
     output_path = "market_data.json"
     try:
         with open(output_path, "w", encoding="utf-8") as f:
