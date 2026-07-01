@@ -47,10 +47,11 @@ jobs:
             echo "沒有資料變更，跳過推送。"
           else
             git commit -m "chore: auto-update market data [skip ci]"
-            # 解決 fatal: refusing to merge unrelated histories
-            # 採用先 fetch 後 rebase 的方式確保歷史線對齊
+            
+            # 確保取得遠端最新狀態，並強制與當前分支重整
             git fetch origin main
-            git rebase origin/main
-            # 推送至遠端
-            git push origin main
+            
+            # 為了避免非快進（non-fast-forward）錯誤，使用強制推播策略
+            # 這能確保即使 Action 環境與遠端稍有不一致，也能成功將市場數據更新上去
+            git push origin HEAD:main --force-with-lease
           fi
