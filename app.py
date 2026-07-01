@@ -14,7 +14,8 @@ def load_data():
         try:
             with open("market_data.json", "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception:
+        except Exception as e:
+            st.error(f"讀取資料錯誤: {e}")
             return None
     return None
 
@@ -31,27 +32,38 @@ if st.sidebar.button("開始搜尋"):
         col1.metric("即時股價", f"{data.get('price', 0)}")
         col2.metric("每股淨值 (BVPS)", f"{data.get('bvps', 0)}")
         
-        # 修正 EPS 讀取邏輯以符合您提供的 JSON 結構
+        # 取得 financials 資料
         financials = data.get("financials", {})
-        # 因為 financials 結構為 {"2025Q1": {"EPS": 5.2, ...}}
-        if financials:
+        
+        # 修正 EPS 顯示邏輯
+        # 檢查 financials 是否為字典且不為空
+        if isinstance(financials, dict) and financials:
+            # 取得最新的季度數據
             latest_quarter = list(financials.keys())[-1]
-            eps = financials[latest_quarter].get("EPS", "N/A")
+            quarter_data = financials.get(latest_quarter, {})
+            # 確保能取到 EPS
+            eps = quarter_data.get("EPS", "N/A")
             col3.metric(f"最新 EPS ({latest_quarter})", eps)
         else:
-            col3.metric("最新 EPS", "N/A")
+            col3.metric("最新 EPS", "無數據")
             
         col4.metric("本益比", f"{data.get('pe_ratio', 'N/A')}")
 
         st.subheader("今年與去年每季財報")
-        if financials:
+        if isinstance(financials, dict) and financials:
             df = pd.DataFrame.from_dict(financials, orient='index')
             # 確保使用 .map 避免 pandas 3.0+ 錯誤
-            st.dataframe(df.style.map(lambda x: 'color: green' if isinstance(x, (int, float)) and x > 0 else 'color: red'))
+            # 同時檢查資料是否可進行顏色標記
+            def color_cells(val):
+                if isinstance(val, (int, float)):
+                    return 'color: green' if val > 0 else 'color: red'
+                return ''
+                
+            st.dataframe(df.style.map(color_cells))
         else:
             st.write("暫無財報數據")
     else:
-        st.warning("目前沒有數據，請確保 GitHub Action 已成功更新 market_data.json。")
+        st.warning("目前沒有數據，請檢查 market_data.json 是否已正確生成。")
 
 else:
     st.info("請在左側輸入股票代碼並按下搜尋。")
