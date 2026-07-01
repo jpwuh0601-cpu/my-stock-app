@@ -1,23 +1,5 @@
 {
-    "update_date": "2026-07-01 09:48:01",
-    "ticker": "2330",
-    "price": 2505.0,
-    "market_cap": 64960587628544.0,
-    "pe_ratio": 34.076996,
-    "forward_pe": 19.95802,
-    "dividend_yield": 1.0,
-    "book_value": 227.166,
-    "trailing_eps": 73.51,
-    "profit_margins": 0.46505,
-    "institutional_investors": [
-        {
-            "機構": "外資",
-            "買賣超": 500
-        }
-    ],
-    "ai_prediction": "基於當前財報指標，維持穩健分析觀點。",
-    "technical_indicators": {
-        "RSI": 50,
-        "Status": "Neutral"
-    }
+    "status": "success",
+    "price": 23000.0,
+    "message": "分析完成"
 }
