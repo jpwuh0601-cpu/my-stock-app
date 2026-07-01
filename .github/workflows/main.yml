@@ -1,9 +1,10 @@
 name: AI 自動化健檢每日任務
 
 on:
+  push:
+  workflow_dispatch:
   schedule:
     - cron: '30 0 * * *'
-  workflow_dispatch:
 
 permissions:
   contents: write
@@ -18,14 +19,14 @@ jobs:
       - name: 設定 Python 環境
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: '3.12'
 
-      - name: 安裝套件
+      - name: 安裝所有必要套件
         run: |
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install pandas requests yfinance openai beautifulsoup4 pandas_ta
-          # 檢查安裝結果
-          pip list | grep pandas-ta
+          # 驗證安裝狀態
+          python -c "import pandas_ta; print('pandas_ta 成功載入')"
 
       - name: 執行分析任務
         env:
