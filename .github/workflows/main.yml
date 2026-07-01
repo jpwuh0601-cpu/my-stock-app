@@ -48,10 +48,7 @@ jobs:
           else
             git commit -m "chore: auto-update market data [skip ci]"
             
-            # 確保取得遠端最新狀態，並強制與當前分支重整
-            git fetch origin main
-            
-            # 為了避免非快進（non-fast-forward）錯誤，使用強制推播策略
-            # 這能確保即使 Action 環境與遠端稍有不一致，也能成功將市場數據更新上去
-            git push origin HEAD:main --force-with-lease
+            # 直接強制推播，不依賴 pull 的 rebase 邏輯，避免衝突導致的 rejected
+            # 這是自動化腳本中最穩定的數據更新方式
+            git push origin HEAD:main --force
           fi
