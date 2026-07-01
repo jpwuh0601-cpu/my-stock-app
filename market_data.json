@@ -1,30 +1,23 @@
 {
-    "update_date": "2026-07-01 04:19:48",
+    "update_date": "2026-07-01 09:48:01",
     "ticker": "2330",
-    "price": 2490.0,
-    "market_cap": 64571599486976.0,
-    "pe_ratio": 33.87294,
-    "forward_pe": 19.83851,
+    "price": 2505.0,
+    "market_cap": 64960587628544.0,
+    "pe_ratio": 34.076996,
+    "forward_pe": 19.95802,
     "dividend_yield": 1.0,
-    "beta": 1.25,
     "book_value": 227.166,
+    "trailing_eps": 73.51,
     "profit_margins": 0.46505,
-    "financials_summary": {
-        "total_revenue": 4103904165888.0,
-        "ebitda": 2856031092736.0,
-        "operating_margins": 0.58105
-    },
     "institutional_investors": [
         {
             "機構": "外資",
-            "買賣超": 500.0
+            "買賣超": 500
         }
     ],
-    "ai_prediction": "基於多維度財務指標分析，維持穩健看法。",
+    "ai_prediction": "基於當前財報指標，維持穩健分析觀點。",
     "technical_indicators": {
-        "RSI": 50.0,
+        "RSI": 50,
         "Status": "Neutral"
-    },
-    "est_eps": 73.51,
-    "line_status": 1.0
+    }
 }
