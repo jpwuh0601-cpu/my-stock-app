@@ -20,7 +20,7 @@ jobs:
       - name: 設定 Python 環境
         uses: actions/setup-python@v4
         with:
-           python-version: '3.12'
+          python-version: '3.12'
 
       - name: 安裝套件
         run: |
@@ -37,9 +37,10 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git pull --rebase
           if [ -f market_data.json ]; then
             git add market_data.json
-            git commit -m "chore: auto-update market data" || echo "No changes to commit"
+            git commit -m "chore: auto-update rich market data" || echo "No changes to commit"
             git push
           else
             echo "market_data.json not found, skipping push."
