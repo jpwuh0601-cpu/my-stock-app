@@ -1,29 +1,24 @@
-import yfinance as yf
-import json
-import logging
+import sys
 import os
 
-# 確保所有符號皆為半形，避免 SyntaxError
-def run_analysis_and_update():
-    logging.basicConfig(level=logging.INFO)
-    logging.info("開始執行分析任務...")
-    
+# 強制將當前目錄加入 Python 搜尋路徑，確保可以找到 worker.py
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+import worker
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
+def run_main_pipeline():
+    logging.info("開始執行主流程")
     try:
-        # 這裡放入您的核心分析邏輯
-        # 確保縮排是使用 4 個空白鍵，而不是 Tab 鍵
-        data = {
-            "status": "success",
-            "price": 23000.0,
-            "message": "分析完成"
-        }
-        
-        with open("market_data.json", "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
-            
-        logging.info("market_data.json 已更新成功。")
-        
+        # 確保呼叫的函式名稱與 worker.py 裡的一模一樣
+        worker.run_analysis_and_update()
+        logging.info("執行完畢")
+    except AttributeError as e:
+        logging.error(f"找不到函式: {e}")
     except Exception as e:
-        logging.error(f"分析失敗: {e}")
+        logging.error(f"發生未知錯誤: {e}")
 
 if __name__ == "__main__":
-    run_analysis_and_update()
+    run_main_pipeline()
