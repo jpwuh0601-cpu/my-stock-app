@@ -20,10 +20,11 @@ jobs:
       - name: 設定 Python 環境
         uses: actions/setup-python@v4
         with:
-          python-version: '3.12'
+          python-version: '3.9'
 
-      -- name: 安裝套件
-        run: pip install pandas requests yfinance openai beautifulsoup4 pandas_ta
+      - name: 安裝套件
+        run: |
+          pip install pandas requests yfinance openai beautifulsoup4 pandas_ta
 
       - name: 執行分析任務
         env:
@@ -36,7 +37,7 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 確保工作目錄乾淨，避免 pull 失敗
+          # 確保工作目錄乾淨
           git reset --hard HEAD
           
           # 拉取遠端最新變更
