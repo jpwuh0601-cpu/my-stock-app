@@ -6,81 +6,78 @@ import pandas as pd
 # 頁面設定
 st.set_page_config(page_title="AI 智能投資決策儀表板", layout="wide")
 
-# 資料檢查函式 (自動化回測/驗證)
-def verify_data(data):
-    required_keys = ["price", "bvps", "financials", "institutional_investors", "margin_ratio"]
-    missing = [key for key in required_keys if key not in data]
-    return missing
-
-# UI 樣式：紅色買超/綠色賣超
-def color_negative_red(val):
-    color = 'red' if val > 0 else 'green'
-    return f'color: {color}'
-
 st.title("📊 AI 智能投資決策儀表板")
 
-# 讀取檔案
-json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "market_data.json")
-data = {}
-if os.path.exists(json_path):
-    with open(json_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+# 讀取數據函式
+def load_data():
+    json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "market_data.json")
+    if not os.path.exists(json_path):
+        return None
+    try:
+        with open(json_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        st.error(f"JSON 讀取異常: {e}")
+        return None
 
-# 股票搜尋側邊欄
-stock_code = st.sidebar.text_input("輸入台股代碼 (例如: 1301)")
+data = load_data()
+
+st.sidebar.header("股票搜尋")
+stock_code = st.sidebar.text_input("輸入台股代碼 (例如: 2330)")
+
 if st.sidebar.button("開始搜尋"):
-    if not data:
-        st.error("系統尚未載入數據，請檢查 GitHub Actions 狀態。")
-    else:
-        # 資料驗證
-        missing_keys = verify_data(data)
-        if missing_keys:
-            st.warning(f"警告：部分資料欄位缺失: {', '.join(missing_keys)}")
-        else:
-            st.success("數據源驗證通過，載入完成。")
+    if data:
+        # 1. & 2. 關鍵數據區塊
+        # 使用強制轉型確保 metric 函數永遠有值
+        price = str(data.get("price", "N/A"))
+        bvps = str(data.get("bvps", "N/A"))
+        
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("即時股價", price)
+        col2.metric("每股淨值", bvps)
+        
+        # 3. 財報預估區塊 (包含營收、EPS、股利)
+        est_rev = str(data.get("est_revenue", "N/A"))
+        est_eps = str(data.get("est_eps", "N/A"))
+        col3.metric("預估今年 EPS", est_eps)
+        col4.metric("預估今年營收", est_rev)
 
-        # 1-3. 關鍵指標
-        c1, c2, c3, c4, c5 = st.columns(5)
-        c1.metric("即時股價", f"{data.get('price', 'N/A')}")
-        c2.metric("每股淨值", f"{data.get('bvps', 'N/A')}")
-        c3.metric("預估營收", f"{data.get('est_revenue', 'N/A')}")
-        c4.metric("預估 EPS", f"{data.get('est_eps', 'N/A')}")
-        c5.metric("預估股利", f"{data.get('est_dividend', 'N/A')}")
-
-        st.divider()
-
-        # 4. 每季財報
-        st.subheader("📝 今年與去年每季財報")
+        # 4. 今年與去年每季報表
+        st.subheader("今年與去年每季財報")
         financials = data.get("financials", {})
-        df_fin = pd.DataFrame(financials).T
-        st.dataframe(df_fin, use_container_width=True)
-
-        # 5. 三大法人買賣超 (10日)
-        st.subheader("📈 三大法人買賣超 (10日)")
-        inst_data = data.get("institutional_investors", [])
-        if inst_data:
-            df_inst = pd.DataFrame(inst_data)
-            st.dataframe(df_inst.style.map(color_negative_red, subset=['買賣超']), use_container_width=True)
+        if financials:
+            st.dataframe(pd.DataFrame.from_dict(financials, orient='index'), use_container_width=True)
         else:
-            st.info("暫無法人數據")
+            st.write("目前無財報數據")
 
-        # 6. 10日資券比
-        st.subheader("📊 10日資券比")
-        st.metric("當前資券比", f"{data.get('margin_ratio', 'N/A')}%")
+        # 5. 三大法人買賣超
+        st.subheader("三大法人買賣超 (10日)")
+        investors = data.get("institutional_investors", [])
+        if investors:
+            # 處理顏色：正數紅、負數綠
+            df_inv = pd.DataFrame(investors)
+            st.dataframe(df_inv.style.map(
+                lambda val: 'color: red' if isinstance(val, (int, float)) and val > 0 
+                else ('color: green' if isinstance(val, (int, float)) and val < 0 else ''), 
+                subset=['買賣超']
+            ), use_container_width=True)
+        else:
+            st.write("目前無法人買賣數據")
 
-        # 7. 主力券商買賣 (10日)
-        st.subheader("🏢 主力券商買賣 (10日)")
-        brokers = data.get("top_brokers", [])
-        st.dataframe(pd.DataFrame(brokers), use_container_width=True)
-
-        # 8. 即時新聞
-        st.subheader("📰 即時新聞")
-        for news in data.get("news", ["無最新新聞"]):
-            st.write(f"- {news}")
-
-        # 9. AI 財報預測 (調整至新聞後)
-        st.subheader("🤖 AI 財報預測")
-        st.info(data.get("ai_prediction", "暫無預測資料"))
-
+        # 6. 資券比
+        st.subheader("10日資券比與主力券商")
+        col_a, col_b = st.columns(2)
+        col_a.metric("當前資券比", f"{data.get('margin_ratio', 0)}%")
+        
+        # 7. AI 財報預測與新聞 (依照您的排版要求)
+        st.subheader("即時新聞")
+        for news in data.get("news", ["暫無最新新聞"]):
+            st.write(f"• {news}")
+            
+        st.subheader("AI 財報預測")
+        st.info(data.get("ai_prediction", "AI 模型分析中，請稍候..."))
+        
+    else:
+        st.error("無法讀取數據，請確認市場資料是否已同步。")
 else:
-    st.info("請輸入代碼後按下搜尋。")
+    st.info("請輸入代碼後按下搜尋按鈕。")
