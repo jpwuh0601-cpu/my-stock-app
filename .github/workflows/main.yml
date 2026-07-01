@@ -22,8 +22,8 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: 安裝套件
-        run: pip install pandas requests yfinance openai beautifulsoup4
+      -- name: 安裝套件
+        run: pip install pandas requests yfinance openai beautifulsoup4 pandas_ta
 
       - name: 執行分析任務
         env:
