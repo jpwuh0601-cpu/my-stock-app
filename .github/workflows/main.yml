@@ -15,6 +15,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           persist-credentials: true
+          fetch-depth: 0 # 確保獲取完整歷史以處理 rebase
 
       - name: 設定 Python 環境
         uses: actions/setup-python@v4
@@ -35,16 +36,15 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 將工作區變更暫存
-          git stash
-          
-          # 拉取最新資料
-          git pull --rebase origin main
-          
-          # 恢復變更並加入檔案
-          git stash pop || echo "No stash to pop"
+          # 加入變更
           git add market_data.json
           
-          # 提交並推送
-          git commit -m "chore: auto-update market data [skip ci]" || echo "No changes to commit"
-          git push origin main
+          # 檢查是否有變更
+          if git diff --staged --quiet; then
+            echo "沒有資料變更，跳過推送。"
+          else
+            git commit -m "chore: auto-update market data [skip ci]"
+            # 先拉取再推送，確保狀態一致
+            git pull --rebase origin main
+            git push origin main
+          fi
