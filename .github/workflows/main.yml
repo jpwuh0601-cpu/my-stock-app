@@ -3,7 +3,8 @@ name: AI 自動化健檢每日任務
 on:
   schedule:
     - cron: '30 0 * * *'
-  workflow_dispatch:   # <--- 必須有這一行，按鈕才會出現
+  workflow_dispatch:
+
 permissions:
   contents: write
 
@@ -13,17 +14,18 @@ jobs:
     steps:
       - name: 檢出程式碼
         uses: actions/checkout@v3
-        with:
-          persist-credentials: true
 
       - name: 設定 Python 環境
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.12'
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
 
       - name: 安裝套件
         run: |
+          pip install --upgrade pip
           pip install pandas requests yfinance openai beautifulsoup4 pandas_ta
+          # 檢查安裝結果
+          pip list | grep pandas-ta
 
       - name: 執行分析任務
         env:
@@ -35,18 +37,6 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # 確保工作目錄乾淨
-          git reset --hard HEAD
-          
-          # 拉取遠端最新變更
-          git pull --rebase origin main
-          
-          # 加入變更
           git add market_data.json
-          
-          # 提交變更，若無變更則忽略錯誤
           git commit -m "chore: auto-update market data [skip ci]" || echo "No changes to commit"
-          
-          # 推送至遠端
-          git push origin main
+          git push
