@@ -1,9 +1,9 @@
-name: AI 自動化健檢每日任務
+name: Daily Stock Analysis
 
 on:
-schedule:
-- cron: '30 0 * * *'
-workflow_dispatch:
+  schedule:
+    - cron: '30 0 * * *'
+  workflow_dispatch: # 這一行一定要有，才會出現手動執行按鈕
 
 jobs:
 build:
