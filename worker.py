@@ -34,8 +34,8 @@ def run_analysis_and_update():
     ticker_code = "2330"
     ticker = yf.Ticker(f"{ticker_code}.TW")
     
-    # 加入隨機延遲 (3 到 7 秒)，模擬人類行為並降低 API 請求速率
-    delay = random.uniform(3, 7)
+    # 加入隨機延遲 (5 到 15 秒)，模擬人類行為並降低 API 請求速率
+    delay = random.uniform(5, 15)
     time.sleep(delay)
     
     try:
