@@ -1,4 +1,4 @@
-name: AI 自動化健檢每日任務
+name: Daily Stock Analysis
 
 on:
   push:
@@ -13,20 +13,19 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: 檢出程式碼
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
+        with:
+          persist-credentials: true
 
       - name: 設定 Python 環境
         uses: actions/setup-python@v4
         with:
-          python-version: '3.12'
+           python-version: '3.12'
 
-      - name: 安裝所有必要套件
+      - name: 安裝套件
         run: |
-          python -m pip install --upgrade pip
+          pip install --upgrade pip
           pip install pandas requests yfinance openai beautifulsoup4 pandas_ta
-          # 驗證安裝狀態
-          python -c "import pandas_ta; print('pandas_ta 成功載入')"
 
       - name: 執行分析任務
         env:
@@ -38,6 +37,10 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add market_data.json
-          git commit -m "chore: auto-update market data [skip ci]" || echo "No changes to commit"
-          git push
+          if [ -f market_data.json ]; then
+            git add market_data.json
+            git commit -m "chore: auto-update market data" || echo "No changes to commit"
+            git push
+          else
+            echo "market_data.json not found, skipping push."
+          fi
