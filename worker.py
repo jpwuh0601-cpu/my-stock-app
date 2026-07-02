@@ -2,11 +2,11 @@ import json
 import logging
 
 def run_analysis_and_update():
-    # 確保包含 app.py 需要的所有欄位，避免 KeyError
+    # 擴充後的資料結構，支援本益比與券商詳細買賣數據
     data = {
         "price": 230.0,
         "bvps": 150.2,
-        "pe_ratio": 44.2,  # 新增：本益比
+        "pe_ratio": 44.2,  # 本益比
         "est_revenue": 1200000,
         "est_eps": 5.2,
         "est_dividend": 3.5,
@@ -20,7 +20,7 @@ def run_analysis_and_update():
             {"機構": "投信", "買賣超": -200}
         ],
         "top_brokers": [
-            {"券商": "凱基台北", "買進": 1000, "賣出": 200}, # 擴充欄位
+            {"券商": "凱基台北", "買進": 1000, "賣出": 200}, # 買賣超詳細欄位
             {"券商": "富邦", "買進": 800, "賣出": 900}
         ],
         "news": ["測試新聞"],
