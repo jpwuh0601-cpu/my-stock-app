@@ -1,44 +1,72 @@
+import streamlit as st
 import json
 import os
-import yfinance as yf
-import logging
+import pandas as pd
 
-logging.basicConfig(level=logging.INFO)
+# 頁面配置
+st.set_page_config(page_title="AI 智能投資決策儀表板", layout="wide")
 
-def run_analysis_and_update():
-    ticker_symbol = "2330.TW"
-    logging.info(f"開始抓取 {ticker_symbol} 即時數據...")
+# 設定檔案路徑
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+FILE_PATH = os.path.join(BASE_DIR, "market_data.json")
+
+def load_data():
+    """安全讀取 JSON 數據，若檔案不存在返回空字典"""
+    if os.path.exists(FILE_PATH):
+        try:
+            with open(FILE_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            st.error(f"讀取資料失敗: {e}")
+            return {}
+    return {}
+
+def main():
+    st.title("📊 AI 智能投資決策儀表板")
     
-    try:
-        ticker = yf.Ticker(ticker_symbol)
-        # 獲取即時數據
-        price = ticker.fast_info.last_price
-        info = ticker.info
-        
-        # 抓取財報指標 (處理缺失值)
-        eps = info.get("trailingEps", 0.0)
-        pe = info.get("trailingPE", 0.0)
-        bvps = info.get("bookValue", 0.0)
-        
-        # 整合數據
-        data = {
-            "price": price,
-            "bvps": bvps,
-            "financials": {"2025Q1": {"EPS": eps, "淨值": bvps}},
-            "pe_ratio": pe,
-            "margin_ratio": 1.25,
-            "institutional_investors": [{"機構": "外資", "買賣超": 500}],
-            "top_brokers": [{"券商": "凱基台北", "買進": 1000}],
-            "ai_prediction": f"系統已自動更新，{ticker_symbol} 當前股價: {price}，EPS: {eps}"
-        }
+    # 載入數據
+    data = load_data()
+    
+    # 提取數據 (使用 .get() 防禦空值)
+    # financials 為嵌套字典結構: {"2025Q1": {"EPS": 5.2, "淨值": 150.2}}
+    financials = data.get("financials", {}).get("2025Q1", {})
+    
+    price = data.get("price", 0)
+    eps = financials.get("EPS", 0)
+    bvps = financials.get("淨值", 0)
+    pe_ratio = data.get("pe_ratio", 0) # 若 API 未更新，這會預設為 0
+    margin_ratio = data.get("margin_ratio", 0)
 
-        # 寫入檔案
-        with open("market_data.json", "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
-        logging.info("數據寫入成功")
+    # 1. 核心指標區塊
+    st.subheader("核心財務指標")
+    cols = st.columns(4)
+    cols[0].metric("即時股價", f"{float(price):,.2f}")
+    cols[1].metric("每股淨值 (BVPS)", f"{float(bvps):.2f}")
+    cols[2].metric("最新 EPS", f"{float(eps):.2f}")
+    cols[3].metric("融資券比", f"{float(margin_ratio):.2f}%")
+
+    # 2. 籌碼與主力區塊
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("三大法人買賣超")
+        inst_data = data.get("institutional_investors", [])
+        if inst_data:
+            st.dataframe(pd.DataFrame(inst_data), use_container_width=True, hide_index=True)
+        else:
+            st.write("目前無法人數據")
         
-    except Exception as e:
-        logging.error(f"數據抓取失敗: {e}")
+    with col2:
+        st.subheader("主力券商買進")
+        broker_data = data.get("top_brokers", [])
+        if broker_data:
+            st.dataframe(pd.DataFrame(broker_data), use_container_width=True, hide_index=True)
+        else:
+            st.write("目前無主力券商數據")
+
+    # 3. AI 分析區塊
+    st.subheader("AI 市場趨勢分析")
+    st.info(data.get("ai_prediction", "分析準備中..."))
 
 if __name__ == "__main__":
-    run_analysis_and_update()
+    main()
