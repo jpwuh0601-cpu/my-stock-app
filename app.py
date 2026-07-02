@@ -1,47 +1,58 @@
 import streamlit as st
+import pandas as pd
 import json
 import os
 
-st.set_page_config(layout="wide", page_title="AI 智能金融監控診斷終端")
+st.set_page_config(layout="wide", page_title="AI 智能金融監控終端")
 
 def load_data():
-    # 強制檢查檔案是否存在
-    if not os.path.exists("market_data.json"):
-        return {"error": "找不到 market_data.json 檔案"}
-    try:
-        with open("market_data.json", "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        return {"error": f"JSON 解析失敗: {str(e)}"}
+    """讀取數據，使用絕對路徑"""
+    file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "market_data.json")
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            st.error(f"檔案解析失敗: {e}")
+            return {}
+    return {}
 
 def main():
+    st.title("📈 AI 智能金融監控終端")
     data = load_data()
-    st.title("📈 診斷模式：AI 金融儀表板")
     
-    # 顯示錯誤
-    if "error" in data:
-        st.error(data["error"])
-        return
-
-    st.subheader("📊 系統數據結構檢查")
+    # 核心指標
+    st.metric("即時股價", f"{float(data.get('price', 0)):,.2f}")
     
-    # 列出所有存在的鍵值
-    all_keys = list(data.keys())
-    st.write(f"目前偵測到的欄位: {all_keys}")
-    
-    # 針對目標欄位做防禦性檢查
-    target = "institutional_investors"
-    if target in data:
-        st.success(f"成功偵測到 '{target}' 欄位！")
-        st.json(data[target])
-    else:
-        st.warning(f"目前檔案中沒有 '{target}' 欄位。")
-        st.write("這是常見的 GitHub Actions 同步問題，請檢查 worker.py 是否在雲端環境中有正確寫入。")
-
     st.divider()
-    
-    st.subheader("🔍 完整 JSON 原始數據")
-    st.json(data)
+
+    st.subheader("🏦 三大法人與籌碼數據")
+    raw = data.get("institutional_investors")
+
+    # 絕對防禦機制
+    try:
+        if raw:
+            # 強制處理成列表結構
+            data_list = raw if isinstance(raw, list) else [raw]
+            
+            # 強制轉換：如果項目不是字典，轉為字典
+            clean_list = [item if isinstance(item, dict) else {"數據": str(item)} for item in data_list]
+            
+            # 【關鍵修正】：強制指定索引，並確保 DataFrame 讀取無誤
+            df = pd.DataFrame(clean_list, index=range(len(clean_list)))
+            
+            st.table(df)
+        else:
+            st.info("目前無籌碼數據。")
+    except Exception as e:
+        st.error(f"表格格式解析異常: {e}")
+        st.write("原始資料內容:", raw)
+
+    st.subheader("🤖 AI 智能分析")
+    st.write(data.get("ai_prediction", "暫無分析數據。"))
+
+    with st.expander("🔍 除錯數據結構"):
+        st.json(data)
 
 if __name__ == "__main__":
     main()
