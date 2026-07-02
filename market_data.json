@@ -1,4 +1,21 @@
 {
     "price": 1050.0,
-    "ai_prediction": "分析結果正常"
+    "pe_ratio": 15.5,
+    "bvps": 120.0,
+    "margin_ratio": 1.5,
+    "est_revenue": 5000000,
+    "est_eps": 5.2,
+    "institutional_investors": [
+        {
+            "機構": "外資",
+            "買賣超": 500
+        }
+    ],
+    "top_brokers": [
+        {
+            "券商": "凱基",
+            "買進": 1000
+        }
+    ],
+    "ai_prediction": "AI 分析結果已更新。"
 }
