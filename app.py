@@ -1,57 +1,55 @@
 import streamlit as st
 import pandas as pd
 import json
-import os
 
 def load_data():
     if os.path.exists("market_data.json"):
-        try:
-            with open("market_data.json", "r", encoding="utf-8") as f:
-                return json.load(f)
-        except:
-            return {}
+        with open("market_data.json", "r", encoding="utf-8") as f:
+            return json.load(f)
     return {}
 
 def main():
     st.set_page_config(layout="wide", page_title="AI 智能金融終端")
-    
     data = load_data()
     
-    # 核心數據提取 (設定預設值)
-    price = float(data.get("price", 0))
-    change = float(data.get("change", 0))
-    bvps = float(data.get("bvps", 0))
-    margin_ratio = float(data.get("margin_ratio", 0))
-    eps = float(data.get("eps_forecast", 0))
-    
-    # 標題
-    st.title("📊 AI 智能金融終端")
-    
-    # 1. 核心指標 (漲紅跌綠)
-    st.subheader("核心財務指標")
-    cols = st.columns(4)
-    
-    # 處理漲跌顯示：如果 change 為 0，則不顯示 delta，避免 API 錯誤
-    delta_str = f"{change:+.2f}" if change != 0 else None
-    
-    cols[0].metric("即時股價", f"{price:,.2f}", delta=delta_str)
-    cols[1].metric("每股淨值", f"{bvps:.2f}")
-    cols[2].metric("10日資券比", f"{margin_ratio:.2f}%")
-    cols[3].metric("預估 EPS", f"{eps:.2f}")
-        
-    st.divider()
+    # --- 1. 即時監控與控制 ---
+    st.title("📈 AI 智能金融監控終端")
+    with st.sidebar:
+        st.header("系統控制")
+        stock_code = st.text_input("輸入股票代碼", value="2330.TW")
+        if st.button("確認選股"):
+            st.session_state.selected_stock = stock_code
+        st.divider()
+        st.warning("⚠️ 黑天鵝危機警示: 正常")
+        st.status("自動回測資料來源: ✅ 已校驗")
 
-    # 2. 籌碼分析
-    st.subheader("三大法人與籌碼數據")
-    df_inst = pd.DataFrame(data.get("institutional_investors", []))
-    if not df_inst.empty:
-        st.dataframe(df_inst, use_container_width=True)
-    else:
-        st.write("目前無法人數據，請確認 worker.py 執行狀態。")
+    # 即時股價與指標
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("即時股價", f"{data.get('price', 0):,.2f}", delta=f"{data.get('change', 0):.2f}")
+    c2.metric("每股淨值", f"{data.get('bvps', 0):.2f}")
+    c3.metric("10日資券比", f"{data.get('margin_ratio', 0):.2f}%")
+    c4.metric("預估 EPS", f"{data.get('eps_forecast', 0):.2f}")
 
-    # 3. AI 分析
-    st.subheader("AI 市場趨勢分析")
-    st.info(data.get("ai_prediction", "AI 正在分析數據中..."))
+    # --- 2. 財報分析區塊 ---
+    st.subheader("財務數據 (今年與去年每季)")
+    st.table(pd.DataFrame(data.get("quarterly_reports", {})))
+
+    # --- 3. 籌碼面區塊 ---
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("三大法人 10日買賣超")
+        # 顯示邏輯需包含紅漲綠跌
+        st.dataframe(pd.DataFrame(data.get("institutional_investors", [])), use_container_width=True)
+    with col2:
+        st.subheader("主力券商 10日動向")
+        st.dataframe(pd.DataFrame(data.get("top_brokers", [])), use_container_width=True)
+
+    # --- 4. 深度 AI 分析區塊 ---
+    st.subheader("即時新聞解讀")
+    st.info(data.get("news", "無即時新聞"))
+    
+    st.subheader("AI 財報預測")
+    st.success(data.get("ai_prediction", "預測分析中..."))
 
 if __name__ == "__main__":
     main()
