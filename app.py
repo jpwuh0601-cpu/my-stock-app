@@ -3,26 +3,30 @@ import pandas as pd
 import json
 import os
 
+# 設定頁面樣式
 st.set_page_config(layout="wide", page_title="AI 智能金融監控終端")
 
 def load_data():
+    """讀取市場數據，若失敗則回傳空字典"""
     if os.path.exists("market_data.json"):
         try:
             with open("market_data.json", "r", encoding="utf-8") as f:
                 return json.load(f)
-        except:
+        except Exception as e:
+            st.error(f"讀取資料檔時發生錯誤: {e}")
             return {}
     return {}
 
 def main():
     data = load_data()
+    
     if not data:
-        st.warning("⚠️ 數據檔為空或讀取失敗，請稍候重試。")
+        st.info("尚未載入數據，請等待 GitHub Actions 下次更新或手動觸發...")
         return
 
     st.title("📈 AI 智能金融監控終端")
     
-    # 核心指標：使用 .get() 加上預設值 0，徹底消除 KeyError
+    # 核心指標：顯示防護層
     cols = st.columns(5)
     cols[0].metric("即時股價", f"{float(data.get('price', 0)):,.2f}")
     cols[1].metric("每股淨值", f"{float(data.get('bvps', 0)):.2f}")
@@ -32,19 +36,21 @@ def main():
     
     st.divider()
 
-    # 籌碼面：檢查欄位是否存在
+    # 籌碼面：顯示防護層
     st.subheader("三大法人與籌碼數據")
+    inst_data = data.get("institutional_investors")
     
-    # 這裡檢查是否真的有 'institutional_investors'，沒有就顯示提示而非崩潰
-    if 'institutional_investors' in data and data['institutional_investors']:
-        inst_data = data['institutional_investors']
-        try:
-            df = pd.DataFrame(inst_data)
-            st.dataframe(df, width=1000)
-        except Exception as e:
-            st.error(f"表格格式無法解析: {e}")
+    if isinstance(inst_data, list) and len(inst_data) > 0:
+        # 將資料轉換為易讀的 DataFrame
+        df = pd.DataFrame(inst_data)
+        st.dataframe(df, width=1000)
     else:
-        st.info("目前無籌碼數據資料 (可能尚未完成每日抓取)。")
+        st.warning("目前無法人籌碼數據。")
+
+    # AI 分析與新聞
+    st.subheader("AI 智能分析與市場新聞")
+    st.info(data.get("ai_prediction", "暫無 AI 分析結果。"))
+    st.write(data.get("news", "暫無新聞數據。"))
 
 if __name__ == "__main__":
     main()
