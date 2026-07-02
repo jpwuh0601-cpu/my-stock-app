@@ -1,32 +1,27 @@
-import sys
+import streamlit as st
+import pandas as pd
+import json
 import os
-import logging
 
-# 設定日誌
-logging.basicConfig(level=logging.INFO)
+st.set_page_config(layout="wide", page_title="AI 智能金融終端")
 
-# 將當前腳本所在的目錄加入系統路徑
-current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, current_dir)
-
-def run_main_pipeline():
-    logging.info(f"當前工作目錄: {os.getcwd()}")
-    logging.info(f"腳本目錄: {current_dir}")
+def load_data():
+    # 嘗試讀取多種可能路徑
+    possible_paths = ["market_data.json", "/app/market_data.json", "data/market_data.json"]
     
-    # 檢查 worker.py 是否存在
-    if not os.path.exists(os.path.join(current_dir, "worker.py")):
-        logging.error("致命錯誤：在目錄中找不到 worker.py")
-        return
+    # 除錯用：列出當前目錄所有檔案
+    current_dir = os.getcwd()
+    files_in_dir = os.listdir(current_dir)
+    
+    for path in possible_paths:
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+    
+    st.error(f"找不到數據檔！當前目錄: {current_dir}")
+    st.write(f"目錄下的檔案清單: {files_in_dir}")
+    return {}
 
-    try:
-        import worker
-        logging.info("成功導入 worker 模組")
-        worker.run_analysis_and_update()
-        logging.info("分析任務執行完畢")
-    except ImportError as e:
-        logging.error(f"導入模組失敗: {e}")
-    except Exception as e:
-        logging.error(f"發生未知錯誤: {e}")
-
-if __name__ == "__main__":
-    run_main_pipeline()
+def main():
+    data = load_data()
+    # ... (其餘程式碼保持不變)
