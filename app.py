@@ -2,22 +2,29 @@ import streamlit as st
 import pandas as pd
 import json
 import os
-import math
+import numpy as np
 
 st.set_page_config(layout="wide", page_title="AI 智能金融監控終端")
 
-def safe_num(val):
-    try:
-        f = float(val)
-        return 0.0 if math.isnan(f) or math.isinf(f) else f
-    except:
-        return 0.0
+def preprocess_data(data):
+    """全域數據預處理：將所有不安全的格式轉為標準化格式"""
+    if isinstance(data, dict):
+        return {k: preprocess_data(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [preprocess_data(v) for v in data]
+    elif isinstance(data, float):
+        if np.isnan(data) or np.isinf(data):
+            return 0.0
+        return data
+    return data
 
 def load_data():
-    if os.path.exists("market_data.json"):
+    file_path = "market_data.json"
+    if os.path.exists(file_path):
         try:
-            with open("market_data.json", "r", encoding="utf-8") as f:
-                return json.load(f)
+            with open(file_path, "r", encoding="utf-8") as f:
+                raw_data = json.load(f)
+                return preprocess_data(raw_data) # 在載入後立即清洗
         except:
             return {}
     return {}
@@ -30,35 +37,22 @@ def main():
 
     st.title("📈 AI 智能金融監控終端")
     
-    # 核心指標
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("即時股價", f"{safe_num(data.get('price', 0)):,.2f}", delta=f"{safe_num(data.get('change', 0)):+.2f}")
-    c2.metric("每股淨值", f"{safe_num(data.get('bvps', 0)):.2f}")
-    c3.metric("本益比", f"{safe_num(data.get('pe_ratio', 0)):.2f}")
-    c4.metric("10日資券比", f"{safe_num(data.get('margin_ratio', 0)):.2f}%")
-    c5.metric("預估 EPS", f"{safe_num(data.get('eps_forecast', 0)):.2f}")
+    # 核心指標：經過 preprocess_data 清洗，絕對安全
+    cols = st.columns(5)
+    cols[0].metric("即時股價", f"{data.get('price', 0):,.2f}", delta=f"{data.get('change', 0):+.2f}")
+    cols[1].metric("每股淨值", f"{data.get('bvps', 0):.2f}")
+    cols[2].metric("本益比", f"{data.get('pe_ratio', 0):.2f}")
+    cols[3].metric("10日資券比", f"{data.get('margin_ratio', 0):.2f}%")
+    cols[4].metric("預估 EPS", f"{data.get('eps_forecast', 0):.2f}")
     
     st.divider()
 
-    # 防禦性籌碼面表格
+    # 籌碼面：經過預處理的 DataFrame 絕對不會有 NaN
     st.subheader("三大法人與籌碼數據")
     inst_data = data.get("institutional_investors", [])
-    
-    # 強制轉換策略：檢查資料類型，並使用 json_normalize 進行結構化處理
-    if inst_data:
-        try:
-            # 確保資料是 list 且不是 Series 物件
-            if isinstance(inst_data, dict):
-                inst_data = [inst_data]
-            
-            # 使用 json_normalize 解決結構不一致的 Series/Dict 混合問題
-            df = pd.json_normalize(inst_data)
-            
-            # 最後檢查是否為空，並填充 0
-            st.dataframe(df.fillna(0), use_container_width=True)
-        except Exception as e:
-            st.error(f"表格格式異常，無法解析: {e}")
-            st.write(inst_data)
+    if isinstance(inst_data, list) and len(inst_data) > 0:
+        df = pd.DataFrame(inst_data)
+        st.dataframe(df, use_container_width=True)
     else:
         st.info("暫無籌碼數據")
 
