@@ -1,7 +1,4 @@
-streamlit
-pandas
+streamlit1.35.0
+pandas2.2.2
 yfinance
-openai
 requests
-beautifulsoup4
-plotly
