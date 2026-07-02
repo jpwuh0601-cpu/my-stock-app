@@ -1,9 +1,7 @@
 streamlit
 pandas
 yfinance
-numpy
 openai
 requests
 beautifulsoup4
-pandas_ta
 plotly
