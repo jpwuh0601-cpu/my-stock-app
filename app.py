@@ -15,18 +15,16 @@ def load_data():
 def main():
     st.set_page_config(layout="wide", page_title="AI 智能金融終端")
     
-    # 1. 側邊欄：選股功能
+    data = load_data()
+    
+    # 側邊欄：選股功能
     with st.sidebar:
         st.header("選股設定")
         stock_code = st.text_input("輸入股票代碼 (例如 2330.TW)")
         if st.button("確認選股"):
             st.session_state.selected_stock = stock_code
-        if "selected_stock" in st.session_state:
-            st.success(f"已鎖定: {st.session_state.selected_stock}")
             
-    data = load_data()
-    
-    # 2. 頂部即時監控
+    # 頂部即時監控
     price = data.get("price", 0)
     change = data.get("change", 0)
     
@@ -39,31 +37,16 @@ def main():
         
     st.divider()
 
-    # 3. 籌碼面分析
-    tab1, tab2 = st.tabs(["財務報表", "籌碼面分析"])
-    
-    with tab2:
-        col_left, col_right = st.columns(2)
-        with col_left:
-            st.subheader("三大法人 10日累計買賣超")
-            df_inst = pd.DataFrame({"機構": ["外資", "投信", "自營商"], "10日累計": [12500, 3200, -800]})
-            
-            # 使用 .map 修正錯誤
-            def color_negative_red(val):
-                color = 'red' if val > 0 else 'green'
-                return f'color: {color}'
-            
-            # 將 .applymap 改為 .map，適用於新版 pandas
-            st.dataframe(df_inst.style.map(color_negative_red, subset=['10日累計']), use_container_width=True)
-            
-        with col_right:
-            st.subheader("10日資券比與主力券商")
-            st.write("顯示主力券商 10 日買賣情況...")
+    # 籌碼面分析 (安全模式)
+    st.subheader("三大法人與籌碼數據")
+    df_inst = pd.DataFrame(data.get("institutional_investors", []))
+    if not df_inst.empty:
+        st.dataframe(df_inst, use_container_width=True)
+    else:
+        st.write("目前無法人數據，請確認 worker.py 執行狀態。")
 
-    # 4. AI 深度解讀
-    st.subheader("即時新聞與 AI 解讀")
-    st.info("新聞標題...")
-    st.success("AI 深度解讀: ...")
+    st.subheader("AI 市場趨勢分析")
+    st.info(data.get("ai_prediction", "AI 正在分析數據中..."))
 
 if __name__ == "__main__":
     main()
