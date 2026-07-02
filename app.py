@@ -3,55 +3,60 @@ import pandas as pd
 import json
 import os
 
-# 設定頁面樣式
 st.set_page_config(layout="wide", page_title="AI 智能金融監控終端")
 
 def load_data():
-    """讀取市場數據"""
-    if os.path.exists("market_data.json"):
-        try:
-            with open("market_data.json", "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return {}
-    return {}
+    json_path = "market_data.json"
+    if not os.path.exists(json_path):
+        return {}
+    try:
+        with open(json_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return {}
 
 def main():
     data = load_data()
-    
     if not data:
-        st.warning("⚠️ 數據檔案載入中，請稍候...")
+        st.warning("⚠️ 數據載入中...")
         return
 
     st.title("📈 AI 智能金融監控終端")
     
-    # 核心指標 (顯示股價)
-    cols = st.columns(5)
-    cols[0].metric("即時股價", f"{float(data.get('price', 0)):,.2f}")
+    # 顯示即時股價
+    st.metric("即時股價", f"{float(data.get('price', 0)):,.2f}")
     
     st.divider()
 
-    # 籌碼面數據
-    st.subheader("🏦 三大法人籌碼分析")
-    inst_data = data.get("institutional_investors")
+    # 籌碼面資料處理
+    st.subheader("🏦 三大法人與籌碼數據")
+    raw = data.get("institutional_investors")
     
+    # 【關鍵修正】：無論 raw 是什麼，強制轉為列表 List
     try:
-        if isinstance(inst_data, list) and len(inst_data) > 0:
-            df = pd.DataFrame(inst_data)
-            # 將欄位名稱進行繁體優化 (如果需要)
+        if isinstance(raw, dict):
+            # 如果是單一字典，放入列表中
+            df_source = [raw]
+        elif isinstance(raw, list):
+            # 如果已經是列表，直接使用
+            df_source = raw
+        else:
+            df_source = []
+            
+        if df_source:
+            # 建立 DataFrame 並顯式指定索引，徹底避免 scalar values 錯誤
+            df = pd.DataFrame(df_source)
+            df.index = range(len(df))
             st.dataframe(df, use_container_width=True, hide_index=True)
         else:
             st.info("目前無籌碼數據。")
+            
     except Exception as e:
-        st.error(f"表格顯示錯誤: {e}")
+        st.error(f"表格解析失敗: {e}")
 
-    # AI 分析區塊
-    st.subheader("🤖 AI 智能預測")
-    st.success(data.get("ai_prediction", "暫無 AI 分析。"))
-
-    # 原始資料除錯
-    with st.expander("查看原始 JSON"):
-        st.json(data)
+    # AI 分析
+    st.subheader("🤖 AI 智能分析")
+    st.write(data.get("ai_prediction", "暫無 AI 分析。"))
 
 if __name__ == "__main__":
     main()
