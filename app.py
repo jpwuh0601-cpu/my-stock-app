@@ -17,7 +17,7 @@ def load_data():
 def main():
     data = load_data()
     if not data:
-        st.warning("⚠️ 正在載入資料中...")
+        st.warning("正在載入數據...")
         return
 
     st.title("📈 AI 智能金融監控終端")
@@ -28,29 +28,33 @@ def main():
     
     st.divider()
 
-    # 籌碼面：核心修正
     st.subheader("三大法人與籌碼數據")
-    raw_data = data.get("institutional_investors")
-    
-    # 強制將輸入正規化為 list of dicts
-    if isinstance(raw_data, dict):
-        df_source = [raw_data]
-    elif isinstance(raw_data, list):
-        df_source = raw_data
-    else:
-        df_source = []
-        
+    raw = data.get("institutional_investors")
+
+    # 【絕對固化邏輯】
     try:
-        # 如果有資料，顯示 DataFrame，否則顯示提示
-        if df_source:
-            df = pd.DataFrame(df_source)
-            # 強制指定 index，避免 ValueError
-            df.index = range(len(df))
+        # 1. 確保數據是一個列表
+        if isinstance(raw, dict):
+            data_list = [raw]
+        elif isinstance(raw, list):
+            data_list = raw
+        else:
+            data_list = []
+            
+        # 2. 確保列表中的每個項目都是字典 (過濾掉純字串)
+        data_list = [item for item in data_list if isinstance(item, dict)]
+        
+        # 3. 只有在有資料時才建立 DataFrame
+        if data_list:
+            df = pd.DataFrame(data_list)
+            # 強制處理 index
+            df.reset_index(drop=True, inplace=True)
             st.dataframe(df, use_container_width=True)
         else:
             st.info("目前無籌碼數據。")
+            
     except Exception as e:
-        st.write("資料格式異常，無法轉為表格。")
+        st.error(f"表格格式無法解析。")
 
     st.subheader("AI 智能分析")
     st.write(data.get("ai_prediction", "暫無數據"))
