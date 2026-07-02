@@ -6,59 +6,61 @@ import os
 st.set_page_config(layout="wide", page_title="AI 智能金融監控終端")
 
 def load_data():
-    json_path = "market_data.json"
-    if not os.path.exists(json_path):
-        return {}
-    try:
-        with open(json_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except:
-        return {}
+    if os.path.exists("market_data.json"):
+        try:
+            with open("market_data.json", "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
 
 def main():
     data = load_data()
-    if not data:
-        st.warning("⚠️ 數據載入中...")
-        return
-
     st.title("📈 AI 智能金融監控終端")
     
-    # 顯示即時股價
-    st.metric("即時股價", f"{float(data.get('price', 0)):,.2f}")
+    # 核心指標 (防禦性存取)
+    price = float(data.get("price", 0))
+    st.metric("即時股價", f"{price:,.2f}")
     
     st.divider()
 
-    # 籌碼面資料處理
+    # 籌碼面：極致防禦處理
     st.subheader("🏦 三大法人與籌碼數據")
     raw = data.get("institutional_investors")
-    
-    # 【關鍵修正】：無論 raw 是什麼，強制轉為列表 List
+
     try:
+        # 強制正規化：確保它是列表，並且裡面都是字典
         if isinstance(raw, dict):
-            # 如果是單一字典，放入列表中
-            df_source = [raw]
+            proc_data = [raw]
         elif isinstance(raw, list):
-            # 如果已經是列表，直接使用
-            df_source = raw
+            proc_data = raw
         else:
-            df_source = []
-            
-        if df_source:
-            # 建立 DataFrame 並顯式指定索引，徹底避免 scalar values 錯誤
-            df = pd.DataFrame(df_source)
-            # 強制處理所有列為字串，避免 Pandas 類型推斷崩潰
-            df = df.astype(str)
+            proc_data = []
+
+        # 二次防禦：清洗掉非字典的雜訊
+        clean_data = []
+        for item in proc_data:
+            if isinstance(item, dict):
+                # 強制將所有 value 轉字串，避免型別不一致導致的建構錯誤
+                clean_data.append({str(k): str(v) for k, v in item.items()})
+        
+        if clean_data:
+            # 建立表格並明確指定 index
+            df = pd.DataFrame(clean_data)
+            df.index = range(len(df))
             st.dataframe(df, use_container_width=True, hide_index=True)
         else:
             st.info("目前無籌碼數據。")
             
     except Exception as e:
-        st.error(f"表格解析失敗: {e}")
-        st.write("原始資料內容:", raw)
+        st.error(f"數據結構無法解析: {e}")
+        st.write("原始資料:", raw)
 
-    # AI 分析
     st.subheader("🤖 AI 智能分析")
-    st.write(data.get("ai_prediction", "暫無 AI 分析。"))
+    st.write(data.get("ai_prediction", "暫無分析數據。"))
+
+    with st.expander("🔍 除錯：查看完整 JSON 內容"):
+        st.json(data)
 
 if __name__ == "__main__":
     main()
