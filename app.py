@@ -7,58 +7,53 @@ import os
 st.set_page_config(layout="wide", page_title="AI 智能金融終端")
 
 def load_data():
-    """使用絕對路徑載入數據"""
-    # 獲取 app.py 所在的目錄路徑
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(base_dir, "market_data.json")
-    
-    if os.path.exists(file_path):
+    if os.path.exists("market_data.json"):
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open("market_data.json", "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception as e:
-            st.error(f"數據檔載入失敗: {e}")
+        except:
             return {}
-    else:
-        st.error(f"找不到數據檔: {file_path}，請確認 worker.py 是否已產生檔案")
-        return {}
+    return {}
+
+# 紅買綠賣邏輯 (用於籌碼表格)
+def color_red_green(val):
+    color = 'red' if val > 0 else 'green'
+    return f'color: {color}'
 
 def main():
     data = load_data()
+    
+    # --- 1. 側邊欄選股 ---
+    with st.sidebar:
+        st.header("選股設定")
+        stock_code = st.text_input("輸入股票代碼", value="2330.TW")
+        if st.button("確認選股"):
+            st.session_state.selected_stock = stock_code
+            st.rerun() # 點擊後重新載入以更新數據
+        
+        st.write(f"目前監控中: {st.session_state.get('selected_stock', '2330.TW')}")
+
+    # --- 2. 頂部即時股價 (紅漲綠跌) ---
     st.title("📈 AI 智能金融監控終端")
     
-    if not data:
-        st.warning("目前無數據顯示。")
-        return
-
-    # 1. 核心財務指標 (依照您的順序)
-    st.subheader("核心財務指標")
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("即時股價", f"{data.get('price', 0):,.2f}", delta=f"{data.get('change', 0):+.2f}")
-    c2.metric("每股淨值", f"{data.get('bvps', 0):.2f}")
-    c3.metric("本益比", f"{data.get('pe_ratio', 0):.2f}")
-    c4.metric("10日資券比", f"{data.get('margin_ratio', 0):.2f}%")
-    c5.metric("預估 EPS", f"{data.get('eps_forecast', 0):.2f}")
-
-    # 2. 財報報表與分析
-    tab1, tab2 = st.tabs(["財務報表與預測", "籌碼與主力分析"])
+    price = float(data.get("price", 0))
+    change = float(data.get("change", 0))
     
-    with tab1:
-        st.subheader("今年與去年每季財務報表")
-        st.table(pd.DataFrame(data.get("financials", {})))
-        st.subheader("AI 財報預測")
-        st.success(data.get("ai_prediction", "分析中..."))
-
-    with tab2:
-        st.subheader("三大法人 10日買賣超")
-        st.dataframe(pd.DataFrame(data.get("institutional_investors", [])), use_container_width=True)
-        st.subheader("10日主力券商動向")
-        st.dataframe(pd.DataFrame(data.get("top_brokers", [])), use_container_width=True)
-
-    # 3. 新聞與監控
+    # metric 的 delta 正數會自動變紅，負數自動變綠
+    st.metric("即時股價", f"{price:,.2f}", delta=f"{change:+.2f}")
+    
     st.divider()
-    st.subheader("即時新聞解讀")
-    st.info(data.get("news", "無即時新聞"))
+
+    # --- 3. 三大法人 10 日買賣超 (紅賣綠賣格式化) ---
+    st.subheader("三大法人 10日買賣超")
+    inst_data = data.get("institutional_investors", [])
+    if inst_data:
+        df_inst = pd.DataFrame(inst_data)
+        # 這裡將「買賣超」欄位套用顏色邏輯
+        styled_df = df_inst.style.map(color_red_green, subset=['買賣超'])
+        st.dataframe(styled_df, use_container_width=True)
+    else:
+        st.info("暫無三大法人數據")
 
 if __name__ == "__main__":
     main()
