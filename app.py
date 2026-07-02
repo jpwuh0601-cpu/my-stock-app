@@ -17,7 +17,7 @@ def load_data():
 def main():
     data = load_data()
     if not data:
-        st.warning("正在載入資料中...")
+        st.warning("⚠️ 資料載入中...")
         return
 
     st.title("📈 AI 智能金融監控終端")
@@ -32,27 +32,25 @@ def main():
     
     st.divider()
 
-    # 籌碼面：強制清洗，將所有數據轉為「字串」再進入表格
+    # 籌碼面：極嚴格檢查
     st.subheader("三大法人與籌碼數據")
-    raw_inst = data.get("institutional_investors")
+    inst_data = data.get("institutional_investors")
     
-    try:
-        if isinstance(raw_inst, list) and len(raw_inst) > 0:
-            # 關鍵步驟：強制將每一個項目轉換為「純文字字典」
-            clean_list = []
-            for item in raw_inst:
-                if isinstance(item, dict):
-                    clean_list.append({str(k): str(v) for k, v in item.items()})
-            
-            if clean_list:
-                df = pd.DataFrame(clean_list)
-                st.dataframe(df, use_container_width=True)
-            else:
-                st.info("籌碼數據目前無法解析。")
+    # 檢查是否為列表
+    if isinstance(inst_data, list):
+        valid_items = []
+        for item in inst_data:
+            # 必須確認 item 是字典才能進行下一步，避免 string indices error
+            if isinstance(item, dict):
+                valid_items.append(item)
+        
+        if valid_items:
+            df = pd.DataFrame(valid_items)
+            st.dataframe(df, use_container_width=True)
         else:
-            st.info("目前無籌碼數據。")
-    except Exception as e:
-        st.error(f"表格顯示錯誤: {e}")
+            st.info("籌碼數據目前無有效內容。")
+    else:
+        st.info("籌碼數據格式錯誤，無法顯示表格。")
 
     st.subheader("AI 智能分析")
     st.write(data.get("ai_prediction", "暫無數據"))
