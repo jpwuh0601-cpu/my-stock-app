@@ -2,3 +2,7 @@ streamlit1.35.0
 pandas2.2.2
 yfinance
 requests
+openai
+beautifulsoup4
+pandas-ta
+plotly
