@@ -1,5 +1,5 @@
-streamlit1.35.0
-pandas2.2.2
+streamlit
+pandas
 yfinance
 requests
 openai
