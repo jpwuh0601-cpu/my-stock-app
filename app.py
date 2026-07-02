@@ -16,10 +16,14 @@ def color_negative_red(val):
 
 # 載入數據
 def load_data():
+    # 強制使用絕對路徑以適應 Streamlit Cloud 環境
     file_path = "/mount/src/my-stock-app/market_data.json"
     if os.path.exists(file_path):
-        with open(file_path, "r", encoding="utf-8") as f:
-            return json.load(f), True
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                return json.load(f), True
+        except:
+            return None, False
     return None, False
 
 data, loaded = load_data()
@@ -27,7 +31,7 @@ data, loaded = load_data()
 st.title("📊 AI 智能投資決策儀表板")
 
 if not loaded:
-    st.error("❌ 無法讀取市場數據，請檢查自動化任務是否成功推送。")
+    st.error("❌ 無法讀取市場數據，請檢查 GitHub Actions 是否成功推送 market_data.json 至儲存庫根目錄。")
 else:
     # 1. & 2. 關鍵數據區塊
     st.subheader("核心財務指標")
@@ -48,9 +52,10 @@ else:
     st.subheader("三大法人買賣超 (10日)")
     if "institutional_investors" in data:
         df_inst = pd.DataFrame(data["institutional_investors"])
+        # 使用 css 樣式顯示買賣超顏色
         st.dataframe(df_inst.style.map(color_negative_red, subset=['買賣超']), use_container_width=True)
 
-    # 6. 主力券商買賣 (含10日)
+    # 6. 主力券商買賣
     st.subheader("10日主力券商買賣")
     if "top_brokers" in data:
         st.dataframe(pd.DataFrame(data["top_brokers"]), use_container_width=True)
@@ -67,7 +72,8 @@ else:
     # 自動回測資料來源是否正確
     st.divider()
     st.subheader("🛡️ 資料來源自動回測")
-    is_valid = all(k in data for k in ["price", "bvps", "est_eps", "institutional_investors"])
+    required_keys = ["price", "bvps", "est_eps", "institutional_investors"]
+    is_valid = all(k in data for k in required_keys)
     if is_valid:
         st.success("✅ 資料來源完整，回測結果正確。")
     else:
