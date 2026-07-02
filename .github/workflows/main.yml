@@ -1,24 +1,23 @@
-name: AI 自動化健檢每日任務
+name: Daily Stock Analysis
 
 on:
   schedule:
     - cron: '30 0 * * *'
+  workflow_dispatch:
   push:
     branches:
       - main
-  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - name: 檢出代碼
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
+          persist-credentials: true
 
       - name: 設定 Python 環境
         uses: actions/setup-python@v4
@@ -28,16 +27,16 @@ jobs:
       - name: 安裝套件
         run: pip install pandas requests yfinance openai beautifulsoup4 pandas-ta plotly
 
-      - name: 執行分析任務
+      - name: 執行分析並儲存
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
         run: python main_task.py
 
-      - name: 強制推送數據至 GitHub
+      - name: 推送更新至 GitHub
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add market_data.json
-          git commit -m "chore: auto-update market data" || exit 0
-          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main --force
+          git commit -m "chore: auto-update market data" || echo "No changes"
+          git push
