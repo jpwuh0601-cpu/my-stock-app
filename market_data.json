@@ -81,5 +81,6 @@
     "news": [
         "測試新聞"
     ],
-    "ai_prediction": "數據顯示正常。"
+    "ai_prediction": "數據顯示正常。",
+    "other_data": "待補充資料區"
 }
