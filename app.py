@@ -9,8 +9,7 @@ def load_data():
     if os.path.exists("market_data.json"):
         try:
             with open("market_data.json", "r", encoding="utf-8") as f:
-                data = json.load(f)
-                return data if isinstance(data, dict) else {}
+                return json.load(f)
         except:
             return {}
     return {}
@@ -18,45 +17,40 @@ def load_data():
 def main():
     data = load_data()
     if not data:
-        st.warning("資料載入中...")
+        st.warning("⚠️ 正在載入資料中...")
         return
 
     st.title("📈 AI 智能金融監控終端")
     
-    # 指標
+    # 核心指標
     cols = st.columns(5)
     cols[0].metric("即時股價", f"{float(data.get('price', 0)):,.2f}")
     
     st.divider()
 
-    # 【強制修正】：處理籌碼數據
+    # 籌碼面：核心修正
     st.subheader("三大法人與籌碼數據")
     raw_data = data.get("institutional_investors")
-
-    # 1. 檢查是否為字串 (JSON 格式的字串)
-    if isinstance(raw_data, str):
-        try:
-            raw_data = json.loads(raw_data)
-        except:
-            raw_data = []
-
-    # 2. 檢查是否為 None
-    if raw_data is None:
-        raw_data = []
-
-    # 3. 確保最後轉為 DataFrame 的是 List 結構
+    
+    # 強制將輸入正規化為 list of dicts
+    if isinstance(raw_data, dict):
+        df_source = [raw_data]
+    elif isinstance(raw_data, list):
+        df_source = raw_data
+    else:
+        df_source = []
+        
     try:
-        if isinstance(raw_data, list) and len(raw_data) > 0:
-            df = pd.DataFrame(raw_data)
-            st.dataframe(df, use_container_width=True)
-        elif isinstance(raw_data, dict):
-            df = pd.DataFrame([raw_data])
+        # 如果有資料，顯示 DataFrame，否則顯示提示
+        if df_source:
+            df = pd.DataFrame(df_source)
+            # 強制指定 index，避免 ValueError
+            df.index = range(len(df))
             st.dataframe(df, use_container_width=True)
         else:
             st.info("目前無籌碼數據。")
     except Exception as e:
-        st.error(f"數據顯示失敗: {e}")
-        st.write("原始類型:", type(raw_data))
+        st.write("資料格式異常，無法轉為表格。")
 
     st.subheader("AI 智能分析")
     st.write(data.get("ai_prediction", "暫無數據"))
