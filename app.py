@@ -1,51 +1,65 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
+import json
+import os
+
+def load_data():
+    if os.path.exists("market_data.json"):
+        with open("market_data.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
 
 def main():
     st.set_page_config(layout="wide", page_title="AI 智能金融終端")
     
-    # 1. 頂部即時監控
+    # 1. 側邊欄：選股功能
+    with st.sidebar:
+        st.header("選股設定")
+        stock_code = st.text_input("輸入股票代碼 (例如 2330.TW)")
+        if st.button("確認選股"):
+            st.session_state.selected_stock = stock_code
+        if "selected_stock" in st.session_state:
+            st.success(f"已鎖定: {st.session_state.selected_stock}")
+            
+    data = load_data()
+    
+    # 2. 頂部即時監控 (漲紅跌綠邏輯)
+    # 假設 data 中有 price 和 change (漲跌額)
+    price = data.get("price", 2460.0)
+    change = data.get("change", 15.0) 
+    
     with st.container():
-        cols = st.columns([1, 1, 1, 1, 2])
-        cols[0].metric("即時股價", "2,460.00", delta="+15.00") # 漲紅跌綠
-        cols[1].metric("每股淨值", "150.20")
-        cols[2].metric("融資券比", "1.25%")
-        cols[3].metric("預估 EPS", "73.65")
+        cols = st.columns(4)
+        # delta 正數顯示紅色，負數顯示綠色
+        cols[0].metric("即時股價", f"{float(price):,.2f}", delta=f"{float(change):.2f}")
+        cols[1].metric("每股淨值", f"{float(data.get('bvps', 150.2)):.2f}")
+        cols[2].metric("10日資券比", f"{float(data.get('margin_ratio', 1.25)):.2f}%")
+        cols[3].metric("預估 EPS", f"{float(data.get('eps_forecast', 73.65)):.2f}")
         
     st.divider()
 
-    # 2. 財報與營收區塊 (Grid Layout)
+    # 3. 籌碼面分析 (法人與主力)
     tab1, tab2 = st.tabs(["財務報表", "籌碼面分析"])
     
-    with tab1:
-        st.subheader("財務數據 (今年/去年每季)")
-        # 顯示營收、EPS、股利表格
-        st.table(pd.DataFrame({"Q1": [10, 5], "Q2": [12, 6]}, index=["營收", "EPS"]))
-        
-        st.subheader("AI 財報預測")
-        st.text("根據目前營收趨勢，預估今年度 EPS 為...")
-
     with tab2:
-        # 3. 籌碼面：三大法人與主力券商 10 日
         col_left, col_right = st.columns(2)
         with col_left:
-            st.subheader("三大法人 10日買賣超")
-            # 這裡需要一個根據數值自動變色的表格函數
+            st.subheader("三大法人 10日累計買賣超")
+            # 建立範例資料並進行樣式格式化 (漲紅跌綠)
+            df_inst = pd.DataFrame({"機構": ["外資", "投信", "自營商"], "10日累計": [12500, 3200, -800]})
+            def color_negative_red(val):
+                color = 'red' if val > 0 else 'green'
+                return f'color: {color}'
+            st.dataframe(df_inst.style.applymap(color_negative_red, subset=['10日累計']), use_container_width=True)
+            
         with col_right:
             st.subheader("10日資券比與主力券商")
-            
-    # 4. AI 與深度分析 (置於新聞後)
+            st.write("顯示主力券商 10 日買賣情況...")
+
+    # 4. AI 深度解讀
     st.subheader("即時新聞與 AI 解讀")
     st.info("新聞標題...")
     st.success("AI 深度解讀: ...")
-
-    # 5. 風險與系統監控 (底部)
-    with st.sidebar:
-        st.header("系統監控中心")
-        st.warning("⚠️ 黑天鵝警示: 正常")
-        st.status("自動回測資料來源: ✅ 已完成校驗")
-        st.button("執行 LINE 通知")
 
 if __name__ == "__main__":
     main()
