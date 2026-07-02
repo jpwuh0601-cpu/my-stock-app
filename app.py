@@ -16,45 +16,40 @@ def load_data():
 
 def main():
     data = load_data()
-    if not data:
-        st.warning("⚠️ 正在載入市場資料，請稍候...")
-        return
-
+    
     st.title("📈 AI 智能金融監控終端")
     
-    # 核心指標顯示
+    # 核心指標：增加對 KeyError 的防護 (使用 .get)
     cols = st.columns(5)
     cols[0].metric("即時股價", f"{float(data.get('price', 0)):,.2f}")
     
     st.divider()
 
+    # 籌碼面：完全防禦邏輯
     st.subheader("🏦 三大法人與籌碼數據")
+    
+    # 使用 .get 獲取，若無該欄位則返回 None
     raw = data.get("institutional_investors")
-
-    # 極簡且絕對穩定的處理方式
-    try:
-        # 確保資料是 List 且內容是 Dict
-        if isinstance(raw, dict):
-            df_source = [raw]
-        elif isinstance(raw, list):
-            df_source = raw
-        else:
-            df_source = []
-
-        # 檢查並顯示
-        if df_source:
-            # 建立 DataFrame 並明確指定索引，解決 scalar value 錯誤
-            df = pd.DataFrame(df_source, index=range(len(df_source)))
+    
+    # 強制檢測
+    if raw is None:
+        st.info("⚠️ 目前尚未抓取到籌碼數據 (institutional_investors 欄位為空)。")
+    else:
+        try:
+            # 確保它是列表結構
+            data_list = raw if isinstance(raw, list) else [raw]
+            df = pd.DataFrame(data_list)
             st.dataframe(df, use_container_width=True, hide_index=True)
-        else:
-            st.info("目前無籌碼數據。")
-            
-    except Exception as e:
-        st.error(f"表格格式異常: {e}")
-        st.write("原始資料:", raw)
+        except Exception as e:
+            st.error(f"數據顯示異常: {e}")
 
+    # AI 分析區塊
     st.subheader("🤖 AI 智能分析")
-    st.write(data.get("ai_prediction", "暫無分析數據。"))
+    st.write(data.get("ai_prediction", "暫無 AI 分析結果。"))
+
+    # 除錯：查看目前 JSON 到底有什麼內容
+    with st.expander("🔍 除錯：查看完整 JSON 數據內容"):
+        st.json(data)
 
 if __name__ == "__main__":
     main()
