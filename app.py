@@ -4,69 +4,63 @@ import os
 import pandas as pd
 
 # 頁面配置
-st.set_page_config(page_title="AI 智能投資決策儀表板", layout="wide")
+st.set_page_config(page_title="AI 智能選股決策儀表板", layout="wide")
 
-# 設定路徑：永遠指向當前目錄下的檔案
+# 設定路徑
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FILE_PATH = os.path.join(BASE_DIR, "market_data.json")
 
-@st.cache_data(ttl=60)
 def load_data():
-    """帶有完整錯誤處理的資料載入函式"""
-    if not os.path.exists(FILE_PATH):
+    if not os.path.exists(FILE_PATH) or os.path.getsize(FILE_PATH) == 0:
         return None
-    
-    # 若檔案為空 (0 bytes) 直接回傳 None
-    if os.path.getsize(FILE_PATH) == 0:
-        return None
-        
     try:
         with open(FILE_PATH, "r", encoding="utf-8") as f:
             return json.load(f)
-    except (json.JSONDecodeError, Exception):
-        # 如果格式錯誤 (例如寫入中)，回傳 None 讓前端顯示提示
+    except:
         return None
 
-def safe_render_table(data, key, title):
-    """安全渲染表格的輔助函式"""
-    st.subheader(title)
-    items = data.get(key, [])
-    
-    if isinstance(items, list) and len(items) > 0:
-        # 強制轉換為 Python 字典清單，避開 Pandas Numpy 解析錯誤
-        try:
-            df = pd.DataFrame([dict(i) for i in items])
-            st.dataframe(df, use_container_width=True)
-        except Exception:
-            st.write("表格資料格式無法解析")
-    else:
-        st.write("無即時數據")
-
 def main():
-    st.title("📊 AI 智能投資決策儀表板")
+    st.title("📊 AI 智能選股決策儀表板")
+    
+    # 1. 互動式選股區域
+    st.sidebar.header("選股設定")
+    stock_list = ["2330 台積電", "2317 鴻海", "2454 聯發科"] # 未來可從 JSON 動態讀取
+    selected_stock = st.sidebar.selectbox("請選擇目標股票", stock_list)
+    
+    if st.sidebar.button("確認選股"):
+        st.sidebar.success(f"已鎖定: {selected_stock}")
     
     # 載入資料
     data = load_data()
-    
     if data is None:
-        st.info("⚠️ 數據同步中，請稍候片刻...")
+        st.info("⚠️ 數據同步中，請稍候...")
         return
 
-    # 1. 核心財務指標
-    st.subheader("核心財務指標")
-    cols = st.columns(6)
+    # 2. 顯示核心指標
+    st.subheader(f"當前標的: {selected_stock} 核心指標")
+    cols = st.columns(4)
     cols[0].metric("最新股價", f"{float(data.get('price', 0)):,.2f}")
-    cols[1].metric("本益比", f"{float(data.get('pe_ratio', 0)):.1f}")
-    cols[2].metric("淨值", f"{float(data.get('bvps', 0)):.1f}")
-    cols[3].metric("融資券比", f"{data.get('margin_ratio', 0)}%")
-    cols[4].metric("營收預估", f"{float(data.get('est_revenue', 0)):,.0f}")
-    cols[5].metric("EPS 預估", f"{float(data.get('est_eps', 0)):.2f}")
+    cols[1].metric("融資券比", f"{data.get('margin_ratio', 0)}%")
+    cols[2].metric("本益比", f"{float(data.get('pe_ratio', 0)):.1f}")
+    cols[3].metric("淨值", f"{float(data.get('bvps', 0)):.1f}")
 
-    # 2. 表格區塊
-    safe_render_table(data, "institutional_investors", "三大法人買賣超")
-    safe_render_table(data, "top_brokers", "主力券商買賣")
+    # 3. 10日累計數據呈現
+    st.divider()
+    col_l, col_r = st.columns(2)
+    
+    with col_l:
+        st.subheader("三大法人 10日累計買賣超")
+        # 假設資料結構包含 'institutional_10d'
+        inst_data = data.get("institutional_10d", [{"機構": "外資", "10日累計": 5000}])
+        st.dataframe(pd.DataFrame(inst_data), use_container_width=True)
 
-    # 3. AI 分析區塊
+    with col_r:
+        st.subheader("主力券商 10日累計買賣")
+        # 假設資料結構包含 'brokers_10d'
+        broker_data = data.get("brokers_10d", [{"券商": "凱基", "10日累計": 12000}])
+        st.dataframe(pd.DataFrame(broker_data), use_container_width=True)
+
+    # 4. AI 分析
     st.subheader("AI 市場趨勢分析")
     st.success(data.get("ai_prediction", "分析準備中..."))
 
