@@ -1,5 +1,4 @@
 name: Daily Stock Analysis
-
 on:
   schedule:
     - cron: '30 0 * * *'
@@ -8,29 +7,23 @@ on:
     branches:
       - main
 
-permissions:
-  contents: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-        with:
-          persist-credentials: true
-
       - name: 設定 Python 環境
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
 
-      - name: 安裝套件
-        run: pip install pandas requests yfinance openai beautifulsoup4 pandas-ta plotly
+      - name: 安裝所有必要套件
+        run: |
+          pip install pandas requests yfinance openai beautifulsoup4 pandas-ta plotly streamlit
 
-      - name: 執行分析並儲存
+      - name: 執行分析任務
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
         run: python main_task.py
 
       - name: 推送更新至 GitHub
