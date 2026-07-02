@@ -2,7 +2,8 @@ import json
 import logging
 
 def run_analysis_and_update():
-    # 更新資料結構：移除自營商，擴充為 10 個主力券商
+    # 更新資料結構：移除自營商，僅保留外資與投信
+    # 預留其他資料待補充空間
     data = {
         "price": 230.0,
         "bvps": 150.2,
@@ -32,7 +33,8 @@ def run_analysis_and_update():
             {"券商": "中國信託", "買進": 350, "賣出": 100}
         ],
         "news": ["測試新聞"],
-        "ai_prediction": "數據顯示正常。"
+        "ai_prediction": "數據顯示正常。",
+        "other_data": "待補充資料區"
     }
     
     with open("market_data.json", "w", encoding="utf-8") as f:
