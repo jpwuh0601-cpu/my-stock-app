@@ -1,17 +1,9 @@
 {
     "price": 2465.0,
-    "change": -25.0,
     "bvps": 227.166,
     "pe_ratio": 33.46911,
     "margin_ratio": 1.25,
     "eps_forecast": 73.65,
-    "dividend_forecast": 0,
-    "quarterly_reports": {
-        "2025Q1": {
-            "EPS": 5.2,
-            "淨值": 150.2
-        }
-    },
     "institutional_investors": [
         {
             "機構": "外資",
@@ -22,12 +14,6 @@
             "買賣超": 200
         }
     ],
-    "top_brokers": [
-        {
-            "券商": "凱基台北",
-            "買進": 1000
-        }
-    ],
-    "ai_prediction": "AI 分析顯示台積電長期成長趨勢維持穩健。",
+    "ai_prediction": "AI 分析：台積電市場表現穩健，建議持續關注。",
     "news": "最新半導體市場分析報告。"
 }
