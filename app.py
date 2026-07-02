@@ -7,62 +7,60 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 def get_ai_analysis(prompt):
-    """透過 OpenRouter API 呼叫 AI 進行分析"""
+    """修正後的 OpenRouter API 呼叫"""
     api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
-        logging.error("未找到 OPENROUTER_API_KEY")
-        return "分析功能未啟用 (API Key 缺失)"
+        return "API Key 未設定"
 
+    # 調整 URL 和模型名稱
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {api_key}",
+        "HTTP-Referer": "https://github.com/your-repo", # 建議加上這行，有些 API 要求此欄位
+        "X-Title": "Stock Analysis App",
         "Content-Type": "application/json"
     }
+    
+    # 使用較為常見的模型名稱，避免 404
     payload = {
-        "model": "google/gemini-2.0-flash-001",  # 您可以根據需求更換模型
+        "model": "google/gemini-flash-1.5-8b", 
         "messages": [{"role": "user", "content": prompt}]
     }
 
     try:
         response = requests.post(url, headers=headers, json=payload, timeout=30)
-        response.raise_for_status()
+        # 顯示原始錯誤內容以利除錯
+        if response.status_code != 200:
+            logging.error(f"API 錯誤代碼: {response.status_code}, 回應: {response.text}")
+            return f"分析失敗 (錯誤代碼 {response.status_code})"
+            
         return response.json()['choices'][0]['message']['content']
     except Exception as e:
-        logging.error(f"OpenRouter API 呼叫失敗: {e}")
-        return "分析服務暫時無法存取"
+        logging.error(f"例外錯誤: {e}")
+        return "分析服務無法連接"
 
 def run_analysis_and_update():
-    """執行完整分析流程並寫入 market_data.json"""
     logging.info("開始執行 OpenRouter 數據分析...")
     
-    # 這裡放入您實際的股價與財務數據獲取邏輯 (省略簡化)
-    # 假設這是從 yfinance 或其他 API 取得的 raw_data
-    
-    # 呼叫 AI 進行深度分析
-    analysis_prompt = "請根據台灣股市台積電(2330)的技術面與法人籌碼面數據，給出專業的投資觀點。"
+    analysis_prompt = "請根據台灣股市台積電(2330)的現況給出簡短投資觀點。"
     ai_result = get_ai_analysis(analysis_prompt)
     
     # 模擬數據結構
     data = {
-        "price": 1050.0,
-        "pe_ratio": 32.5,
-        "est_revenue": 2500000000000,
-        "est_eps": 42.5,
-        "est_dividend": 16.0,
-        "margin_ratio": 1.15,
-        "institutional_investors": [
-            {"機構": "外資", "買賣超": 12000},
-            {"機構": "投信", "買賣超": 4500}
-        ],
+        "price": 230.0,
+        "pe_ratio": 44.2,
+        "est_revenue": 1200000,
+        "est_eps": 5.2,
+        "est_dividend": 3.5,
+        "margin_ratio": 1.25,
+        "institutional_investors": [{"機構": "外資", "買賣超": 500}, {"機構": "投信", "買賣超": -200}],
         "top_brokers": [
-            {"券商": "美林", "買進": 5000, "賣出": 1000},
-            {"券商": "瑞銀", "買進": 3000, "賣出": 2000}
+            {"券商": "凱基台北", "買進": 1000, "賣出": 200},
+            {"券商": "富邦", "買進": 800, "賣出": 900}
         ],
-        "ai_prediction": ai_result,
-        "news": ["台積電營收創新高", "AI 供應鏈需求強勁"]
+        "ai_prediction": ai_result
     }
     
-    # 寫入檔案
     with open("market_data.json", "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
         
