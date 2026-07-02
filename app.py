@@ -17,27 +17,31 @@ def main():
     
     data = load_data()
     
-    # 側邊欄：選股功能
-    with st.sidebar:
-        st.header("選股設定")
-        stock_code = st.text_input("輸入股票代碼 (例如 2330.TW)")
-        if st.button("確認選股"):
-            st.session_state.selected_stock = stock_code
-            
-    # 頂部即時監控
-    price = data.get("price", 0)
-    change = data.get("change", 0)
+    # 核心數據提取 (設定預設值)
+    price = float(data.get("price", 0))
+    change = float(data.get("change", 0))
+    bvps = float(data.get("bvps", 0))
+    margin_ratio = float(data.get("margin_ratio", 0))
+    eps = float(data.get("eps_forecast", 0))
     
+    # 標題
+    st.title("📊 AI 智能金融終端")
+    
+    # 1. 核心指標 (漲紅跌綠)
     st.subheader("核心財務指標")
     cols = st.columns(4)
-    cols[0].metric("即時股價", f"{float(price):,.2f}", delta=f"{float(change):.2f}")
-    cols[1].metric("每股淨值", f"{float(data.get('bvps', 0)):.2f}")
-    cols[2].metric("10日資券比", f"{float(data.get('margin_ratio', 0)):.2f}%")
-    cols[3].metric("預估 EPS", f"{float(data.get('eps_forecast', 0)):.2f}")
+    
+    # 處理漲跌顯示：如果 change 為 0，則不顯示 delta，避免 API 錯誤
+    delta_str = f"{change:+.2f}" if change != 0 else None
+    
+    cols[0].metric("即時股價", f"{price:,.2f}", delta=delta_str)
+    cols[1].metric("每股淨值", f"{bvps:.2f}")
+    cols[2].metric("10日資券比", f"{margin_ratio:.2f}%")
+    cols[3].metric("預估 EPS", f"{eps:.2f}")
         
     st.divider()
 
-    # 籌碼面分析 (安全模式)
+    # 2. 籌碼分析
     st.subheader("三大法人與籌碼數據")
     df_inst = pd.DataFrame(data.get("institutional_investors", []))
     if not df_inst.empty:
@@ -45,6 +49,7 @@ def main():
     else:
         st.write("目前無法人數據，請確認 worker.py 執行狀態。")
 
+    # 3. AI 分析
     st.subheader("AI 市場趨勢分析")
     st.info(data.get("ai_prediction", "AI 正在分析數據中..."))
 
