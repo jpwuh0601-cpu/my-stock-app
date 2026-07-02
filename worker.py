@@ -6,6 +6,7 @@ def run_analysis_and_update():
     data = {
         "price": 230.0,
         "bvps": 150.2,
+        "pe_ratio": 44.2,  # 新增：本益比
         "est_revenue": 1200000,
         "est_eps": 5.2,
         "est_dividend": 3.5,
@@ -19,7 +20,8 @@ def run_analysis_and_update():
             {"機構": "投信", "買賣超": -200}
         ],
         "top_brokers": [
-            {"券商": "凱基台北", "買進": 1000}
+            {"券商": "凱基台北", "買進": 1000, "賣出": 200}, # 擴充欄位
+            {"券商": "富邦", "買進": 800, "賣出": 900}
         ],
         "news": ["測試新聞"],
         "ai_prediction": "數據顯示正常。"
