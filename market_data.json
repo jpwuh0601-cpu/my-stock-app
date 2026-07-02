@@ -1,13 +1,13 @@
 {
-    "price": 2460.0,
-    "change": -30.0,
+    "price": 2455.0,
+    "change": -35.0,
     "bvps": 227.166,
     "financials": {
         "2025Q1": {
             "EPS": 73.65
         }
     },
-    "pe_ratio": 33.401222,
+    "pe_ratio": 33.333332,
     "margin_ratio": 1.25,
     "institutional_investors": [
         {
@@ -21,5 +21,5 @@
             "買進": 5500
         }
     ],
-    "ai_prediction": "台積電最新股價 2460.0，漲跌 -30.00"
+    "ai_prediction": "台積電最新股價 2455.0，漲跌 -35.00"
 }
