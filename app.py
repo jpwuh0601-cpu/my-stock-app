@@ -2,21 +2,27 @@ import streamlit as st
 import pandas as pd
 import json
 import os
+import numpy as np
 
 st.set_page_config(layout="wide", page_title="AI 智能金融終端")
 
-def get_float(val, default=0.0):
-    try:
-        return float(val)
-    except:
-        return default
+def clean_data(data):
+    """將字典中所有 NaN 或無效值替換為安全值"""
+    if isinstance(data, dict):
+        return {k: clean_data(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [clean_data(v) for v in data]
+    elif isinstance(data, float) and np.isnan(data):
+        return 0.0
+    return data
 
 def load_data():
-    path = "market_data.json"
-    if os.path.exists(path):
+    file_path = "market_data.json"
+    if os.path.exists(file_path):
         try:
-            with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
+            with open(file_path, "r", encoding="utf-8") as f:
+                raw_data = json.load(f)
+                return clean_data(raw_data) # 進行清洗
         except:
             return {}
     return {}
@@ -29,34 +35,23 @@ def main():
 
     st.title("📈 AI 智能金融監控終端")
     
-    # 核心指標
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("即時股價", f"{get_float(data.get('price')):,.2f}", delta=f"{get_float(data.get('change')):+.2f}")
-    c2.metric("每股淨值", f"{get_float(data.get('bvps')):.2f}")
-    c3.metric("本益比", f"{get_float(data.get('pe_ratio')):.2f}")
-    c4.metric("10日資券比", f"{get_float(data.get('margin_ratio')):.2f}%")
-    c5.metric("預估 EPS", f"{get_float(data.get('eps_forecast')):.2f}")
+    # 使用清洗過的 data 進行渲染
+    cols = st.columns(5)
+    cols[0].metric("即時股價", f"{float(data.get('price', 0)):,.2f}", delta=f"{float(data.get('change', 0)):+.2f}")
+    cols[1].metric("每股淨值", f"{float(data.get('bvps', 0)):.2f}")
+    cols[2].metric("本益比", f"{float(data.get('pe_ratio', 0)):.2f}")
+    cols[3].metric("10日資券比", f"{float(data.get('margin_ratio', 0)):.2f}%")
+    cols[4].metric("預估 EPS", f"{float(data.get('eps_forecast', 0)):.2f}")
+    
+    st.divider()
 
-    # 財務報表區域 (加入容錯檢測)
-    st.subheader("今年與去年每季財務報表")
-    financials = data.get("financials", {})
-    if isinstance(financials, dict) and len(financials) > 0:
-        try:
-            # 嘗試轉換為表格
-            df_fin = pd.DataFrame.from_dict(financials, orient='index')
-            st.table(df_fin)
-        except:
-            st.write(financials) # 若轉表失敗，直接輸出原始字典
+    st.subheader("三大法人與籌碼數據")
+    # 將所有數據轉為 DataFrame 前進行最後一次 fillna(0)
+    inst_df = pd.DataFrame(data.get("institutional_investors", []))
+    if not inst_df.empty:
+        st.dataframe(inst_df.fillna(0), use_container_width=True)
     else:
-        st.info("尚無財報數據")
-
-    # 籌碼面
-    st.subheader("三大法人 10日買賣超")
-    inst = data.get("institutional_investors", [])
-    if isinstance(inst, list) and len(inst) > 0:
-        st.dataframe(pd.DataFrame(inst), use_container_width=True)
-    else:
-        st.info("暫無籌碼數據")
+        st.info("暫無法人籌碼數據")
 
 if __name__ == "__main__":
     main()
