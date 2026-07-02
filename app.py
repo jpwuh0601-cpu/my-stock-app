@@ -5,15 +5,14 @@ import pandas as pd
 
 st.set_page_config(page_title="AI 智能投資決策儀表板", layout="wide")
 
-# 確保讀取路徑準確
-FILE_PATH = os.path.join(os.getcwd(), "market_data.json")
-
+# 讀取數據 (絕對路徑)
 def load_data():
-    if os.path.exists(FILE_PATH):
+    file_path = os.path.join(os.getcwd(), "market_data.json")
+    if os.path.exists(file_path):
         try:
-            with open(FILE_PATH, "r", encoding="utf-8") as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 return json.load(f), True
-        except Exception:
+        except:
             return {}, False
     return {}, False
 
@@ -21,27 +20,37 @@ data, loaded = load_data()
 
 st.title("📊 AI 智能投資決策儀表板")
 
+# --- 選股操作區 ---
+st.markdown("### 🔍 股票分析控制台")
+# 將輸入框與按鈕放在同一行
+col1, col2 = st.columns([4, 1])
+with col1:
+    stock_code = st.text_input("輸入股票代碼", value="2330", placeholder="例如: 2330")
+with col2:
+    st.write("##") # 調整按鈕垂直位置對齊
+    if st.button("執行選股分析"):
+        st.toast(f"正在載入 {stock_code} 分析數據...", icon="🚀")
+
 if not loaded:
-    st.error("❌ 系統讀取數據失敗，請等待每日自動排程更新。")
+    st.error("❌ 尚未讀取數據，請確認 GitHub Actions 已執行更新。")
 else:
-    # 核心財務指標 (修正 UI 渲染語法)
+    # 核心財務指標
     st.subheader("核心財務指標")
     cols = st.columns(6)
     cols[0].metric("即時股價", f"{data.get('price', 0):,.2f}")
-    cols[1].metric("每股淨值", f"{data.get('bvps', 0):,.2f}")
+    cols[1].metric("本益比 (PE)", f"{data.get('pe_ratio', 0):.2f}")
     cols[2].metric("預估營收", f"{data.get('est_revenue', 0):,.0f}")
     cols[3].metric("預估 EPS", f"{data.get('est_eps', 0):.2f}")
-    
-    # 修正：移除過時的 use_container_width，改用新版語法
-    st.subheader("三大法人買賣超 (10日)")
-    if "institutional_investors" in data:
-        df_inst = pd.DataFrame(data["institutional_investors"])
-        # 改用 width=None 確保相容性
-        st.dataframe(df_inst, use_container_width=True) 
-    
-    st.subheader("主力券商買賣")
-    if "top_brokers" in data:
-        st.dataframe(pd.DataFrame(data["top_brokers"]), use_container_width=True)
+    cols[4].metric("預估股利", f"{data.get('est_dividend', 0):.2f}")
+    cols[5].metric("10日資券比", f"{data.get('margin_ratio', 0)}%")
 
-st.divider()
-st.info("若畫面持續轉圈，請檢查 GitHub Action 的 'main' 分支是否已成功執行 'chore: update market data'。")
+    # 主力券商表格
+    st.subheader("10日主力券商買賣明細")
+    if "top_brokers" in data:
+        df_brokers = pd.DataFrame(data["top_brokers"])
+        st.dataframe(df_brokers, use_container_width=True)
+
+    # 法人數據
+    st.subheader("三大法人買賣超")
+    if "institutional_investors" in data:
+        st.dataframe(pd.DataFrame(data["institutional_investors"]), use_container_width=True)
