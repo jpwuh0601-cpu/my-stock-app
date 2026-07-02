@@ -1,5 +1,4 @@
 import streamlit as st
-import pandas as pd
 import json
 import os
 
@@ -10,34 +9,26 @@ def load_data():
         try:
             with open("market_data.json", "r", encoding="utf-8") as f:
                 return json.load(f)
-        except:
-            return {}
-    return {}
+        except Exception as e:
+            return {"error": str(e)}
+    return {"error": "檔案不存在"}
 
 def main():
     data = load_data()
     st.title("📈 AI 智能金融監控終端")
     
-    # 顯示目前所有可用的鍵值 (除錯用)
-    st.write("---")
+    # 顯示所有可用的鍵值，檢查欄位名稱
+    st.subheader("系統狀態監控")
+    st.write(f"目前讀取到的可用鍵值: {list(data.keys()) if isinstance(data, dict) else '資料格式異常'}")
     
-    # 動態顯示所有資料
-    for key, value in data.items():
-        st.subheader(f"項目: {key}")
-        
-        if isinstance(value, list):
-            try:
-                df = pd.DataFrame(value)
-                st.table(df)
-            except:
-                st.write(value)
-        elif isinstance(value, dict):
-            st.json(value)
-        else:
-            st.write(value)
-            
-    with st.expander("🔍 原始數據檢查"):
-        st.json(data)
+    st.divider()
+
+    # 直接顯示 JSON，不再預設任何欄位
+    st.subheader("完整數據概覽")
+    st.json(data)
+    
+    if "error" in data:
+        st.error(f"錯誤訊息: {data['error']}")
 
 if __name__ == "__main__":
     main()
