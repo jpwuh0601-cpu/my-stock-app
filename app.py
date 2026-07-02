@@ -1,50 +1,52 @@
-import streamlit as st
 import json
 import os
-import pandas as pd
+import requests
+import logging
 
-st.set_page_config(page_title="AI 智能投資決策儀表板", layout="wide")
+logging.basicConfig(level=logging.INFO)
 
-# 確保路徑正確
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-FILE_PATH = os.path.join(BASE_DIR, "market_data.json")
-
-def load_data():
-    if not os.path.exists(FILE_PATH):
-        return None
-    try:
-        with open(FILE_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return None
-
-def main():
-    st.title("📊 AI 智能投資決策儀表板")
-    data = load_data()
-
-    if data is None:
-        st.info("⚠️ 數據加載中...")
+def run_analysis_and_update():
+    # 檢查 Secret 是否載入
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    if not api_key:
+        logging.error("❌ 無法從 GitHub Secrets 讀取 OPENROUTER_API_KEY")
         return
-
-    # 顯示指標 (使用 float 強制轉型，避免型態衝突)
-    cols = st.columns(6)
-    cols[0].metric("股價", f"{float(data.get('price', 0)):,.2f}")
-    
-    # 針對表格渲染的修正邏輯
-    st.subheader("三大法人買賣超")
-    inst_data = data.get("institutional_investors", [])
-    if isinstance(inst_data, list) and len(inst_data) > 0:
-        # 關鍵修正：將 dict 轉換為 DataFrame 前，先進行簡單的格式重塑，避開 numpy 錯誤
-        df_inst = pd.DataFrame([dict(item) for item in inst_data])
-        st.dataframe(df_inst, use_container_width=True)
     else:
-        st.write("無數據")
+        logging.info(f"✅ API Key 已載入 (長度: {len(api_key)})")
 
-    st.subheader("主力券商買賣")
-    broker_data = data.get("top_brokers", [])
-    if isinstance(broker_data, list) and len(broker_data) > 0:
-        df_broker = pd.DataFrame([dict(item) for item in broker_data])
-        st.dataframe(df_broker, use_container_width=True)
+    # URL 與 Headers
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://github.com",
+        "X-Title": "Stock Analysis"
+    }
+    
+    payload = {
+        "model": "google/gemini-flash-1.5-8b",
+        "messages": [{"role": "user", "content": "簡單分析台積電趨勢"}]
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        if response.status_code == 200:
+            logging.info("成功獲取 AI 分析結果")
+            ai_result = response.json()['choices'][0]['message']['content']
+        else:
+            logging.error(f"API 拒絕請求 (Code: {response.status_code})。請確認 API Key 權限。")
+            ai_result = "API 存取被拒"
+            
+    except Exception as e:
+        logging.error(f"連線錯誤: {e}")
+        ai_result = "連線錯誤"
+
+    # 寫入資料
+    data = {"ai_prediction": ai_result, "price": 1050.0}
+    with open("market_data.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
+        
+    logging.info("資料更新完成")
 
 if __name__ == "__main__":
-    main()
+    run_analysis_and_update()
