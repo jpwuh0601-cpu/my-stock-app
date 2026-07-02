@@ -6,26 +6,23 @@ import os
 st.set_page_config(layout="wide", page_title="AI 智能金融監控終端")
 
 def load_data():
-    """讀取並強制清洗數據結構"""
     if os.path.exists("market_data.json"):
         try:
             with open("market_data.json", "r", encoding="utf-8") as f:
-                data = json.load(f)
-                # 確保回傳的是字典
-                return data if isinstance(data, dict) else {}
-        except Exception:
+                return json.load(f)
+        except:
             return {}
     return {}
 
 def main():
     data = load_data()
     if not data:
-        st.warning("⚠️ 正在載入資料中...")
+        st.warning("正在載入資料中...")
         return
 
     st.title("📈 AI 智能金融監控終端")
     
-    # 核心指標顯示
+    # 核心指標
     cols = st.columns(5)
     cols[0].metric("即時股價", f"{float(data.get('price', 0)):,.2f}")
     cols[1].metric("每股淨值", f"{float(data.get('bvps', 0)):.2f}")
@@ -35,33 +32,30 @@ def main():
     
     st.divider()
 
-    # 籌碼面顯示：加入空值轉型處理
+    # 籌碼面：強制清洗，將所有數據轉為「字串」再進入表格
     st.subheader("三大法人與籌碼數據")
-    
-    # 這裡的關鍵修正：如果 inst_data 為 None，強制轉為空列表 []
-    inst_data = data.get("institutional_investors")
-    if inst_data is None:
-        inst_data = []
+    raw_inst = data.get("institutional_investors")
     
     try:
-        # 強制轉換並處理可能的單一字典情況
-        if isinstance(inst_data, dict):
-            df = pd.DataFrame([inst_data])
-        elif isinstance(inst_data, list):
-            df = pd.DataFrame(inst_data)
-        else:
-            df = None
+        if isinstance(raw_inst, list) and len(raw_inst) > 0:
+            # 關鍵步驟：強制將每一個項目轉換為「純文字字典」
+            clean_list = []
+            for item in raw_inst:
+                if isinstance(item, dict):
+                    clean_list.append({str(k): str(v) for k, v in item.items()})
             
-        if df is not None and not df.empty:
-            st.dataframe(df, use_container_width=True)
+            if clean_list:
+                df = pd.DataFrame(clean_list)
+                st.dataframe(df, use_container_width=True)
+            else:
+                st.info("籌碼數據目前無法解析。")
         else:
             st.info("目前無籌碼數據。")
-    except Exception:
-        st.error("表格數據格式無法辨識。")
+    except Exception as e:
+        st.error(f"表格顯示錯誤: {e}")
 
-    # 新聞與分析
     st.subheader("AI 智能分析")
-    st.write(data.get("ai_prediction", "暫無分析"))
+    st.write(data.get("ai_prediction", "暫無數據"))
 
 if __name__ == "__main__":
     main()
