@@ -11,8 +11,8 @@ def load_data():
             with open("market_data.json", "r", encoding="utf-8") as f:
                 return json.load(f)
         except:
-            return {}
-    return {}
+            return None
+    return None
 
 def main():
     data = load_data()
@@ -22,7 +22,7 @@ def main():
 
     st.title("📈 AI 智能金融監控終端")
     
-    # 核心指標
+    # 核心指標 (增加錯誤處理)
     cols = st.columns(5)
     cols[0].metric("即時股價", f"{float(data.get('price', 0)):,.2f}")
     cols[1].metric("每股淨值", f"{float(data.get('bvps', 0)):.2f}")
@@ -32,24 +32,23 @@ def main():
     
     st.divider()
 
-    # 籌碼面：強制結構重組
+    # 籌碼面：採用「絕對防護模式」
     st.subheader("三大法人與籌碼數據")
-    inst_data = data.get("institutional_investors", [])
+    inst_data = data.get("institutional_investors")
     
+    # 防護邏輯：如果不符合列表結構，絕對不丟進 DataFrame
     if isinstance(inst_data, list) and len(inst_data) > 0:
-        # 【強制清洗邏輯】：將資料轉換為純粹的列表字典，過濾掉任何非標準物件
-        sanitized_data = []
-        for item in inst_data:
-            if isinstance(item, dict):
-                # 只保留可以轉為字串/數值的內容，過濾掉複雜物件
-                clean_item = {str(k): str(v) for k, v in item.items()}
-                sanitized_data.append(clean_item)
-        
-        # 轉換為 DataFrame，且不進行複雜的類型推斷
-        df = pd.DataFrame(sanitized_data)
-        st.dataframe(df, width=1000)
+        try:
+            df = pd.DataFrame(inst_data)
+            # 確保內容是二維的
+            if df.ndim == 2:
+                st.dataframe(df, width=1000)
+            else:
+                st.text(f"數據結構異常，無法顯示表格: {inst_data}")
+        except Exception:
+            st.text(f"數據解析失敗，顯示原始資料: {inst_data}")
     else:
-        st.info("暫無籌碼數據")
+        st.info("籌碼數據缺失，請稍候重試。")
 
 if __name__ == "__main__":
     main()
