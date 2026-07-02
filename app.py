@@ -30,38 +30,38 @@ data, loaded = load_data()
 
 st.title("📊 AI 智能投資決策儀表板")
 
+# 新增：選股按鈕列
+col_btn1, col_btn2 = st.columns([1, 5])
+if col_btn1.button("🔍 篩選優質股"):
+    st.balloons()
+    st.success("已觸發選股策略...")
+
 if not loaded:
-    st.error("❌ 無法讀取市場數據，請檢查 GitHub Actions 是否成功推送 market_data.json 至儲存庫根目錄。")
+    st.error("❌ 無法讀取市場數據...")
 else:
-    # 1. & 2. 關鍵數據區塊
+    # 擴充：核心財務指標 (加入本益比)
     st.subheader("核心財務指標")
-    c1, c2, c3, c4, c5, c6 = st.columns(6)
+    c1, c2, c3, c4, c5, c6, c7 = st.columns(7) # 改為7欄
     c1.metric("即時股價", f"{data.get('price', 0):,.2f}")
     c2.metric("每股淨值", f"{data.get('bvps', 0):,.2f}")
-    c3.metric("預估營收", f"{data.get('est_revenue', 0):,.0f}")
-    c4.metric("預估 EPS", f"{data.get('est_eps', 0):.2f}")
-    c5.metric("預估股利", f"{data.get('est_dividend', 0):.2f}")
-    c6.metric("10日資券比", f"{data.get('margin_ratio', 0)}%")
+    c3.metric("本益比 (PE)", f"{data.get('pe_ratio', 0):.2f}") # 新增
+    c4.metric("預估營收", f"{data.get('est_revenue', 0):,.0f}")
+    c5.metric("預估 EPS", f"{data.get('est_eps', 0):.2f}")
+    c6.metric("預估股利", f"{data.get('est_dividend', 0):.2f}")
+    c7.metric("10日資券比", f"{data.get('margin_ratio', 0)}%")
 
-    # 4. 今年與去年每季報表
-    st.subheader("今年與去年每季報表")
-    if "financials" in data:
-        st.dataframe(pd.DataFrame(data["financials"]).T, use_container_width=True)
-
-    # 5. 股市 3 大法人買賣超 (紅買綠賣)
-    st.subheader("三大法人買賣超 (10日)")
-    if "institutional_investors" in data:
+    # 5. 三大法人
         df_inst = pd.DataFrame(data["institutional_investors"])
-        # 使用 css 樣式顯示買賣超顏色
-        st.dataframe(df_inst.style.map(color_negative_red, subset=['買賣超']), use_container_width=True)
-
-    # 6. 主力券商買賣
+    # 6. 10日主力券商買賣 (優化表格)
     st.subheader("10日主力券商買賣")
     if "top_brokers" in data:
-        st.dataframe(pd.DataFrame(data["top_brokers"]), use_container_width=True)
-
-    # 8. 即時新聞 (放在 AI 預測前)
-    st.subheader("即時新聞")
+        df_brokers = pd.DataFrame(data["top_brokers"])
+        # 若欄位包含買進/賣出，我們計算淨買賣
+        if "賣出" in df_brokers.columns:
+            df_brokers["淨買賣"] = df_brokers["買進"] - df_brokers["賣出"]
+            st.dataframe(df_brokers.style.map(color_negative_red, subset=['淨買賣']), use_container_width=True)
+        else:
+            st.dataframe(df_brokers, use_container_width=True)
     for news in data.get("news", []):
         st.write(f"• {news}")
 
