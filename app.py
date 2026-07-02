@@ -5,22 +5,17 @@ import os
 
 st.set_page_config(layout="wide", page_title="AI 智能金融終端")
 
-def get_value(data, key, default=0.0):
-    """強大的數據清理函式：確保取出的值永遠是 float 或字串"""
-    val = data.get(key, default)
+def get_float(val, default=0.0):
     try:
-        # 如果是列表或字典，回傳預設值
-        if isinstance(val, (list, dict)):
-            return default
         return float(val)
-    except (ValueError, TypeError):
+    except:
         return default
 
 def load_data():
-    file_path = "market_data.json"
-    if os.path.exists(file_path):
+    path = "market_data.json"
+    if os.path.exists(path):
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except:
             return {}
@@ -29,28 +24,39 @@ def load_data():
 def main():
     data = load_data()
     if not data:
-        st.warning("暫無資料，請檢查 GitHub Actions 是否執行成功。")
+        st.warning("暫無資料，請檢查 GitHub Actions。")
         return
 
     st.title("📈 AI 智能金融監控終端")
     
-    # 使用 get_value 清理後的數據進行渲染
-    cols = st.columns(5)
-    cols[0].metric("即時股價", f"{get_value(data, 'price'):,.2f}", delta=f"{get_value(data, 'change'):+.2f}")
-    cols[1].metric("每股淨值", f"{get_value(data, 'bvps'):.2f}")
-    cols[2].metric("本益比", f"{get_value(data, 'pe_ratio'):.2f}")
-    cols[3].metric("10日資券比", f"{get_value(data, 'margin_ratio'):.2f}%")
-    cols[4].metric("預估 EPS", f"{get_value(data, 'eps_forecast'):.2f}")
-    
-    st.divider()
+    # 核心指標
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.metric("即時股價", f"{get_float(data.get('price')):,.2f}", delta=f"{get_float(data.get('change')):+.2f}")
+    c2.metric("每股淨值", f"{get_float(data.get('bvps')):.2f}")
+    c3.metric("本益比", f"{get_float(data.get('pe_ratio')):.2f}")
+    c4.metric("10日資券比", f"{get_float(data.get('margin_ratio')):.2f}%")
+    c5.metric("預估 EPS", f"{get_float(data.get('eps_forecast')):.2f}")
 
-    # 籌碼面分析
-    st.subheader("三大法人與籌碼數據")
-    inst_data = data.get("institutional_investors", [])
-    if isinstance(inst_data, list):
-        st.dataframe(pd.DataFrame(inst_data), use_container_width=True)
+    # 財務報表區域 (加入容錯檢測)
+    st.subheader("今年與去年每季財務報表")
+    financials = data.get("financials", {})
+    if isinstance(financials, dict) and len(financials) > 0:
+        try:
+            # 嘗試轉換為表格
+            df_fin = pd.DataFrame.from_dict(financials, orient='index')
+            st.table(df_fin)
+        except:
+            st.write(financials) # 若轉表失敗，直接輸出原始字典
     else:
-        st.info("暫無法人籌碼數據")
+        st.info("尚無財報數據")
+
+    # 籌碼面
+    st.subheader("三大法人 10日買賣超")
+    inst = data.get("institutional_investors", [])
+    if isinstance(inst, list) and len(inst) > 0:
+        st.dataframe(pd.DataFrame(inst), use_container_width=True)
+    else:
+        st.info("暫無籌碼數據")
 
 if __name__ == "__main__":
     main()
