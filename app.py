@@ -18,49 +18,32 @@ def main():
     data = load_data()
     st.title("📈 AI 智能金融監控終端")
     
-    # 核心指標 (防禦性存取)
-    price = float(data.get("price", 0))
-    st.metric("即時股價", f"{price:,.2f}")
+    # 核心指標
+    st.metric("即時股價", f"{float(data.get('price', 0)):,.2f}")
     
     st.divider()
 
-    # 籌碼面：極致防禦處理
     st.subheader("🏦 三大法人與籌碼數據")
     raw = data.get("institutional_investors")
 
+    # 【極限防禦】：我們直接印出到底讀到了什麼，並嘗試極簡化顯示
+    st.write(f"資料型態: {type(raw)}")
+    
     try:
-        # 強制正規化：確保它是列表，並且裡面都是字典
-        if isinstance(raw, dict):
-            proc_data = [raw]
-        elif isinstance(raw, list):
-            proc_data = raw
+        # 強制邏輯：如果不是 list，絕對不丟給 DataFrame
+        if isinstance(raw, list):
+            # 建立表格前確保每個 item 是 dict
+            df_list = [item if isinstance(item, dict) else {"內容": str(item)} for item in raw]
+            df = pd.DataFrame(df_list)
+            st.table(df) # 使用 st.table 替代 st.dataframe 提高容錯率
         else:
-            proc_data = []
-
-        # 二次防禦：清洗掉非字典的雜訊
-        clean_data = []
-        for item in proc_data:
-            if isinstance(item, dict):
-                # 強制將所有 value 轉字串，避免型別不一致導致的建構錯誤
-                clean_data.append({str(k): str(v) for k, v in item.items()})
-        
-        if clean_data:
-            # 建立表格並明確指定 index
-            df = pd.DataFrame(clean_data)
-            df.index = range(len(df))
-            st.dataframe(df, use_container_width=True, hide_index=True)
-        else:
-            st.info("目前無籌碼數據。")
-            
+            st.info("籌碼數據非列表格式，無法顯示表格。")
+            st.write("原始資料內容:", raw)
     except Exception as e:
-        st.error(f"數據結構無法解析: {e}")
-        st.write("原始資料:", raw)
+        st.error(f"表格顯示異常: {e}")
 
     st.subheader("🤖 AI 智能分析")
     st.write(data.get("ai_prediction", "暫無分析數據。"))
-
-    with st.expander("🔍 除錯：查看完整 JSON 內容"):
-        st.json(data)
 
 if __name__ == "__main__":
     main()
