@@ -6,7 +6,7 @@ import os
 st.set_page_config(layout="wide", page_title="AI 智能金融監控終端")
 
 def load_data():
-    """讀取市場數據，增加嚴格的格式驗證"""
+    """讀取市場數據，確保回傳非空的字典"""
     file_path = "market_data.json"
     if not os.path.exists(file_path):
         return {}
@@ -21,48 +21,41 @@ def main():
     st.title("📈 AI 智能金融監控終端")
     data = load_data()
     
-    # 核心指標顯示
-    price = data.get("price", 0)
+    # 核心指標：處理 None 值防護
+    price = data.get("price") or 0.0
     st.metric("即時股價", f"{float(price):,.2f}")
     
     st.divider()
 
     st.subheader("🏦 三大法人籌碼數據")
     
-    # 取得原始數據
+    # 【關鍵防禦】：強制處理 raw 為空值或 None 的情況
     raw = data.get("institutional_investors")
     
-    # 【絕對防禦】：確保 raw 是列表且內容為字典
-    try:
-        if raw is not None:
-            # 若為單一字典，強制轉為列表
-            data_list = raw if isinstance(raw, list) else [raw]
-            
-            # 若列表內元素非字典，強制轉為字典結構，避免 ValueError
-            processed_data = []
-            for item in data_list:
-                if isinstance(item, dict):
-                    processed_data.append(item)
-                else:
-                    processed_data.append({"說明": str(item)})
-            
-            # 【關鍵修復】：明確傳入 index，這能徹底解決 scalar values 報錯
-            if processed_data:
-                df = pd.DataFrame(processed_data, index=range(len(processed_data)))
-                st.table(df)
-            else:
-                st.info("暫無籌碼數據。")
-        else:
-            st.info("數據欄位為空。")
-            
-    except Exception as e:
-        st.error(f"表格繪製錯誤: {e}")
-        st.write("原始資料:", raw)
+    # 如果 raw 是 None，我們直接給一個空列表，防止 TypeError
+    if raw is None:
+        data_list = []
+    elif isinstance(raw, list):
+        data_list = raw
+    else:
+        data_list = [raw]
+
+    # 顯示表格
+    if data_list:
+        try:
+            # 確保內容是字典，否則轉為字串描述
+            processed = [item if isinstance(item, dict) else {"說明": str(item)} for item in data_list]
+            df = pd.DataFrame(processed)
+            st.table(df)
+        except Exception as e:
+            st.error(f"表格繪製錯誤: {e}")
+    else:
+        st.info("目前無籌碼數據。")
 
     st.subheader("🤖 AI 智能分析")
     st.write(data.get("ai_prediction", "暫無分析數據。"))
 
-    with st.expander("🔍 除錯數據結構"):
+    with st.expander("🔍 除錯數據檢查"):
         st.json(data)
 
 if __name__ == "__main__":
