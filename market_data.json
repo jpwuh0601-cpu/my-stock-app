@@ -1,10 +1,5 @@
 {
     "price": 2430.0,
-    "institutional_investors": [
-        {
-            "機構": "外資",
-            "買賣超": 500
-        }
-    ],
-    "ai_prediction": "AI 分析發生錯誤: NotFoundError"
+    "change": -0.014198782961460446,
+    "ai_prediction": "系統運行正常。"
 }
