@@ -3,46 +3,59 @@ import logging
 import yfinance as yf
 import os
 import requests
+from openai import OpenAI
 
-def send_line_notify(message, force=False):
-    """加入強制發送參數 (force=True 代表賣出警告)"""
-    token = os.getenv("LINE_NOTIFY_TOKEN")
-    if not token:
-        return
-        
-    url = "https://notify-api.line.me/api/notify"
-    headers = {"Authorization": f"Bearer {token.strip()}"}
+# 設定日誌
+logging.basicConfig(level=logging.INFO)
+
+# 設定要追蹤的股票清單
+TICKER_LIST = ["2330.TW", "2317.TW", "2454.TW"]
+
+def get_ai_analysis(ticker_symbol, data):
+    """呼叫 OpenRouter/OpenAI 生成分析"""
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    if not api_key:
+        return "AI 分析模組未設定 API Key。"
+
     try:
-        requests.post(url, headers=headers, data={"message": message})
+        client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=api_key.strip())
+        prompt = f"請對 {ticker_symbol} 進行投資分析，數據如下: {data}"
+        completion = client.chat.completions.create(
+            model="google/gemini-2.0-flash-exp",
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return completion.choices[0].message.content
     except Exception as e:
-        logging.error(f"LINE 發送失敗: {e}")
+        logging.error(f"AI 分析失敗: {e}")
+        return "分析暫時不可用。"
 
 def run_analysis_and_update():
-    ticker_symbol = "2330.TW"
-    try:
-        ticker = yf.Ticker(ticker_symbol)
-        hist = ticker.history(period="2d")
-        
-        # 計算前一日收盤價與今日股價的變動率
-        prev_close = hist['Close'].iloc[-2]
-        current_price = hist['Close'].iloc[-1]
-        change_rate = (current_price - prev_close) / prev_close
-        
-        # 準備資料
-        raw_data = {"price": current_price, "change": change_rate}
-        
-        # 執行 AI 分析 (省略呼叫細節)
-        analysis = "系統運行正常。" 
-        raw_data["ai_prediction"] = analysis
-        
-        # 儲存
-        with open("market_data.json", "w", encoding="utf-8") as f:
-            json.dump(raw_data, f, ensure_ascii=False, indent=4)
-        
-        # 條件式告警：如果變動 > 3% 或 AI 建議賣出
-        if abs(change_rate) >= 0.03 or "賣出" in analysis:
-            msg = f"\n⚠️ 市場異常波動提醒\n股價變動: {change_rate:.2%}\n當前股價: {current_price:.2f}"
-            send_line_notify(msg, force=True)
+    all_results = {}
+    
+    for ticker_symbol in TICKER_LIST:
+        try:
+            logging.info(f"正在分析: {ticker_symbol}")
+            ticker = yf.Ticker(ticker_symbol)
+            hist = ticker.history(period="1mo")
+            price = ticker.fast_info.last_price
             
-    except Exception as e:
-        logging.error(f"執行錯誤: {e}")
+            data = {
+                "price": price,
+                "history": hist['Close'].reset_index().to_dict(orient='records'),
+                "ai_prediction": ""
+            }
+            
+            data["ai_prediction"] = get_ai_analysis(ticker_symbol, data)
+            all_results[ticker_symbol] = data
+            
+        except Exception as e:
+            logging.error(f"{ticker_symbol} 分析錯誤: {e}")
+    
+    # 將所有股票結果寫入同一個檔案
+    with open("market_data.json", "w", encoding="utf-8") as f:
+        json.dump(all_results, f, ensure_ascii=False, indent=4)
+        
+    logging.info("所有股票分析更新完成")
+
+if __name__ == "__main__":
+    run_analysis_and_update()
