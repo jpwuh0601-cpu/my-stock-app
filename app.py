@@ -15,30 +15,32 @@ def load_data():
             return {}
     return {}
 
-def render_safe_df(raw_data, title):
-    """強行將所有資料轉換為字串，徹底避免 TypeError"""
-    if not raw_data:
-        st.write(f"{title}: 暫無數據")
-        return
+def render_safe_df(info, key, title):
+    """徹底安全的表格顯示：檢查 key 是否存在且非 None"""
+    # 使用 .get() 安全存取，如果不存在則返回 None
+    data = info.get(key)
     
-    try:
-        df = pd.DataFrame(raw_data)
-        # 強制將所有欄位轉換為字串，避免 float 轉換錯誤
-        df = df.astype(str)
-        st.subheader(title)
-        st.dataframe(df, width=None)
-    except Exception as e:
-        st.warning(f"無法轉換表格: {e}")
-        st.write("原始數據:", raw_data)
+    if data:
+        try:
+            df = pd.DataFrame(data)
+            # 將所有數據強制轉為字串，避免型別衝突
+            df = df.astype(str)
+            st.subheader(title)
+            st.dataframe(df, width=None)
+        except Exception as e:
+            st.write(f"{title}: 格式轉換錯誤 ({e})")
+    else:
+        st.write(f"{title}: 暫無籌碼細項數據 (數據尚未寫入 JSON)")
 
 def main():
     st.title("📈 AI 智能金融監控終端")
     data = load_data()
     
     if not data:
-        st.info("資料載入中...")
+        st.info("資料載入中或數據尚未生成，請稍候...")
         return
 
+    # 過濾掉最後更新時間欄位
     tickers = [t for t in data.keys() if t != "last_updated"]
     
     with st.sidebar:
@@ -49,13 +51,14 @@ def main():
     current_target = st.session_state.get("target", tickers[0] if tickers else "")
     info = data.get(current_target, {})
     
-    if info:
-        st.subheader(f"分析目標: {current_target}")
-        # 使用強行清洗後的渲染器
-        render_safe_df(info.get("institutional_daily"), "三大法人 10 日買賣超")
-        render_safe_df(info.get("broker_daily"), "主力券商 10 日買賣超")
-    else:
-        st.write("請在側邊欄選擇股票並確認。")
+    st.subheader(f"分析目標: {current_target}")
+    
+    # 檢查並顯示 AI 預測（這是 json 中一定有的欄位）
+    st.info(f"AI 分析摘要: {info.get('ai_prediction', '無分析資料')}")
+    
+    # 顯示表格，使用安全渲染器
+    render_safe_df(info, "institutional_daily", "三大法人 10 日買賣超")
+    render_safe_df(info, "broker_daily", "主力券商 10 日買賣超")
 
 if __name__ == "__main__":
     main()
