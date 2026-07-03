@@ -19,37 +19,37 @@ def main():
     st.title("📈 AI 智能金融監控終端")
     data = load_data()
     
-    # 顯示股價
-    price = data.get("price", 0)
-    st.metric("即時股價", f"{float(price):,.2f}")
+    st.metric("即時股價", f"{float(data.get('price', 0)):,.2f}")
     st.divider()
 
     st.subheader("🏦 三大法人籌碼數據")
     
     raw = data.get("institutional_investors")
     
-    # 1. 強制重塑為字典列表，這是最穩定結構
-    clean_list = []
+    # 【徹底平坦化】：將所有資料強制轉為適合顯示的「列與值」二維結構
+    rows = []
     if isinstance(raw, list):
         for item in raw:
             if isinstance(item, dict):
-                clean_list.append(item)
+                # 將每個字典變成 Key: Value 的一列
+                for k, v in item.items():
+                    rows.append({"項目": str(k), "數值": str(v)})
             else:
-                clean_list.append({"內容": str(item)})
+                rows.append({"項目": "說明", "數值": str(item)})
     elif isinstance(raw, dict):
-        clean_list.append(raw)
+        for k, v in raw.items():
+            rows.append({"項目": str(k), "數值": str(v)})
     elif raw is not None:
-        clean_list.append({"內容": str(raw)})
+        rows.append({"項目": "數據", "數值": str(raw)})
 
-    # 2. 如果資料有內容，使用明確的 Index 進行 DataFrame 建立
-    if clean_list:
+    # 表格顯示
+    if rows:
         try:
-            # 確保所有字典的 keys 一致，如果沒有則補上，這是 DataFrame 最喜歡的格式
-            df = pd.DataFrame(clean_list, index=range(len(clean_list)))
+            # 建立 DataFrame，明確指定資料來源為 rows
+            df = pd.DataFrame(rows)
             st.table(df)
         except Exception as e:
-            st.error(f"表格格式解析失敗: {e}")
-            st.write("原始數據:", raw)
+            st.error(f"表格繪製失敗: {e}")
     else:
         st.info("目前無籌碼數據。")
 
