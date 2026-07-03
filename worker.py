@@ -38,6 +38,7 @@ def get_ai_analysis(data):
         return "目前無法生成 AI 分析。"
 
 def send_line_notify(message):
+    """透過 LINE Notify 發送通知"""
     token = os.getenv("LINE_NOTIFY_TOKEN")
     if not token:
         return
@@ -46,6 +47,7 @@ def send_line_notify(message):
     requests.post(url, headers=headers, data={"message": message})
 
 def run_analysis_and_update():
+    """執行市場數據抓取、AI 分析並更新 JSON"""
     ticker_symbol = "2330.TW"
     try:
         ticker = yf.Ticker(ticker_symbol)
