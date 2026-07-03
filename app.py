@@ -4,6 +4,7 @@ import os
 
 st.set_page_config(layout="wide", page_title="AI 智能金融監控終端")
 
+# 強制指向程式所在目錄
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = os.path.join(BASE_DIR, "market_data.json")
 
@@ -16,16 +17,30 @@ def load_data():
 def main():
     st.title("📈 AI 智能金融監控終端")
     data = load_data()
+    # 取得股票代號清單 (排除 last_updated)
     tickers = [t for t in data.keys() if t != "last_updated"]
     
+    if not tickers:
+        st.info("資料庫中尚未有股票資料。")
+        return
+
+    # 初始化 session_state
+    if "selected_ticker" not in st.session_state:
+        st.session_state.selected_ticker = tickers[0]
+
     with st.sidebar:
-        selected = st.selectbox("監控標的", tickers)
+        st.subheader("控制面板")
+        # 當 selectbox 變更時，直接更新 session_state
+        selected = st.selectbox("監控標的", tickers, index=tickers.index(st.session_state.selected_ticker))
         if st.button("確認選擇"):
             st.session_state.selected_ticker = selected
+            st.rerun() # 強制刷新介面以更新數據
 
-    info = data.get(st.session_state.get("selected_ticker", tickers[0]), {})
+    # 取得當前選擇的股票數據
+    current_ticker = st.session_state.selected_ticker
+    info = data.get(current_ticker, {})
     
-    st.subheader(f"{st.session_state.get('selected_ticker', tickers[0])} 即時財報")
+    st.subheader(f"{current_ticker} 即時財報")
     
     col1, col2, col3 = st.columns(3)
     col1.metric("即時股價", f"{info.get('price', 0):,.2f}")
