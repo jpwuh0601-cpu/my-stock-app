@@ -39,11 +39,15 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 拉取最新進度並變基，確保不會發生鎖定衝突
+          # 1. 加入隨機延遲，規避與 Streamlit Cloud 同時寫入
+          sleep $[ ( $RANDOM % 30 )  + 1 ]s
+          
+          # 2. 拉取並變基，確保本地進度基於最新遠端
           git pull origin main --rebase
           
+          # 3. 提交變更
           git add market_data.json
           git commit -m "chore: auto-update market data" || echo "No changes detected"
           
-          # 安全推送
+          # 4. 強制推送 (以 Lease 模式，保護遠端進度)
           git push origin main --force-with-lease
