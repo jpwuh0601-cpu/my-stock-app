@@ -5,7 +5,6 @@ import datetime
 import time
 import os
 
-# 設定檔案路徑
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = os.path.join(BASE_DIR, "market_data.json")
 TICKER_LIST = ["2330.TW", "2317.TW", "2454.TW", "1301.TW"]
@@ -18,7 +17,6 @@ def get_ticker_data(symbol):
         
         # 抓取最近 30 天的歷史數據
         hist = ticker.history(period="1mo")
-        # 將歷史數據轉換為列表格式，適合寫入 JSON
         history_list = []
         for date, row in hist.iterrows():
             history_list.append({
