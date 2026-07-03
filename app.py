@@ -10,7 +10,8 @@ def load_data():
     if os.path.exists(file_path):
         try:
             with open(file_path, "r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+                return data if isinstance(data, dict) else {}
         except:
             return {}
     return {}
@@ -26,30 +27,29 @@ def main():
     
     raw = data.get("institutional_investors")
     
-    # 【徹底平坦化】：將所有資料強制轉為適合顯示的「列與值」二維結構
-    rows = []
+    # 【關鍵修復】：將數據強制轉化為 Pandas 絕對可讀的 List 結構
+    # 我們確保每一個項目都是字典，如果不是，就把它封裝成字典
+    processed_list = []
     if isinstance(raw, list):
         for item in raw:
             if isinstance(item, dict):
-                # 將每個字典變成 Key: Value 的一列
-                for k, v in item.items():
-                    rows.append({"項目": str(k), "數值": str(v)})
+                processed_list.append(item)
             else:
-                rows.append({"項目": "說明", "數值": str(item)})
+                processed_list.append({"內容": str(item)})
     elif isinstance(raw, dict):
-        for k, v in raw.items():
-            rows.append({"項目": str(k), "數值": str(v)})
+        processed_list.append(raw)
     elif raw is not None:
-        rows.append({"項目": "數據", "數值": str(raw)})
+        processed_list.append({"內容": str(raw)})
 
     # 表格顯示
-    if rows:
+    if processed_list:
         try:
-            # 建立 DataFrame，明確指定資料來源為 rows
-            df = pd.DataFrame(rows)
+            # 使用列表長度明確生成 index，解決 Scalar 值導致的 ValueError
+            df = pd.DataFrame(processed_list, index=[i for i in range(len(processed_list))])
             st.table(df)
         except Exception as e:
-            st.error(f"表格繪製失敗: {e}")
+            st.error(f"表格格式解析異常: {e}")
+            st.write("原始資料:", raw)
     else:
         st.info("目前無籌碼數據。")
 
