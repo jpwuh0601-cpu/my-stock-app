@@ -19,33 +19,37 @@ def main():
     st.title("📈 AI 智能金融監控終端")
     data = load_data()
     
-    # 股價與分析
-    st.metric("即時股價", f"{float(data.get('price', 0)):,.2f}")
-    
+    # 顯示股價
+    price = data.get("price", 0)
+    st.metric("即時股價", f"{float(price):,.2f}")
+    st.divider()
+
     st.subheader("🏦 三大法人籌碼數據")
+    
     raw = data.get("institutional_investors")
     
-    # 核心修正：將所有輸入強制正規化為 [ {"欄位": "值"} ] 的列表
-    normalized_data = []
+    # 1. 強制重塑為字典列表，這是最穩定結構
+    clean_list = []
     if isinstance(raw, list):
         for item in raw:
             if isinstance(item, dict):
-                normalized_data.append(item)
+                clean_list.append(item)
             else:
-                normalized_data.append({"內容": str(item)})
+                clean_list.append({"內容": str(item)})
     elif isinstance(raw, dict):
-        normalized_data.append(raw)
+        clean_list.append(raw)
     elif raw is not None:
-        normalized_data.append({"內容": str(raw)})
+        clean_list.append({"內容": str(raw)})
 
-    if normalized_data:
+    # 2. 如果資料有內容，使用明確的 Index 進行 DataFrame 建立
+    if clean_list:
         try:
-            # 指定 Index 且不依賴自動推導
-            df = pd.DataFrame(normalized_data, index=range(len(normalized_data)))
+            # 確保所有字典的 keys 一致，如果沒有則補上，這是 DataFrame 最喜歡的格式
+            df = pd.DataFrame(clean_list, index=range(len(clean_list)))
             st.table(df)
         except Exception as e:
-            st.error(f"表格格式異常: {e}")
-            st.write("Debug:", normalized_data)
+            st.error(f"表格格式解析失敗: {e}")
+            st.write("原始數據:", raw)
     else:
         st.info("目前無籌碼數據。")
 
