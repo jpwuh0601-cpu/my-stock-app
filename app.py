@@ -1,81 +1,66 @@
-import streamlit as st
 import json
-import pandas as pd
-import plotly.express as px
-from datetime import datetime, timedelta
+import logging
+import yfinance as yf
+import datetime
 import os
 
-# 設定頁面布局
-st.set_page_config(layout="wide", page_title="AI 智能金融監控終端")
+# 設定日誌
+logging.basicConfig(level=logging.INFO)
 
-def load_data():
-    """載入數據檔，若無則回傳空字典"""
-    if not os.path.exists("market_data.json"):
-        return {}
-    with open("market_data.json", "r", encoding="utf-8") as f:
+# 設定監控標的與儲存路徑
+TICKER_LIST = ["2330.TW", "2317.TW", "2454.TW"]
+DATA_FILE = "market_data.json"
+
+def get_financials(ticker):
+    """抓取財報基本面數據"""
+    try:
+        info = ticker.info
+        return {
+            "bvps": info.get("bookValue", 0),
+            "pe": info.get("trailingPE", 0),
+            "eps": info.get("trailingEps", 0)
+        }
+    except Exception as e:
+        logging.error(f"財報抓取失敗: {e}")
+        return {"bvps": 0, "pe": 0, "eps": 0}
+
+def run_analysis_and_update():
+    """執行分析並更新數據至 market_data.json"""
+    logging.info("開始執行數據更新...")
+    
+    # 初始化資料結構，寫入當前時間戳記供回測檢核使用
+    all_results = {
+        "last_updated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+    
+    for ticker_symbol in TICKER_LIST:
         try:
-            return json.load(f)
-        except:
-            return {}
-
-def main():
-    st.title("📈 AI 智能金融監控終端")
-    data = load_data()
+            ticker = yf.Ticker(ticker_symbol)
+            fin = get_financials(ticker)
+            
+            # 使用 fast_info 獲取即時價格，速度更快且更穩定
+            price = ticker.fast_info.last_price
+            
+            all_results[ticker_symbol] = {
+                "price": float(price),
+                "bvps": fin["bvps"],
+                "pe": fin["pe"],
+                "eps": fin["eps"],
+                "history": ticker.history(period="1mo")['Close'].reset_index().to_dict(orient='records'),
+                "ai_prediction": "數據已自動更新。請根據上方財報數據與股價趨勢進行判斷。"
+            }
+            logging.info(f"股票 {ticker_symbol} 處理成功。")
+            
+        except Exception as e:
+            logging.error(f"股票 {ticker_symbol} 處理失敗: {e}")
     
-    if not data:
-        st.warning("數據載入中或格式異常，請等待自動化排程更新。")
-        return
-
-    # 側邊欄選擇器
-    tickers = [t for t in data.keys() if t != "last_updated"]
-    selected = st.sidebar.selectbox("請選擇股票代號", tickers)
-    
-    # 定義 4 個頁籤
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "📊 即時股價與財報", 
-        "🏦 法人與資券籌碼", 
-        "🤖 AI 分析與新聞", 
-        "🛠 自動回測檢核"
-    ])
-    
-    info = data.get(selected, {})
-    
-    # 頁籤 1：即時股價、EPS、每股淨額 (BVPS)、本益比
-    with tab1:
-        st.subheader(f"{selected} 監控數據")
-        price = info.get("price", 0)
-        
-        # 顯示即時股價
-        st.metric("即時股價", f"{price:,.2f}")
-        
-        col1, col2, col3 = st.columns(3)
-        col1.metric("EPS", info.get("eps", "N/A"))
-        col2.metric("每股淨值 (BVPS)", info.get("bvps", "N/A"))
-        col3.metric("本益比 (PE)", info.get("pe", "N/A"))
-
-    # 頁籤 2：三大法人與 10 日資券比
-    with tab2:
-        st.subheader("籌碼面數據")
-        st.info("此區塊將整合三大法人 10 日買賣超與資券比數據 (需在 worker.py 加入對應爬蟲)")
-
-    # 頁籤 3：AI 財報預測與新聞解讀
-    with tab3:
-        st.subheader("AI 財報預測與新聞解讀")
-        st.write(info.get("ai_prediction", "暫無 AI 分析結果"))
-
-    # 頁籤 4：自動回測系統檢核
-    with tab4:
-        st.subheader("自動回測系統檢核狀態")
-        last_updated_str = data.get("last_updated", "2000-01-01 00:00:00")
-        
-        try:
-            last_updated = datetime.strptime(last_updated_str, "%Y-%m-%d %H:%M:%S")
-            if datetime.now() - last_updated > timedelta(hours=24):
-                st.error(f"⚠️ 數據來源已過期！最後更新時間: {last_updated_str}")
-            else:
-                st.success(f"✅ 數據更新正常！最後更新時間: {last_updated_str}")
-        except:
-            st.error("時間戳記格式錯誤，請檢查 worker.py 寫入格式。")
+    # 將結果寫入 JSON 檔案
+    try:
+        with open(DATA_FILE, "w", encoding="utf-8") as f:
+            json.dump(all_results, f, ensure_ascii=False, indent=4)
+        logging.info(f"數據成功寫入至 {DATA_FILE}")
+    except Exception as e:
+        logging.error(f"寫入 JSON 失敗: {e}")
 
 if __name__ == "__main__":
-    main()
+    run_analysis_and_update()
