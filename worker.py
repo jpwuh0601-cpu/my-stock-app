@@ -1,57 +1,82 @@
-import streamlit as st
-import pandas as pd
 import json
-import os
+import logging
 import yfinance as yf
-import plotly.express as px
+import os
+import requests
+from openai import OpenAI
 
-st.set_page_config(layout="wide", page_title="AI 智能金融監控終端")
+# 設定日誌
+logging.basicConfig(level=logging.INFO)
 
-def load_data():
-    file_path = "market_data.json"
-    if os.path.exists(file_path):
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except:
-            return {}
-    return {}
+def get_ai_analysis(data):
+    """呼叫 OpenRouter/OpenAI 生成分析"""
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    if not api_key:
+        return "AI 分析模組未設定 API Key。"
 
-def get_history(ticker_symbol="2330.TW"):
-    """即時抓取歷史股價"""
-    ticker = yf.Ticker(ticker_symbol)
-    hist = ticker.history(period="1mo")
-    return hist
+    client = OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=api_key,
+    )
 
-def main():
-    st.title("📈 AI 智能金融監控終端")
-    data = load_data()
-    
-    # 核心指標
-    cols = st.columns(4)
-    cols[0].metric("即時股價", f"{float(data.get('price', 0)):,.2f}")
-    
-    st.divider()
+    prompt = f"""
+    請針對以下台積電 (2330.TW) 的數據進行簡短的市場分析（兩句話內）：
+    股價: {data.get('price')}
+    本益比: {data.get('pe_ratio')}
+    每股盈餘預測: {data.get('eps_forecast')}
+    法人籌碼: {data.get('institutional_investors')}
+    """
 
-    # 繪製歷史走勢圖
-    st.subheader("📊 近一個月股價走勢")
-    hist_data = get_history()
-    if not hist_data.empty:
-        fig = px.line(hist_data, y="Close", title="台積電 (2330.TW) 歷史股價")
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("無法獲取歷史數據。")
+    try:
+        completion = client.chat.completions.create(
+            model="openai/gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return completion.choices[0].message.content
+    except Exception as e:
+        logging.error(f"AI 分析失敗: {e}")
+        return "目前無法生成 AI 分析。"
 
-    st.subheader("🏦 三大法人籌碼數據")
-    raw = data.get("institutional_investors", [])
-    if isinstance(raw, list) and len(raw) > 0:
-        flattened_data = [{str(k): str(v) for k, v in item.items()} for item in raw]
-        st.table(pd.DataFrame(flattened_data))
-    else:
-        st.info("目前無籌碼數據。")
+def send_line_notify(message):
+    """透過 LINE Notify 發送通知"""
+    token = os.getenv("LINE_NOTIFY_TOKEN")
+    if not token:
+        return
+    url = "https://notify-api.line.me/api/notify"
+    headers = {"Authorization": f"Bearer {token}"}
+    requests.post(url, headers=headers, data={"message": message})
 
-    st.subheader("🤖 AI 智能分析")
-    st.write(data.get("ai_prediction", "暫無分析數據。"))
+def run_analysis_and_update():
+    """執行市場數據抓取、AI 分析並更新 JSON"""
+    ticker_symbol = "2330.TW"
+    try:
+        ticker = yf.Ticker(ticker_symbol)
+        info = ticker.info
+        price = ticker.fast_info.last_price
+        
+        # 準備資料結構
+        raw_data = {
+            "price": price,
+            "pe_ratio": info.get("trailingPE", 0),
+            "eps_forecast": info.get("trailingEps", 0),
+            "institutional_investors": [{"機構": "外資", "買賣超": 500}, {"機構": "投信", "買賣超": 200}],
+        }
+        
+        # 執行 AI 分析
+        raw_data["ai_prediction"] = get_ai_analysis(raw_data)
+        
+        # 儲存到 JSON
+        with open("market_data.json", "w", encoding="utf-8") as f:
+            json.dump(raw_data, f, ensure_ascii=False, indent=4)
+        
+        # 發送 LINE 通知
+        msg = f"\n📈 台積電分析報告\n股價: {price:.2f}\nAI觀點: {raw_data['ai_prediction']}"
+        send_line_notify(msg)
+        
+        logging.info("數據與 AI 分析更新完成")
+            
+    except Exception as e:
+        logging.error(f"執行錯誤: {e}")
 
 if __name__ == "__main__":
-    main()
+    run_analysis_and_update()
