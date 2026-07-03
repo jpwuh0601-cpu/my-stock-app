@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import json
 import os
+import plotly.express as px
 
 st.set_page_config(layout="wide", page_title="AI 智能金融監控終端")
 
@@ -19,36 +20,35 @@ def main():
     st.title("📈 AI 智能金融監控終端")
     data = load_data()
     
-    st.metric("即時股價", f"{float(data.get('price', 0)):,.2f}")
+    # 警示邏輯：判斷 AI 分析是否包含 "賣出"
+    ai_text = str(data.get("ai_prediction", ""))
+    is_alert = "賣出" in ai_text
+    
+    # 顯示帶有警示顏色的股價
+    if is_alert:
+        st.markdown(f'<h1 style="color:red;">⚠️ 賣出警告: 股價 {float(data.get("price", 0)):,.2f}</h1>', unsafe_allow_html=True)
+    else:
+        st.metric("即時股價", f"{float(data.get('price', 0)):,.2f}")
+    
     st.divider()
 
     st.subheader("🏦 三大法人籌碼數據")
     
-    # 獲取原始數據
-    raw = data.get("institutional_investors")
+    raw = data.get("institutional_investors", [])
     
-    # 進行完全的空值與型別檢查，確保不會拋出 NoneType 錯誤
-    try:
-        if raw is None:
-            # 若為 None，直接顯示資訊，不觸發 DataFrame 轉換
-            st.info("目前無籌碼數據。")
-        elif isinstance(raw, list):
-            # 若為列表，將內容全轉為字串字典
-            processed = [{"欄位": str(i), "內容": str(item)} for i, item in enumerate(raw)]
-            st.table(pd.DataFrame(processed))
-        elif isinstance(raw, dict):
-            # 若為字典，直接轉為鍵值對表格
-            processed = [{"欄位": str(k), "內容": str(v)} for k, v in raw.items()]
-            st.table(pd.DataFrame(processed))
+    # 視覺化邏輯：將籌碼數據繪製成長條圖
+    if isinstance(raw, list) and len(raw) > 0:
+        df_chart = pd.DataFrame(raw)
+        if "機構" in df_chart.columns and "買賣超" in df_chart.columns:
+            fig = px.bar(df_chart, x="機構", y="買賣超", title="法人籌碼分佈", color="買賣超", color_continuous_scale="RdBu")
+            st.plotly_chart(fig, use_container_width=True)
         else:
-            # 若為其他型別，直接顯示
-            st.write(str(raw))
-    except Exception as e:
-        st.error(f"表格格式解析失敗: {e}")
-        st.write("原始資料:", raw)
+            st.table(df_chart)
+    else:
+        st.info("目前無籌碼數據。")
 
     st.subheader("🤖 AI 智能分析")
-    st.write(str(data.get("ai_prediction", "暫無分析數據。")))
+    st.write(ai_text)
 
     with st.expander("🔍 除錯數據檢查"):
         st.json(data)
