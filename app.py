@@ -20,36 +20,34 @@ def main():
     st.title("📈 AI 智能金融監控終端")
     data = load_data()
     
-    # 顯示即時股價
-    price = data.get("price", 0.0)
-    st.metric("即時股價", f"{float(price):,.2f}")
-    
+    st.metric("即時股價", f"{float(data.get('price', 0)):,.2f}")
     st.divider()
 
     st.subheader("🏦 三大法人籌碼數據")
     
-    # 獲取資料
     raw = data.get("institutional_investors")
     
-    # 這裡實作最嚴格的索引處理邏輯
-    # 1. 確保 raw 不為 None
-    # 2. 強制將單一字典轉為列表
-    # 3. 強制指派 index，徹底解決 Scalar ValueError
     try:
-        if raw is not None:
-            processed_data = raw if isinstance(raw, list) else [raw]
-            
-            if processed_data:
-                # 關鍵修正： explicitly provide index
-                df = pd.DataFrame(processed_data, index=range(len(processed_data)))
-                st.table(df)
-            else:
-                st.info("目前無籌碼數據。")
+        # 強制邏輯：確保 data_list 是一個列表
+        if raw is None:
+            data_list = []
+        elif isinstance(raw, list):
+            data_list = raw
         else:
-            st.info("數據欄位為空。")
+            # 如果 raw 是字典，把它放入列表中
+            data_list = [raw]
+            
+        # 表格顯示
+        if data_list:
+            # 關鍵修正：給 DataFrame 指定 Index，這是解決 Scalar ValueError 的唯一解
+            df = pd.DataFrame(data_list, index=range(len(data_list)))
+            st.table(df)
+        else:
+            st.info("目前無籌碼數據。")
+            
     except Exception as e:
-        st.error(f"表格格式解析異常: {e}")
-        st.write("原始數據內容:", raw)
+        st.error(f"表格格式解析失敗: {e}")
+        st.write("原始數據結構:", raw)
 
     st.subheader("🤖 AI 智能分析")
     st.write(str(data.get("ai_prediction", "暫無分析數據。")))
