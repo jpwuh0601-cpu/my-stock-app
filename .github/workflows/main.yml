@@ -25,7 +25,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: 安裝必要套件
+      - name: 安裝所有必要套件
         run: |
           pip install pandas requests yfinance openai beautifulsoup4 pandas-ta plotly streamlit
 
@@ -39,12 +39,11 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 安全地拉取最新變更並變基
+          # 使用 --rebase 確保本地與遠端同步
           git pull origin main --rebase
           
-          # 提交變更
           git add market_data.json
-          git commit -m "chore: auto-update market data via main workflow" || echo "No changes detected"
+          git commit -m "chore: auto-update market data" || echo "No changes detected"
           
-          # 強制安全推送
+          # 強制安全推送，防止鎖定錯誤
           git push origin main --force-with-lease
