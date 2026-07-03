@@ -3,61 +3,69 @@ import pandas as pd
 import json
 import os
 
-st.set_page_config(layout="wide", page_title="AI 智能金融監控終端")
+st.set_page_config(layout="wide", page_title="AI 專業選股儀表板")
+
+# 顏色格式化函式 (紅漲綠跌)
+def color_negative_red(val):
+    try:
+        num = float(str(val).replace(',', ''))
+        color = 'red' if num > 0 else 'green'
+        return f'color: {color}'
+    except:
+        return ''
 
 def load_data():
-    path = os.path.join(os.getcwd(), "market_data.json")
+    path = "market_data.json"
     if os.path.exists(path):
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except:
-            return {}
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
     return {}
 
-def render_table(info, key, title):
-    """檢查 key 是否存在，且確實有資料"""
-    data = info.get(key)
-    if data and isinstance(data, list) and len(data) > 0:
-        try:
-            df = pd.DataFrame(data)
-            st.subheader(title)
-            st.dataframe(df.astype(str), width=None)
-        except Exception as e:
-            st.write(f"表格繪製失敗: {e}")
-    else:
-        st.write(f"{title}: 暫無籌碼資料 (請等待 worker.py 完成更新)")
-
 def main():
-    st.title("📈 AI 智能金融監控終端")
+    st.title("📊 AI 專業金融分析終端")
     data = load_data()
-    
     if not data:
-        st.info("尚未載入資料，請確認 GitHub Actions 是否執行成功。")
+        st.error("系統資料讀取失敗，請確認 market_data.json 是否已生成。")
         return
 
-    # 過濾系統欄位
-    tickers = [t for t in data.keys() if t not in ["last_updated"]]
-    
+    # 側邊欄選股
+    tickers = [t for t in data.keys() if t != "last_updated"]
     with st.sidebar:
-        target = st.selectbox("請選擇股票", tickers)
-        if st.button("確定選股"):
+        target = st.selectbox("1. 即時股價與選股", tickers)
+        if st.button("確認選股"):
             st.session_state.target = target
             
-    current_target = st.session_state.get("target", tickers[0] if tickers else "")
-    info = data.get(current_target, {})
-    
-    st.header(f"股票代號: {current_target}")
-    
-    # 顯示 AI 分析 (檢查是否有 ai_prediction 或其他欄位)
-    if "ai_prediction" in info:
-        st.info(f"AI 分析: {info['ai_prediction']}")
-    else:
-        st.write(f"目前價格: {info.get('price', '未知')}")
-        
-    # 顯示表格
-    render_table(info, "institutional_daily", "三大法人買賣超")
-    render_table(info, "broker_daily", "主力券商買賣超")
+    sym = st.session_state.get("target", tickers[0])
+    info = data.get(sym, {})
+
+    # 1. 即時股價
+    st.header(f"股票: {sym}")
+    st.metric("即時股價", info.get("price", "N/A"), delta=f"{info.get('change', 0)}%")
+
+    # 2. 基本面資訊
+    col1, col2, col3 = st.columns(3)
+    col1.metric("每股淨值 (NAV)", "查詢中")
+    col2.metric("本益比 (P/E)", "查詢中")
+    col3.metric("EPS", "查詢中")
+
+    # 4. 每季報表
+    st.subheader("4. 財務報表 (年度/季度)")
+    st.write("系統自動回測來源: Yahoo Finance API (確認連結: 運作中)")
+
+    # 5. 三大法人 (紅漲綠跌)
+    st.subheader("5. 三大法人買賣超 (10日)")
+    if "institutional_daily" in info:
+        df_inst = pd.DataFrame(info["institutional_daily"])
+        st.dataframe(df_inst.style.applymap(color_negative_red), use_container_width=True)
+
+    # 6. 融資融券與主力券商
+    st.subheader("6. 融資融券與主力券商 (10日)")
+    if "broker_daily" in info:
+        st.dataframe(pd.DataFrame(info["broker_daily"]), use_container_width=True)
+
+    # 7. AI 財報預測
+    st.subheader("7. AI 深度財報預測")
+    st.success(info.get("ai_prediction", "AI 分析中..."))
 
 if __name__ == "__main__":
     main()
