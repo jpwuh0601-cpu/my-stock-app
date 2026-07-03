@@ -1,56 +1,84 @@
 import streamlit as st
 import pandas as pd
 import json
-import os
 
-st.set_page_config(layout="wide", page_title="AI 自由選股儀表板")
+st.set_page_config(layout="wide", page_title="AI 專業金融分析終端")
 
 def load_data():
-    if os.path.exists("market_data.json"):
+    try:
         with open("market_data.json", "r", encoding="utf-8") as f:
             return json.load(f)
-    return {}
+    except:
+        return {}
+
+def render_table(info, key, title):
+    """加入 NoneType 檢查，確保資料即使為空也不會崩潰"""
+    data = info.get(key)
+    
+    # 強制檢查 data 是否為 None 或空的物件
+    if data is None or data == []:
+        st.write(f"{title}: 暫無籌碼細項資料")
+        return
+
+    # 若 data 是字串 (JSON 格式)，嘗試解析
+    if isinstance(data, str):
+        try:
+            data = json.loads(data)
+        except:
+            st.write(f"{title}: 資料格式錯誤")
+            return
+
+    try:
+        # 強制轉換為 DataFrame 並應用顏色樣式
+        df = pd.DataFrame(data)
+        st.subheader(title)
+        
+        # 簡單的紅綠色樣式 (判斷是否有數字欄位)
+        def color_style(val):
+            try:
+                # 若是數字則判斷正負
+                num = float(str(val).replace(',', ''))
+                color = 'red' if num > 0 else ('green' if num < 0 else 'black')
+                return f'color: {color}'
+            except:
+                return ''
+                
+        styled_df = df.style.applymap(color_style)
+        st.dataframe(styled_df, use_container_width=True)
+    except Exception as e:
+        st.write(f"{title}: 表格繪製錯誤 ({e})")
 
 def main():
-    st.title("📊 AI 自由選股金融終端")
+    st.title("📈 AI 專業金融分析終端")
     data = load_data()
-
-    # 側邊欄：除了選擇，增加一個文字輸入框，讓您輸入新股票
-    with st.sidebar:
-        st.subheader("選股控制台")
-        
-        # 顯示既有清單
-        current_tickers = [t for t in data.keys() if t != "last_updated"]
-        selected = st.selectbox("1. 選擇監控中股票", current_tickers)
-        
-        # 讓用戶手動輸入新股票
-        new_ticker = st.text_input("2. 輸入新股票代號 (例如: 2317.TW)")
-        if st.button("加入監控/查看") and new_ticker:
-            st.session_state.target = new_ticker
-            st.rerun()
-
-    sym = st.session_state.get("target", selected if selected else "2330.TW")
-    info = data.get(sym, {})
-
-    st.header(f"股票: {sym}")
     
-    # 即時股價與漲跌
-    diff = info.get("diff", 0)
-    st.metric("即時股價", info.get("price", "請等待更新"), delta=f"{diff} 元")
+    if not data:
+        st.info("資料載入中，請確認後台數據源。")
+        return
 
-    # 籌碼顯示
-    st.subheader("5. 三大法人買賣超細項")
-    if "institutional_daily" in info:
-        st.dataframe(pd.DataFrame(info["institutional_daily"]), use_container_width=True)
-    else:
-        st.info("該股票數據尚未同步，請等待 worker.py 完成抓取。")
+    # 取得股票清單
+    tickers = [t for t in data.keys() if t not in ["last_updated"]]
+    
+    with st.sidebar:
+        target = st.selectbox("請選擇股票", tickers)
+        
+    info = data.get(target, {})
+    
+    st.header(f"股票: {target}")
+    
+    # 顯示漲跌 (確保不崩潰)
+    price = info.get("price", 0)
+    prev = info.get("prev_close", 0)
+    diff = round(price - prev, 2)
+    
+    st.metric("即時股價", f"{price} 元", delta=f"{diff} 元")
+    
+    # 顯示法人與券商表
+    render_table(info, "institutional_daily", "5. 三大法人 10 日買賣超細項")
+    render_table(info, "broker_daily", "6. 主力券商 10 日買賣超細項")
 
-    st.subheader("6. 主力券商買賣超細項")
-    if "broker_daily" in info:
-        st.dataframe(pd.DataFrame(info["broker_daily"]), use_container_width=True)
-
-    st.subheader("7. AI 深度分析")
-    st.success(info.get("ai_prediction", "AI 正在分析此股票..."))
+    st.subheader("7. AI 深度財報分析")
+    st.success(info.get("ai_prediction", "AI 分析中..."))
 
 if __name__ == "__main__":
     main()
