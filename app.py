@@ -12,35 +12,38 @@ def load_data():
             with open(file_path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
-            st.error(f"解析 JSON 錯誤: {e}")
+            st.error(f"JSON 讀取失敗: {e}")
     return {}
 
-def safe_display_df(data_key, info, title):
-    """安全地顯示表格，如果格式不對則跳過並顯示除錯資訊"""
-    raw_data = info.get(data_key)
-    if raw_data:
-        try:
-            # 強制將資料轉換為 list of dicts，避免錯誤格式
-            df = pd.DataFrame(raw_data)
+def render_dataframe(data, title):
+    """防彈表格渲染器"""
+    if not data:
+        st.write(f"{title}: 暫無數據")
+        return
+    
+    try:
+        # 如果是 list 且內部有 dict，直接轉換
+        if isinstance(data, list):
+            df = pd.DataFrame(data)
             st.subheader(title)
             st.dataframe(df, width=None)
-        except Exception as e:
-            st.warning(f"無法顯示 {title}，資料格式異常: {e}")
-            st.write("原始數據預覽:", raw_data)
-    else:
-        st.write(f"{title}: 暫無數據")
+        else:
+            st.write(f"{title}: 資料格式非表格類型，請檢查 worker.py 輸出")
+    except Exception as e:
+        st.warning(f"無法顯示表格: {e}")
 
 def main():
     st.title("📈 AI 智能金融監控終端")
     data = load_data()
     
     if not data:
-        st.info("尚未載入數據，請等待 GitHub Actions 更新。")
+        st.info("尚未讀取到數據，請等待 GitHub Actions 下次更新。")
         return
 
     tickers = [t for t in data.keys() if t != "last_updated"]
     
     with st.sidebar:
+        st.subheader("選股搜尋")
         target = st.selectbox("選擇股票", tickers)
         if st.button("確定選股"):
             st.session_state.target = target
@@ -50,10 +53,11 @@ def main():
     
     if info:
         st.subheader(f"分析目標: {current_target}")
-        safe_display_df("institutional_daily", info, "三大法人 10 日買賣超")
-        safe_display_df("broker_daily", info, "主力券商 10 日買賣超")
+        # 進行安全渲染
+        render_dataframe(info.get("institutional_daily"), "三大法人 10 日買賣超")
+        render_dataframe(info.get("broker_daily"), "主力券商 10 日買賣超")
     else:
-        st.write("請在側邊欄選擇股票。")
+        st.write("請選擇股票。")
 
 if __name__ == "__main__":
     main()
