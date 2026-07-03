@@ -3,39 +3,49 @@ import pandas as pd
 import json
 import os
 
-# 強制設定頁面寬度，避免載入時跑版
-st.set_page_config(layout="wide", page_title="AI 智能金融監控終端")
+# 設定頁面與版面
+st.set_page_config(layout="wide", page_title="AI 金融監控系統")
+
+# 使用絕對路徑讀取，確保在任何執行環境下都能找到檔案
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_PATH = os.path.join(BASE_DIR, "market_data.json")
 
 def load_data():
-    """安全讀取市場資料，並回傳錯誤訊息以便除錯"""
-    file_path = "market_data.json"
-    if not os.path.exists(file_path):
-        return None, f"找不到檔案: {file_path}"
+    """嘗試讀取資料，並返回詳細狀態"""
+    if not os.path.exists(DATA_PATH):
+        return None, f"檔案路徑錯誤: {DATA_PATH} 不存在。"
     
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(DATA_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
             return data, None
     except Exception as e:
-        return None, f"JSON 解析失敗: {str(e)}"
+        return None, f"讀取 JSON 發生錯誤: {str(e)}"
 
 def main():
     st.title("📈 AI 智能金融監控終端")
     
-    # 載入資料並顯示錯誤
+    # 顯示除錯路徑，幫助排查環境問題
+    st.sidebar.caption(f"數據路徑: {DATA_PATH}")
+    
     data, error = load_data()
     
     if error:
-        st.error(f"系統錯誤: {error}")
-        st.write("請確認 GitHub Actions 是否有成功寫入 market_data.json。")
+        st.error(error)
+        st.info("請檢查 GitHub Actions 是否確實成功產生了 market_data.json。")
         return
-        
-    st.success("資料載入成功！")
-    
-    # 簡單測試顯示，確保邏輯沒有卡住
-    tickers = list(data.keys())
-    selected = st.selectbox("請選擇股票", tickers)
-    st.write(data[selected])
+
+    # 成功載入後顯示資料
+    tickers = [t for t in data.keys() if t != "last_updated"]
+    if not tickers:
+        st.warning("數據庫為空，請等待下次自動化排程更新。")
+        return
+
+    target = st.sidebar.selectbox("選擇股票", tickers)
+    info = data.get(target, {})
+
+    st.subheader(f"分析目標: {target}")
+    st.json(info) # 暫時用 JSON 格式顯示所有資料，以驗證是否讀取成功
 
 if __name__ == "__main__":
     main()
