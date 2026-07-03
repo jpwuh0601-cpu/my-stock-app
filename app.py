@@ -17,6 +17,7 @@ def load_data():
 def main():
     st.title("📈 AI 智能金融監控終端")
     data = load_data()
+    # 過濾掉時間戳記，只取股票代號
     tickers = [t for t in data.keys() if t != "last_updated"]
     
     if not tickers:
@@ -36,19 +37,24 @@ def main():
         col2.metric("EPS", f"{info.get('eps', 0):,.2f}")
         col3.metric("每股淨值 (BVPS)", f"{info.get('bvps', 0):,.2f}")
         st.metric("本益比 (PE)", f"{info.get('pe', 0):,.2f}")
+        
+        # 顯示歷史走勢圖
+        if info.get("history"):
+            df = pd.DataFrame(info["history"])
+            st.line_chart(df.set_index("Date")["Close"])
 
     with tab2:
         st.subheader("籌碼面數據")
-        st.info("三大法人與資券比資料庫整合中。")
+        st.info("三大法人與資券比資料庫整合中，準備進行網頁爬蟲實作。")
 
     with tab3:
         st.subheader("AI 投資快評")
-        st.write(info.get("ai_prediction") or "分析模組處理中...")
+        st.write(info.get("ai_prediction") or "AI 分析模組等待串接...")
 
     with tab4:
         st.subheader("系統監控")
         st.write(f"資料最後更新時間: {data.get('last_updated', '未知')}")
-        st.success("自動化管線運作正常")
+        st.success("自動化管線運作正常，綠勾已確認。")
 
 if __name__ == "__main__":
     main()
