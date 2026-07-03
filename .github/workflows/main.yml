@@ -1,4 +1,5 @@
 name: Daily Stock Analysis
+
 on:
   schedule:
     - cron: '30 0 * * *'
@@ -21,7 +22,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: 安裝必要套件
+      - name: 安裝所有必要套件
         run: |
           pip install pandas requests yfinance openai beautifulsoup4 pandas-ta plotly streamlit
 
@@ -30,24 +31,22 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: python main_task.py
 
-      - name: 強制推送更新至 GitHub
+      - name: 強制同步數據至 GitHub
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 清除所有可能的未提交變更，確保環境乾淨
+          # 強制清理環境，丟棄所有衝突的未提交變更
           git reset --hard HEAD
           
-          # 拉取最新遠端版本
-          git pull origin main
+          # 拉取遠端最新版本
+          git pull origin main --rebase
           
-          # 重新加入變更
+          # 將更新後的數據檔加入暫存區
           git add market_data.json
           
-          # 檢查是否有實際改動，有的話才提交
-          if ! git diff --cached --quiet; then
-            git commit -m "chore: auto-update market data"
-            git push origin main --force
-          else
-            echo "No changes to commit."
-          fi
+          # 提交變更，若無改動則跳過
+          git commit -m "chore: auto-update market_data.json" || echo "No changes to commit"
+          
+          # 強制推送以避免同步問題
+          git push origin main --force
