@@ -10,8 +10,7 @@ def load_data():
     if os.path.exists(file_path):
         try:
             with open(file_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                return data if isinstance(data, dict) else {}
+                return json.load(f)
         except:
             return {}
     return {}
@@ -20,35 +19,33 @@ def main():
     st.title("📈 AI 智能金融監控終端")
     data = load_data()
     
+    # 股價與分析
     st.metric("即時股價", f"{float(data.get('price', 0)):,.2f}")
-    st.divider()
-
-    st.subheader("🏦 三大法人籌碼數據")
     
+    st.subheader("🏦 三大法人籌碼數據")
     raw = data.get("institutional_investors")
     
-    # 【最強防禦】：強制將任何型別轉換為 List of Dictionaries
-    if raw is None:
-        processed_data = []
-    elif isinstance(raw, list):
-        processed_data = raw
+    # 核心修正：將所有輸入強制正規化為 [ {"欄位": "值"} ] 的列表
+    normalized_data = []
+    if isinstance(raw, list):
+        for item in raw:
+            if isinstance(item, dict):
+                normalized_data.append(item)
+            else:
+                normalized_data.append({"內容": str(item)})
     elif isinstance(raw, dict):
-        processed_data = [raw]
-    else:
-        processed_data = [{"數據": str(raw)}]
-    
-    # 執行表格顯示
-    if processed_data:
+        normalized_data.append(raw)
+    elif raw is not None:
+        normalized_data.append({"內容": str(raw)})
+
+    if normalized_data:
         try:
-            # 確保每一個元素都是字典
-            clean_list = [item if isinstance(item, dict) else {"數據": str(item)} for item in processed_data]
-            
-            # 建立 DataFrame，強制指派 index
-            df = pd.DataFrame(clean_list, index=[i for i in range(len(clean_list))])
+            # 指定 Index 且不依賴自動推導
+            df = pd.DataFrame(normalized_data, index=range(len(normalized_data)))
             st.table(df)
         except Exception as e:
-            st.error(f"表格格式解析失敗: {e}")
-            st.write("原始資料:", raw)
+            st.error(f"表格格式異常: {e}")
+            st.write("Debug:", normalized_data)
     else:
         st.info("目前無籌碼數據。")
 
