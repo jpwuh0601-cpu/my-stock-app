@@ -1,51 +1,35 @@
 import streamlit as st
-import pandas as pd
-import json
 import os
+import json
 
-# 設定頁面與版面
-st.set_page_config(layout="wide", page_title="AI 金融監控系統")
-
-# 使用絕對路徑讀取，確保在任何執行環境下都能找到檔案
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_PATH = os.path.join(BASE_DIR, "market_data.json")
-
-def load_data():
-    """嘗試讀取資料，並返回詳細狀態"""
-    if not os.path.exists(DATA_PATH):
-        return None, f"檔案路徑錯誤: {DATA_PATH} 不存在。"
-    
-    try:
-        with open(DATA_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            return data, None
-    except Exception as e:
-        return None, f"讀取 JSON 發生錯誤: {str(e)}"
+# 強制設定頁面
+st.set_page_config(layout="wide", page_title="系統診斷中心")
 
 def main():
-    st.title("📈 AI 智能金融監控終端")
+    st.title("🛠️ 系統診斷中心")
     
-    # 顯示除錯路徑，幫助排查環境問題
-    st.sidebar.caption(f"數據路徑: {DATA_PATH}")
+    st.markdown("### 環境狀態")
+    st.write(f"**目前工作目錄 (CWD):** `{os.getcwd()}`")
     
-    data, error = load_data()
-    
-    if error:
-        st.error(error)
-        st.info("請檢查 GitHub Actions 是否確實成功產生了 market_data.json。")
-        return
+    # 檢查 market_data.json 是否存在
+    target_file = "market_data.json"
+    if os.path.exists(target_file):
+        st.success(f"✅ 找到檔案: {target_file}")
+        st.write(f"**檔案完整路徑:** `{os.path.abspath(target_file)}`")
+        
+        try:
+            with open(target_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                st.write("**檔案內容預覽:**")
+                st.json(data)
+        except Exception as e:
+            st.error(f"❌ 檔案讀取/解析失敗: {e}")
+    else:
+        st.error(f"❌ 找不到檔案: {target_file}")
+        st.info("請檢查 GitHub Actions 是否確實執行完畢且將檔案 Commit 到 main 分支。")
 
-    # 成功載入後顯示資料
-    tickers = [t for t in data.keys() if t != "last_updated"]
-    if not tickers:
-        st.warning("數據庫為空，請等待下次自動化排程更新。")
-        return
-
-    target = st.sidebar.selectbox("選擇股票", tickers)
-    info = data.get(target, {})
-
-    st.subheader(f"分析目標: {target}")
-    st.json(info) # 暫時用 JSON 格式顯示所有資料，以驗證是否讀取成功
+    st.markdown("### 環境變數檢查")
+    st.write(f"**API KEY 狀態:** {'已檢測到' if 'OPENROUTER_API_KEY' in os.environ else '未檢測到 (可能需要重新部署)'}")
 
 if __name__ == "__main__":
     main()
