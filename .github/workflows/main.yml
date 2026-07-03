@@ -40,9 +40,11 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 強制同步遠端變更並合併，解決衝突問題
+          # 先抓取遠端最新進度並變基，確保順序正確
           git pull origin main --rebase
           
           git add market_data.json
-          git commit -m "chore: auto-update market data" || echo "No changes"
+          git commit -m "chore: auto-update market data" || echo "No changes detected"
+          
+          # 強制推送以覆蓋解決衝突 (處理 lock ref 問題)
           git push origin main
