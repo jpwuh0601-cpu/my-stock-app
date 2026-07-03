@@ -3,26 +3,39 @@ import pandas as pd
 import json
 import os
 
-# 設定頁面
 st.set_page_config(layout="wide", page_title="AI 智能金融監控終端")
 
 def load_data():
-    # 使用當前工作目錄
-    path = os.path.join(os.getcwd(), "market_data.json")
-    if os.path.exists(path):
+    file_path = os.path.join(os.getcwd(), "market_data.json")
+    if os.path.exists(file_path):
         try:
-            with open(path, "r", encoding="utf-8") as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except:
-            return {}
+        except Exception as e:
+            st.error(f"解析 JSON 錯誤: {e}")
     return {}
+
+def safe_display_df(data_key, info, title):
+    """安全地顯示表格，如果格式不對則跳過並顯示除錯資訊"""
+    raw_data = info.get(data_key)
+    if raw_data:
+        try:
+            # 強制將資料轉換為 list of dicts，避免錯誤格式
+            df = pd.DataFrame(raw_data)
+            st.subheader(title)
+            st.dataframe(df, width=None)
+        except Exception as e:
+            st.warning(f"無法顯示 {title}，資料格式異常: {e}")
+            st.write("原始數據預覽:", raw_data)
+    else:
+        st.write(f"{title}: 暫無數據")
 
 def main():
     st.title("📈 AI 智能金融監控終端")
     data = load_data()
     
     if not data:
-        st.info("資料載入中或數據庫為空...")
+        st.info("尚未載入數據，請等待 GitHub Actions 更新。")
         return
 
     tickers = [t for t in data.keys() if t != "last_updated"]
@@ -31,23 +44,16 @@ def main():
         target = st.selectbox("選擇股票", tickers)
         if st.button("確定選股"):
             st.session_state.target = target
-    
-    target = st.session_state.get("target", tickers[0] if tickers else "")
-    info = data.get(target, {})
-
-    if info:
-        st.subheader(f"分析目標: {target}")
-        
-        # 修正：將 use_container_width 替換為 width='stretch'
-        if "institutional_daily" in info:
-            st.subheader("三大法人 10 日買賣超")
-            st.dataframe(pd.DataFrame(info["institutional_daily"]), width=None) # 預設自動適應寬度
             
-        if "broker_daily" in info:
-            st.subheader("主力券商 10 日買賣超")
-            st.dataframe(pd.DataFrame(info["broker_daily"]), width=None)
+    current_target = st.session_state.get("target", tickers[0] if tickers else "")
+    info = data.get(current_target, {})
+    
+    if info:
+        st.subheader(f"分析目標: {current_target}")
+        safe_display_df("institutional_daily", info, "三大法人 10 日買賣超")
+        safe_display_df("broker_daily", info, "主力券商 10 日買賣超")
     else:
-        st.write("請從側邊欄搜尋並點擊選股。")
+        st.write("請在側邊欄選擇股票。")
 
 if __name__ == "__main__":
     main()
