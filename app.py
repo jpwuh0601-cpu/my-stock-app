@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import json
 
-st.set_page_config(layout="wide", page_title="AI 專業金融分析終端")
+st.set_page_config(layout="wide", page_title="AI 金融監控中心")
 
 def load_data():
     try:
@@ -11,74 +11,38 @@ def load_data():
     except:
         return {}
 
-def render_table(info, key, title):
-    """加入 NoneType 檢查，確保資料即使為空也不會崩潰"""
-    data = info.get(key)
-    
-    # 強制檢查 data 是否為 None 或空的物件
-    if data is None or data == []:
-        st.write(f"{title}: 暫無籌碼細項資料")
-        return
-
-    # 若 data 是字串 (JSON 格式)，嘗試解析
-    if isinstance(data, str):
-        try:
-            data = json.loads(data)
-        except:
-            st.write(f"{title}: 資料格式錯誤")
-            return
-
-    try:
-        # 強制轉換為 DataFrame 並應用顏色樣式
-        df = pd.DataFrame(data)
-        st.subheader(title)
-        
-        # 簡單的紅綠色樣式 (判斷是否有數字欄位)
-        def color_style(val):
-            try:
-                # 若是數字則判斷正負
-                num = float(str(val).replace(',', ''))
-                color = 'red' if num > 0 else ('green' if num < 0 else 'black')
-                return f'color: {color}'
-            except:
-                return ''
-                
-        styled_df = df.style.applymap(color_style)
-        st.dataframe(styled_df, use_container_width=True)
-    except Exception as e:
-        st.write(f"{title}: 表格繪製錯誤 ({e})")
-
 def main():
-    st.title("📈 AI 專業金融分析終端")
+    st.sidebar.title("🔍 選股與監控")
+    ticker_input = st.sidebar.text_input("輸入股票代號 (例: 2330.TW)")
+    
     data = load_data()
-    
-    if not data:
-        st.info("資料載入中，請確認後台數據源。")
-        return
+    # 支援輸入與既有列表
+    sym = ticker_input if ticker_input else list(data.keys())[0] if data else "2330.TW"
+    info = data.get(sym, {})
 
-    # 取得股票清單
-    tickers = [t for t in data.keys() if t not in ["last_updated"]]
+    st.title(f"📊 {sym} 即時監控儀表板")
     
-    with st.sidebar:
-        target = st.selectbox("請選擇股票", tickers)
-        
-    info = data.get(target, {})
-    
-    st.header(f"股票: {target}")
-    
-    # 顯示漲跌 (確保不崩潰)
-    price = info.get("price", 0)
-    prev = info.get("prev_close", 0)
-    diff = round(price - prev, 2)
-    
-    st.metric("即時股價", f"{price} 元", delta=f"{diff} 元")
-    
-    # 顯示法人與券商表
-    render_table(info, "institutional_daily", "5. 三大法人 10 日買賣超細項")
-    render_table(info, "broker_daily", "6. 主力券商 10 日買賣超細項")
+    # 1. 即時股價與漲跌 (紅綠標示)
+    diff = info.get("price", 0) - info.get("prev_close", 0)
+    delta_text = f"{diff:+.2f} 元"
+    st.metric("即時股價", f"{info.get('price', 0)} 元", delta=delta_text)
 
-    st.subheader("7. AI 深度財報分析")
-    st.success(info.get("ai_prediction", "AI 分析中..."))
+    # 2. 功能區塊
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("⚠️ 黑天鵝危機警示")
+        st.error(info.get("black_swan_alert", "系統監控中：無異常"))
+    with col2:
+        st.subheader("🤖 AI 選股建議")
+        st.info(info.get("ai_stock_pick", "分析中..."))
+
+    # 3. 三大法人與主力分析
+    st.subheader("🧠 AI 主力分析與外資動向")
+    if "institutional_daily" in info:
+        st.dataframe(pd.DataFrame(info["institutional_daily"]))
+    
+    st.subheader("📰 GPT 新聞解讀")
+    st.write(info.get("news_analysis", "無近期新聞"))
 
 if __name__ == "__main__":
     main()
