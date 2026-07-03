@@ -10,7 +10,8 @@ def load_data():
     if os.path.exists(file_path):
         try:
             with open(file_path, "r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+                return data if isinstance(data, dict) else {}
         except:
             return {}
     return {}
@@ -26,24 +27,28 @@ def main():
     
     raw = data.get("institutional_investors")
     
-    # 【終極防禦】：無論來源是什麼，強制將其重塑為 List of Dicts
-    processed_list = []
-    if isinstance(raw, list):
-        processed_list = raw
+    # 【最強防禦】：強制將任何型別轉換為 List of Dictionaries
+    if raw is None:
+        processed_data = []
+    elif isinstance(raw, list):
+        processed_data = raw
     elif isinstance(raw, dict):
-        processed_list = [raw]
+        processed_data = [raw]
+    else:
+        processed_data = [{"數據": str(raw)}]
     
-    # 執行繪圖
-    if processed_list:
+    # 執行表格顯示
+    if processed_data:
         try:
-            # 強制將資料中的值轉為字串，徹底避免數值型別衝突
-            sanitized_data = [{str(k): str(v) for k, v in item.items()} for item in processed_list]
+            # 確保每一個元素都是字典
+            clean_list = [item if isinstance(item, dict) else {"數據": str(item)} for item in processed_data]
             
-            # 使用列表長度明確指定 Index
-            df = pd.DataFrame(sanitized_data, index=range(len(sanitized_data)))
+            # 建立 DataFrame，強制指派 index
+            df = pd.DataFrame(clean_list, index=[i for i in range(len(clean_list))])
             st.table(df)
         except Exception as e:
             st.error(f"表格格式解析失敗: {e}")
+            st.write("原始資料:", raw)
     else:
         st.info("目前無籌碼數據。")
 
