@@ -18,6 +18,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           persist-credentials: true
+          fetch-depth: 0 # 確保取得完整歷史紀錄
 
       - name: 設定 Python 環境
         uses: actions/setup-python@v4
@@ -38,6 +39,10 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # 先抓取並合併遠端變更，解決衝突
+          git pull origin main --rebase
+          
           git add market_data.json
           git commit -m "chore: auto-update market data" || echo "No changes"
-          git push
+          git push origin main
