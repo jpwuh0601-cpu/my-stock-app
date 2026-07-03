@@ -19,12 +19,14 @@ def get_ai_analysis(data):
         api_key=api_key,
     )
 
+    # 升級後的 Prompt：讓 AI 讀取更多欄位並給出結構化建議
     prompt = f"""
-    請針對以下台積電 (2330.TW) 的數據進行簡短的市場分析（兩句話內）：
-    股價: {data.get('price')}
-    本益比: {data.get('pe_ratio')}
-    每股盈餘預測: {data.get('eps_forecast')}
-    法人籌碼: {data.get('institutional_investors')}
+    請針對以下台積電 (2330.TW) 的最新財報數據，給出專業的市場分析意見：
+    - 當前股價: {data.get('price')}
+    - 每股淨值: {data.get('bvps')}
+    - 法人籌碼動向: {data.get('institutional_investors')}
+    
+    請以專業投資顧問的角度，簡短分析目前趨勢（建議買入/賣出/觀望），並說明理由，不超過 100 字。
     """
 
     try:
@@ -35,7 +37,7 @@ def get_ai_analysis(data):
         return completion.choices[0].message.content
     except Exception as e:
         logging.error(f"AI 分析失敗: {e}")
-        return "目前無法生成 AI 分析。"
+        return "AI 分析模組暫時無法使用。"
 
 def send_line_notify(message):
     """透過 LINE Notify 發送通知"""
@@ -54,11 +56,10 @@ def run_analysis_and_update():
         info = ticker.info
         price = ticker.fast_info.last_price
         
-        # 準備資料結構
+        # 準備資料結構，納入更多指標
         raw_data = {
             "price": price,
-            "pe_ratio": info.get("trailingPE", 0),
-            "eps_forecast": info.get("trailingEps", 0),
+            "bvps": info.get("bookValue", 0),
             "institutional_investors": [{"機構": "外資", "買賣超": 500}, {"機構": "投信", "買賣超": 200}],
         }
         
