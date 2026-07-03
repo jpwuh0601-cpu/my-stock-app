@@ -46,5 +46,5 @@ jobs:
           git add market_data.json
           git commit -m "chore: auto-update market data" || echo "No changes detected"
           
-          # 強制推送以覆蓋解決衝突 (處理 lock ref 問題)
-          git push origin main
+          # 嘗試推送，如果失敗則進行最後的強制同步
+          git push origin main || (git pull origin main --rebase && git push origin main)
