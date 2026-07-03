@@ -1,72 +1,56 @@
 import streamlit as st
 import pandas as pd
 import json
+import os
 
-st.set_page_config(layout="wide", page_title="AI 專業金融分析終端")
+st.set_page_config(layout="wide", page_title="AI 自由選股儀表板")
 
 def load_data():
-    try:
+    if os.path.exists("market_data.json"):
         with open("market_data.json", "r", encoding="utf-8") as f:
             return json.load(f)
-    except:
-        return {}
-
-def color_df(val):
-    """紅漲綠跌視覺化邏輯"""
-    try:
-        # 將數值轉為浮點數進行比較
-        num = float(str(val).replace(',', ''))
-        color = 'red' if num > 0 else ('green' if num < 0 else 'black')
-        return f'color: {color}'
-    except:
-        return ''
-
-def render_styled_table(data_key, info, title):
-    """渲染帶有顏色樣式的表格"""
-    raw_data = info.get(data_key)
-    if raw_data:
-        try:
-            df = pd.DataFrame(raw_data)
-            st.subheader(title)
-            # 應用顏色格式化
-            styled_df = df.style.applymap(color_df)
-            st.dataframe(styled_df, use_container_width=True)
-        except Exception as e:
-            st.warning(f"無法繪製表格: {e}")
-    else:
-        st.write(f"{title}: 暫無詳細細項資料")
+    return {}
 
 def main():
-    st.title("📈 AI 專業金融分析終端")
+    st.title("📊 AI 自由選股金融終端")
     data = load_data()
-    tickers = [t for t in data.keys() if t != "last_updated"]
-    
+
+    # 側邊欄：除了選擇，增加一個文字輸入框，讓您輸入新股票
     with st.sidebar:
-        target = st.selectbox("請選擇股票", tickers)
-        if st.button("確定選股"):
-            st.session_state.target = target
-            
-    sym = st.session_state.get("target", tickers[0] if tickers else "")
+        st.subheader("選股控制台")
+        
+        # 顯示既有清單
+        current_tickers = [t for t in data.keys() if t != "last_updated"]
+        selected = st.selectbox("1. 選擇監控中股票", current_tickers)
+        
+        # 讓用戶手動輸入新股票
+        new_ticker = st.text_input("2. 輸入新股票代號 (例如: 2317.TW)")
+        if st.button("加入監控/查看") and new_ticker:
+            st.session_state.target = new_ticker
+            st.rerun()
+
+    sym = st.session_state.get("target", selected if selected else "2330.TW")
     info = data.get(sym, {})
 
-    # 1. 即時股價與漲跌價錢
-    price = info.get("price", 0)
-    prev = info.get("prev_close", 0)
-    diff = round(price - prev, 2)
-    delta_color = "normal" if diff == 0 else ("inverse" if diff > 0 else "normal")
-    
     st.header(f"股票: {sym}")
-    st.metric("即時股價", f"{price} 元", delta=f"{diff} 元")
+    
+    # 即時股價與漲跌
+    diff = info.get("diff", 0)
+    st.metric("即時股價", info.get("price", "請等待更新"), delta=f"{diff} 元")
 
-    # 5. 三大法人買賣超 (每日細項)
-    render_styled_table("institutional_daily", info, "5. 三大法人 10 日買賣超細項")
+    # 籌碼顯示
+    st.subheader("5. 三大法人買賣超細項")
+    if "institutional_daily" in info:
+        st.dataframe(pd.DataFrame(info["institutional_daily"]), use_container_width=True)
+    else:
+        st.info("該股票數據尚未同步，請等待 worker.py 完成抓取。")
 
-    # 6. 主力券商買賣超 (每日細項)
-    render_styled_table("broker_daily", info, "6. 主力券商 10 日買賣超細項")
+    st.subheader("6. 主力券商買賣超細項")
+    if "broker_daily" in info:
+        st.dataframe(pd.DataFrame(info["broker_daily"]), use_container_width=True)
 
-    # 7. AI 分析
-    st.subheader("7. AI 財報與風險分析")
-    st.success(info.get("ai_prediction", "分析中..."))
+    st.subheader("7. AI 深度分析")
+    st.success(info.get("ai_prediction", "AI 正在分析此股票..."))
 
 if __name__ == "__main__":
     main()
