@@ -2,6 +2,7 @@ import streamlit as st
 import json
 import os
 import pandas as pd
+from datetime import datetime
 
 st.set_page_config(layout="wide", page_title="AI 智能金融監控終端")
 
@@ -15,6 +16,15 @@ def load_data():
                 return {}
     return {}
 
+def check_system_health(last_update_str):
+    """檢查數據是否過舊 (超過 26 小時視為異常)"""
+    try:
+        last_update = datetime.strptime(last_update_str, "%Y-%m-%d %H:%M:%S")
+        diff = datetime.now() - last_update
+        return diff.total_seconds() < 26 * 3600
+    except:
+        return False
+
 def main():
     st.title("📈 AI 智能金融監控終端")
     data = load_data()
@@ -24,24 +34,29 @@ def main():
         st.info("資料庫初始化中，請稍候。")
         return
 
-    # 側邊欄：選擇器與確定按鈕
+    # 系統健康檢查
+    is_healthy = check_system_health(data.get("last_updated", ""))
+    
     with st.sidebar:
         st.subheader("控制面板")
         selected = st.selectbox("請選擇監控標的", tickers)
-        # 加入確定按鈕，點擊後才會更新顯示內容
         confirm_btn = st.button("確認選擇")
+        
+        st.divider()
+        st.subheader("系統狀態")
+        if is_healthy:
+            st.success("自動化管線運作正常 (數據新鮮)")
+        else:
+            st.error("警告：系統資料已過時，請檢查 GitHub Actions")
 
-    # 邏輯：只有在按下確認按鈕後才顯示數據
     if confirm_btn:
         st.session_state.selected_ticker = selected
 
-    # 顯示數據
     current_ticker = st.session_state.get("selected_ticker", tickers[0])
     info = data.get(current_ticker, {})
     
     st.subheader(f"{current_ticker} 監控數據")
 
-    # 建立 4 個頁籤
     tab1, tab2, tab3, tab4 = st.tabs(["📊 即時股價與財報", "🏦 法人與資券籌碼", "🤖 AI 分析與新聞", "🛠 系統回測檢查"])
     
     with tab1:
@@ -69,7 +84,10 @@ def main():
     with tab4:
         st.subheader("系統監控")
         st.write(f"資料最後更新時間: {data.get('last_updated', '未知')}")
-        st.success("自動化管線運作正常")
+        if is_healthy:
+            st.success("系統狀態：良好")
+        else:
+            st.error("系統狀態：數據已過期，請檢查自動化任務執行紀錄")
 
 if __name__ == "__main__":
     main()
