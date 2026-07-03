@@ -27,29 +27,31 @@ def main():
     
     raw = data.get("institutional_investors")
     
-    # 【關鍵修復】：將數據強制轉化為 Pandas 絕對可讀的 List 結構
-    # 我們確保每一個項目都是字典，如果不是，就把它封裝成字典
-    processed_list = []
+    # 【終極平坦化策略】：將任何數據結構轉為 List of {"欄位": K, "內容": V}
+    # 這是 Pandas 解析最不會出錯的格式
+    flat_rows = []
     if isinstance(raw, list):
         for item in raw:
             if isinstance(item, dict):
-                processed_list.append(item)
+                for k, v in item.items():
+                    flat_rows.append({"欄位": str(k), "內容": str(v)})
             else:
-                processed_list.append({"內容": str(item)})
+                flat_rows.append({"欄位": "數據", "內容": str(item)})
     elif isinstance(raw, dict):
-        processed_list.append(raw)
+        for k, v in raw.items():
+            flat_rows.append({"欄位": str(k), "內容": str(v)})
     elif raw is not None:
-        processed_list.append({"內容": str(raw)})
+        flat_rows.append({"欄位": "數據", "內容": str(raw)})
 
-    # 表格顯示
-    if processed_list:
+    # 執行表格顯示
+    if flat_rows:
         try:
             # 使用列表長度明確生成 index，解決 Scalar 值導致的 ValueError
-            df = pd.DataFrame(processed_list, index=[i for i in range(len(processed_list))])
+            df = pd.DataFrame(flat_rows, index=range(len(flat_rows)))
             st.table(df)
         except Exception as e:
             st.error(f"表格格式解析異常: {e}")
-            st.write("原始資料:", raw)
+            st.write("原始數據:", raw)
     else:
         st.info("目前無籌碼數據。")
 
