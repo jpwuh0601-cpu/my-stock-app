@@ -1,69 +1,67 @@
+import streamlit as st
 import json
-import logging
-import yfinance as yf
+import pandas as pd
+import plotly.express as px
 import os
-import shutil
-import datetime
-from openai import OpenAI
+from datetime import datetime, timedelta
 
-# 設定日誌
-logging.basicConfig(level=logging.INFO)
+# 設定版面
+st.set_page_config(layout="wide", page_title="AI 智能金融監控終端")
 
-TICKER_LIST = ["2330.TW", "2317.TW", "2454.TW"]
-DATA_FILE = "market_data.json"
+def load_data():
+    if not os.path.exists("market_data.json"):
+        return {}
+    with open("market_data.json", "r", encoding="utf-8") as f:
+        return json.load(f)
 
-def get_financials(ticker):
-    """抓取財報基本面數據"""
-    info = ticker.info
-    return {
-        "bvps": info.get("bookValue", 0),
-        "pe_ratio": info.get("trailingPE", 0),
-        "eps": info.get("trailingEps", 0),
-        "revenue_growth": info.get("revenueGrowth", 0)
-    }
-
-def get_ai_analysis(ticker_symbol, data):
-    api_key = os.getenv("OPENROUTER_API_KEY")
-    if not api_key: return "AI 分析模組未設定。"
+def check_data_freshness(last_updated_str):
     try:
-        client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=api_key.strip())
-        prompt = f"分析 {ticker_symbol}，股價: {data.get('price')}，EPS: {data.get('eps')}。給予投資建議。"
-        completion = client.chat.completions.create(
-            model="google/gemini-2.0-flash-exp",
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return completion.choices[0].message.content
-    except Exception as e:
-        logging.error(f"AI 分析失敗: {e}")
-        return "分析暫時不可用。"
+        last_updated = datetime.strptime(last_updated_str, "%Y-%m-%d %H:%M:%S")
+        if datetime.now() - last_updated > timedelta(hours=24):
+            return False, "數據來源已過期 (超過24小時)，請觸發自動化更新。"
+        return True, "數據更新正常。"
+    except:
+        return False, "無法讀取回測時間戳記。"
 
-def run_analysis_and_update():
-    all_results = {
-        "last_updated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    }
+def main():
+    st.title("📈 AI 智能金融監控終端")
+    data = load_data()
     
-    for ticker_symbol in TICKER_LIST:
-        try:
-            ticker = yf.Ticker(ticker_symbol)
-            fin = get_financials(ticker)
-            price = ticker.fast_info.last_price
-            
-            all_results[ticker_symbol] = {
-                "price": price,
-                "bvps": fin["bvps"],
-                "pe": fin["pe_ratio"],
-                "eps": fin["eps"],
-                "history": ticker.history(period="1mo")['Close'].reset_index().to_dict(orient='records'),
-                "ai_prediction": get_ai_analysis(ticker_symbol, {"price": price, "eps": fin["eps"]})
-            }
-        except Exception as e:
-            logging.error(f"股票 {ticker_symbol} 處理失敗: {e}")
-    
-    tmp_file = DATA_FILE + ".tmp"
-    with open(tmp_file, "w", encoding="utf-8") as f:
-        json.dump(all_results, f, ensure_ascii=False, indent=4)
-    os.replace(tmp_file, DATA_FILE)
-    logging.info("數據更新完成。")
+    # 檢查回測正確性
+    is_fresh, status_msg = check_data_freshness(data.get("last_updated", "2000-01-01 00:00:00"))
+    if not is_fresh:
+        st.error(f"⚠️ 系統錯誤: {status_msg}")
+
+    # 側邊欄選擇
+    tickers = [t for t in data.keys() if t != "last_updated"]
+    selected_ticker = st.sidebar.selectbox("請選擇股票代號", tickers)
+    submit = st.sidebar.button("確定分析")
+
+    if submit:
+        info = data.get(selected_ticker, {})
+        
+        # 1. 即時股價與漲跌 (漲紅跌綠)
+        price = float(info.get("price", 0))
+        st.header(f"監控目標: {selected_ticker}")
+        st.metric("即時股價", f"{price:,.2f}")
+
+        # 2. 財報欄位 (BVPS, PE, EPS)
+        col1, col2, col3 = st.columns(3)
+        col1.metric("每股淨值 (BVPS)", f"{info.get('bvps', 0):,.2f}")
+        col2.metric("本益比 (PE)", f"{info.get('pe', 0):,.2f}")
+        col3.metric("EPS", f"{info.get('eps', 0):,.2f}")
+
+        st.divider()
+
+        # 3. 走勢圖與 AI 分析
+        history = info.get("history", [])
+        if history:
+            df = pd.DataFrame(history)
+            fig = px.line(df, x="Date", y="Close", title=f"{selected_ticker} 走勢圖")
+            st.plotly_chart(fig, use_container_width=True)
+
+        st.subheader("🤖 AI 財報預測分析")
+        st.info(info.get("ai_prediction", "暫無分析"))
 
 if __name__ == "__main__":
-    run_analysis_and_update()
+    main()
