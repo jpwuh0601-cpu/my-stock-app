@@ -20,33 +20,30 @@ def main():
     st.title("📈 AI 智能金融監控終端")
     data = load_data()
     
-    # 顯示股價，提供預設值 0.0 防止崩潰
-    price = data.get("price", 0.0)
-    st.metric("即時股價", f"{float(price):,.2f}")
-    
+    # 顯示股價
+    st.metric("即時股價", f"{float(data.get('price', 0)):,.2f}")
     st.divider()
 
     st.subheader("🏦 三大法人籌碼數據")
     
-    # 獲取資料並進行最嚴格的型別檢查
+    # 1. 取得原始資料
     raw = data.get("institutional_investors")
     
-    # 這裡確保 processed_data 永遠是一個列表
+    # 2. 絕對防禦處理：確保結構為 List of Dictionaries
+    processed_list = []
     if isinstance(raw, list):
-        processed_data = raw
+        processed_list = raw
     elif isinstance(raw, dict):
-        processed_data = [raw]
-    else:
-        processed_data = []
-
-    # 表格顯示：如果列表為空，則顯示提示，不執行 DataFrame 轉換
-    if processed_data:
+        processed_list = [raw]
+    
+    # 3. 如果資料庫中有資料，進行表格轉換
+    if processed_list:
         try:
-            df = pd.DataFrame(processed_data)
+            # 強制指派 index 徹底解決 scalar values 報錯
+            df = pd.DataFrame(processed_list, index=range(len(processed_list)))
             st.table(df)
         except Exception as e:
-            st.error(f"表格繪製異常: {e}")
-            st.write("原始數據:", processed_data)
+            st.error(f"表格繪製錯誤: {e}")
     else:
         st.info("目前無籌碼數據。")
 
