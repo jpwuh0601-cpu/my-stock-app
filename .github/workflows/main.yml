@@ -32,7 +32,6 @@ jobs:
       - name: 執行分析任務
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
         run: python main_task.py
 
       - name: 推送更新至 GitHub
@@ -40,11 +39,11 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 先抓取遠端最新進度並變基，確保順序正確
+          # 拉取最新進度並變基，確保不會發生鎖定衝突
           git pull origin main --rebase
           
           git add market_data.json
           git commit -m "chore: auto-update market data" || echo "No changes detected"
           
-          # 嘗試推送，如果失敗則進行最後的強制同步
-          git push origin main || (git pull origin main --rebase && git push origin main)
+          # 安全推送
+          git push origin main --force-with-lease
