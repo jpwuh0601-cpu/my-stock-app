@@ -1,22 +1,26 @@
 import streamlit as st
 import pandas as pd
 import json
+import plotly.graph_objects as go
+import os
 
 # 設定頁面配置
 st.set_page_config(layout="wide", page_title="AI 專業金融分析終端")
 
-def load_data():
-    """載入數據並確保其為穩定的字典結構"""
+def load_data(filepath):
+    """載入通用 JSON 資料"""
     try:
-        with open("market_data.json", "r", encoding="utf-8") as f:
-            data = json.load(f)
-            return data if isinstance(data, dict) else {}
+        if os.path.exists(filepath):
+            with open(filepath, "r", encoding="utf-8") as f:
+                return json.load(f)
     except:
-        return {}
+        pass
+    return {}
 
 def main():
     st.title("📈 AI 專業金融分析終端")
-    data = load_data()
+    data = load_data("market_data.json")
+    history = load_data("backtest_history.json")
     
     # 側邊欄固定選股邏輯
     with st.sidebar:
@@ -34,9 +38,8 @@ def main():
     # 1. 即時股價
     st.header(f"1. 即時股價: {target}")
     price = info.get("price", 0)
-    # 若無 diff 欄位則動態計算
     prev = info.get("prev_close", 0)
-    diff = round(price - prev, 2)
+    diff = round(float(price) - float(prev), 2)
     st.metric("當前價格", f"{price} 元", delta=f"{diff} 元")
 
     # 2. 基本面數據
@@ -54,15 +57,11 @@ def main():
     st.subheader("5. 三大法人買賣超 (10日)")
     if "institutional_daily" in info and info["institutional_daily"]:
         st.dataframe(pd.DataFrame(info["institutional_daily"]), use_container_width=True)
-    else:
-        st.write("暫無法人籌碼資料")
 
     # 6. 資券比與主力券商
     st.subheader("6. 10日資券比與主力券商")
     if "broker_daily" in info and info["broker_daily"]:
         st.dataframe(pd.DataFrame(info["broker_daily"]), use_container_width=True)
-    else:
-        st.write("暫無券商籌碼資料")
 
     # 7. AI 分析與績效統計
     st.subheader("7. AI 分析與績效統計")
@@ -73,6 +72,16 @@ def main():
         st.error(f"⚠️ 黑天鵝危機警示: {info.get('black_swan_alert', '系統監控中：無異常')}")
     with col_b:
         st.metric("🤖 AI 歷史預測勝率", info.get("win_rate", "0%"))
+
+    # 繪製 Plotly 折線圖
+    st.subheader("📊 AI 預測績效走勢圖")
+    if target in history and "prices" in history[target]:
+        prices = history[target]["prices"]
+        fig = go.Figure(data=go.Scatter(y=prices, mode='lines+markers', line=dict(color='firebrick', width=2)))
+        fig.update_layout(title="歷史回測股價走勢", xaxis_title="更新次數", yaxis_title="價格 (元)")
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.write("目前尚無足夠的歷史回測數據繪製圖表")
 
 if __name__ == "__main__":
     main()
