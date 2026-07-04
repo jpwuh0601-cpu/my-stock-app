@@ -43,3 +43,14 @@ def get_ai_analysis(ticker_symbol):
         return result['choices'][0]['message']['content']
     except Exception as e:
         return f"AI 分析引擎暫時無法連線: {e}"
+        import json
+import os
+
+# 使用絕對路徑確保寫入位置正確
+output_path = os.path.join(os.path.dirname(__file__), "market_data.json")
+
+# 寫入前先暫存至 temp，再重新命名覆蓋 (Atomic Write)，防止檔案損壞
+temp_path = output_path + ".tmp"
+with open(temp_path, "w", encoding="utf-8") as f:
+    json.dump(data, f, ensure_ascii=False, indent=4)
+os.replace(temp_path, output_path)
