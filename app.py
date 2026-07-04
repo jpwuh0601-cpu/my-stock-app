@@ -4,46 +4,65 @@ import json
 import os
 import plotly.express as px
 
-st.set_page_config(layout="wide", page_title="金融智慧終端")
+# 設定頁面風格
+st.set_page_config(layout="wide", page_title="金融智慧監控終端")
 
 def main():
     st.title("📈 專業金融智慧監控系統")
     
-    # 1. 初始化 session_state 用於儲存觀察名單
-    if 'my_tickers' not in st.session_state:
-        st.session_state.my_tickers = ["2330.TW", "2317.TW"]
-
-    # 2. 自選股票管理介面
-    with st.sidebar.expander("管理我的自選股"):
-        new_ticker = st.text_input("新增股票 (例: 2454.TW)")
-        if st.button("確認加入"):
-            if new_ticker and new_ticker not in st.session_state.my_tickers:
-                st.session_state.my_tickers.append(new_ticker)
-        
-        st.write("目前清單:", st.session_state.my_tickers)
-
-    # 3. 讀取市場數據
+    # 讀取數據檔案
     if os.path.exists("market_data.json"):
         with open("market_data.json", "r", encoding="utf-8") as f:
-            data = json.load(f)
+            try:
+                data = json.load(f)
+            except:
+                st.error("資料檔案讀取異常，請檢查自動化任務執行狀態。")
+                return
     else:
-        st.warning("請等待自動化排程同步市場數據...")
+        st.warning("尚未偵測到數據，請等待 GitHub Actions 更新...")
         return
 
-    # 4. 股票選擇器
-    target = st.selectbox("選擇要分析的股票", st.session_state.my_tickers)
+    # 1. 全域風險偵測看板 (自動標示所有高風險股票)
+    risky_stocks = [symbol for symbol, info in data.items() if info.get('black_swan') == "⚠️ 高風險警示"]
+    if risky_stocks:
+        st.error(f"🚨 **全局風險警報**：以下標的觸發黑天鵝風險 - {', '.join(risky_stocks)}")
+
+    # 2. 側邊欄：股票選擇器
+    target = st.sidebar.selectbox("選擇監控標的", list(data.keys()))
     
     if target in data:
         info = data[target]
-        # ... (後續顯示邏輯與之前相同)
-        st.success(f"正在分析: {target}")
+        
+        # 標題與警示狀態
+        st.header(f"標的分析: {target}")
+        if info.get('black_swan') == "⚠️ 高風險警示":
+            st.error("狀態: ⚠️ 高風險警示 (建議減碼)")
+        else:
+            st.success("狀態: ✅ 運作安全")
+            
+        # 指標卡片顯示
         col1, col2, col3 = st.columns(3)
-        col1.metric("EPS", info.get('eps', 0))
-        col2.metric("本益比", info.get('pe', 0))
-        col3.metric("每股淨值", info.get('nav', 0))
-        # ...
+        col1.metric("即時價格", f"{info.get('price', 0)}")
+        col2.metric("EPS (每股盈餘)", info.get('eps', 0))
+        col3.metric("本益比 (PE)", info.get('pe', 0))
+        
+        # 3. 籌碼視覺化
+        st.subheader("📊 三大法人籌碼趨勢")
+        inst_data = info.get('institutional_data', [])
+        if inst_data:
+            df_inst = pd.DataFrame(inst_data)
+            df_melt = df_inst.melt(id_vars="日期", var_name="法人", value_name="買賣超")
+            fig = px.bar(df_melt, x="日期", y="買賣超", color="法人", barmode="group",
+                         title="法人近 3 日買賣超分佈")
+            st.plotly_chart(fig, use_container_width=True)
+            
+        # 4. AI 輿情分析
+        st.subheader("🤖 AI 市場觀點")
+        with st.expander("展開 AI 深度解讀"):
+            st.write(f"**最新新聞:** {info.get('news', '無')}")
+            st.info(f"**AI 情緒分析:** {info.get('ai_prediction', '分析中...')}")
     else:
-        st.error(f"找不到 {target} 的數據，請確認該股票是否在後端監控列表中。")
+        st.write("查無此標的數據。")
 
 if __name__ == "__main__":
     main()
