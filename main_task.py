@@ -17,7 +17,8 @@ except ImportError as e:
 def run():
     """
     執行即時分析程式。
-    此函數接收 --ticker 參數並立即調用 worker 進行單一股票分析。
+    此函數接收 --ticker 參數並立即調用 worker 進行單一股票分析，
+    並將結果寫入 analysis_result.txt 以供前端讀取。
     """
     parser = argparse.ArgumentParser(description="金融數據即時分析工具")
     parser.add_argument('--ticker', type=str, required=True, help="指定要即時查詢的單一股票代號")
@@ -27,11 +28,14 @@ def run():
         print(f"正在執行單一標的即時分析: {args.ticker}")
         
         # 呼叫 worker 進行即時抓取與 AI 分析
-        # 注意：worker.py 必須包含 get_ai_analysis 函數
         result = worker.get_ai_analysis(args.ticker)
         
-        print(f"標的 {args.ticker} 分析完成。")
-        print(f"AI 觀點: {result}")
+        # 將結果寫入檔案，讓前端 app.py 可以讀取顯示
+        output_file = os.path.join(current_dir, "analysis_result.txt")
+        with open(output_file, "w", encoding="utf-8") as f:
+            f.write(result)
+            
+        print(f"標的 {args.ticker} 分析完成。結果已寫入 analysis_result.txt")
         
     except Exception as e:
         print("執行即時分析程序時發生錯誤:")
