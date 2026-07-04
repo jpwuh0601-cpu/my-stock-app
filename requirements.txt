@@ -3,3 +3,4 @@ twstock
 pandas
 streamlit
 plotly
+requests
