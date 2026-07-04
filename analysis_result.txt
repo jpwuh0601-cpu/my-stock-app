@@ -1,0 +1,8 @@
+### 2330.TW 深度金融分析報告
+
+AI 分析過程中發生錯誤: 'choices'
+Traceback (most recent call last):
+  File "/home/runner/work/my-stock-app/my-stock-app/worker.py", line 71, in get_ai_analysis
+    return response_data['choices'][0]['message']['content']
+           ~~~~~~~~~~~~~^^^^^^^^^^^
+KeyError: 'choices'
