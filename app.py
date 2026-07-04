@@ -53,15 +53,15 @@ def main():
     st.subheader("4. 今年與去年每季報表")
     st.write("自動回測資料來源：狀態 [正常]")
 
-    # 5. 三大法人買賣超
+    # 5. 三大法人買賣超 (已修正警告，改用 width=None 自動延展)
     st.subheader("5. 三大法人買賣超 (10日)")
     if "institutional_daily" in info and info["institutional_daily"]:
-        st.dataframe(pd.DataFrame(info["institutional_daily"]), use_container_width=True)
+        st.dataframe(pd.DataFrame(info["institutional_daily"]), width=None)
 
-    # 6. 資券比與主力券商
+    # 6. 資券比與主力券商 (已修正警告)
     st.subheader("6. 10日資券比與主力券商")
     if "broker_daily" in info and info["broker_daily"]:
-        st.dataframe(pd.DataFrame(info["broker_daily"]), use_container_width=True)
+        st.dataframe(pd.DataFrame(info["broker_daily"]), width=None)
 
     # 7. AI 分析與績效統計
     st.subheader("7. AI 分析與績效統計")
