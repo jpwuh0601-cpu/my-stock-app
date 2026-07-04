@@ -2,20 +2,26 @@ import sys
 import os
 import traceback
 import argparse
+import subprocess
 
-# 確保當前目錄絕對路徑已被加入至系統路徑，解決匯入失敗問題
+# 1. 強制設定環境路徑
 current_dir = os.path.abspath(os.path.dirname(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
+# 2. 預檢檢查：確認 yfinance 是否存在，若無則嘗試安裝 (針對環境異常)
+try:
+    import yfinance
+except ImportError:
+    print("警告：未檢測到 yfinance，嘗試自動補安裝...")
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "yfinance"])
+    import yfinance
+
+# 3. 匯入 worker
 try:
     import worker
 except ImportError as e:
-    # 紀錄目錄資訊以便除錯
     print(f"致命錯誤：無法匯入 worker 模組。")
-    print(f"當前工作目錄: {os.getcwd()}")
-    print(f"腳本所在目錄: {current_dir}")
-    print(f"系統路徑: {sys.path}")
     print(f"錯誤詳情: {e}")
     sys.exit(1)
 
@@ -30,7 +36,6 @@ def run():
     output_file = os.path.join(current_dir, "analysis_result.txt")
     
     try:
-        # 自動補全台股後綴
         ticker_symbol = args.ticker.strip()
         if ticker_symbol.isdigit() and not ticker_symbol.endswith(('.TW', '.TWO')):
             ticker_symbol += ".TW"
@@ -45,11 +50,9 @@ def run():
             f.write(result)
             
     except Exception as e:
-        # 將錯誤資訊記錄到檔案中，前端就能顯示出「分析失敗」的說明，而不是直接報錯
         error_msg = f"分析失敗: {str(e)}\n建議：請檢查代號是否正確，或稍後再試。"
         with open(output_file, "w", encoding="utf-8") as f:
             f.write(error_msg)
-        # 這裡不呼叫 sys.exit(1)，避免導致網頁前端報錯退出
 
 if __name__ == "__main__":
     run()
