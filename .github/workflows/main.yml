@@ -34,6 +34,11 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # 強制同步機制：先拉取遠端最新變更，再進行合併，避免 rejected 錯誤
+          git fetch origin main
+          git rebase origin/main
+          
           git add market_data.json backtest_history.json
           git commit -m "chore: auto-update market data" || echo "No changes to commit"
           git push origin main
