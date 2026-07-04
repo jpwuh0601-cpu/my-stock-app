@@ -1,41 +1,41 @@
-import os
+import streamlit as st
 import yfinance as yf
-import requests
-import twstock
-import pandas as pd
-import traceback
+import plotly.graph_objects as go
+import time
 
-def get_ai_analysis(ticker_symbol):
-    api_key = os.getenv("OPENROUTER_API_KEY")
-    ticker = yf.Ticker(ticker_symbol)
-    
-    # 取得籌碼數據
-    code = ticker_symbol.split('.')[0]
-    data = twstock.ThreeInstitutionsFetcher().fetch()
-    df = pd.DataFrame(data)
-    stock_data = df[df['stock_id'] == code].tail(10)
-    
-    # 強制將表格區塊獨立出來
-    table_md = stock_data[['date', 'foreign_investor_buy_sell', 'investment_trust_buy_sell', 'dealer_buy_sell']].to_markdown(index=False)
-    
-    prompt = f"""
-    請針對 {ticker_symbol} 進行簡潔有力的金融分析。
-    
-    【法人籌碼數據】
-    {table_md}
-    
-    請依照以下嚴格格式輸出：
-    
-    ### 深度解讀
-    (請濃縮在 300 字以內，專注趨勢與主力動向)
-    
-    ### 黑天鵝警示
-    (等級：安全/注意/危險)
-    (簡述原因)
-    
-    ### 投資建議
-    (綜合觀點)
-    """
-    
-    # (API 呼叫與原邏輯相同，將 Prompt 替換為上述內容)
-    # ... 省略 API 請求細節 ...
+st.title("股票分析應用 (優化版)")
+
+# 獲取使用者輸入
+ticker = st.text_input("輸入股票代號 (例如 2330.TW)", "2330.TW")
+
+# 使用快取函式來獲取數據，避免觸發 Rate Limit
+@st.cache_data(ttl=3600)  # 每小時更新一次快取
+def get_stock_data(ticker_symbol):
+    stock = yf.Ticker(ticker_symbol)
+    # 加入簡單的重試邏輯
+    for i in range(3):
+        try:
+            return stock.history(period="1mo")
+        except Exception:
+            time.sleep(2)  # 如果失敗，等待 2 秒再重試
+    return None
+
+if st.button("執行分析"):
+    with st.spinner('正在從 Yahoo Finance 獲取數據...'):
+        hist = get_stock_data(ticker)
+        
+        if hist is not None and not hist.empty:
+            # 繪製走勢圖
+            fig = go.Figure(data=[go.Candlestick(
+                x=hist.index, 
+                open=hist['Open'], 
+                high=hist['High'], 
+                low=hist['Low'], 
+                close=hist['Close']
+            )])
+            fig.update_layout(title=f"{ticker} 近一個月走勢", xaxis_rangeslider_visible=False)
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.error("無法取得數據，請確認代號是否正確，或稍後再試 (目前已被 Yahoo 限制流量)。")
+
+st.info("提示：若發生 Error，請等待約 10-15 分鐘後再重新整理頁面。")
