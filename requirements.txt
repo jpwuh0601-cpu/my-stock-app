@@ -1,4 +1,4 @@
-equests
+requests
 twstock
 yfinance
 pandas
