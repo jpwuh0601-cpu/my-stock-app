@@ -2,20 +2,23 @@ import yfinance as yf
 import requests
 import json
 import os
-import datetime
-import twstock
+import twstock # 已包含在 requirements.txt 中
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 def get_chip_data(symbol):
     """使用 twstock 獲取籌碼與資券比"""
     code = symbol.replace('.TW', '')
-    stock = twstock.Stock(code)
-    # 獲取最近的資券與法人數據 (twstock 的 fetch 接口)
-    # 注意：需確保網路環境可訪問證交所數據
     try:
-        # 這裡簡易示範獲取資料結構
-        return {"資券比": 12.5, "法人買賣超": 500} 
+        # 獲取三大法人買賣超資訊
+        # 注意：twstock 獲取籌碼面需連接證交所 API
+        data = twstock.Realtime(code).get()
+        
+        # 模擬法人資料：實務上可透過 twstock 歷史資料庫計算 10 日平均
+        return {
+            "資券比": 15.2, # 範例數據，之後可替換為計算值
+            "法人買賣超": 1250 # 範例數據
+        }
     except:
         return {"資券比": 0, "法人買賣超": 0}
 
@@ -33,7 +36,6 @@ def run_analysis_and_update():
                 "price": info.get("currentPrice", 0),
                 "change": round(info.get("regularMarketChangePercent", 0), 2),
                 "eps": info.get("trailingEps", 0),
-                "pe": info.get("forwardPE", 0),
                 "chip_data": chip,
                 "black_swan": "⚠️ 高風險" if info.get("regularMarketChangePercent", 0) <= -3 else "安全"
             }
