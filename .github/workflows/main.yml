@@ -2,19 +2,17 @@ name: Daily Stock Analysis
 
 on:
   schedule:
-    - cron: '30 0 * * *'
-  workflow_dispatch:
-  push:
-    branches:
-      - main
+    - cron: '0 0 * * *'  # 每天執行
+  workflow_dispatch:      # 允許手動觸發
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # 必須給予寫入權限
     steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+      - name: 檢出程式碼
+        uses: actions/checkout@v3
 
       - name: 設定 Python 環境
         uses: actions/setup-python@v4
@@ -22,8 +20,7 @@ jobs:
           python-version: '3.12'
 
       - name: 安裝所有必要套件
-        run: |
-          pip install pandas requests yfinance openai beautifulsoup4 pandas-ta plotly streamlit twstock
+        run: pip install -r requirements.txt
 
       - name: 執行分析任務
         env:
@@ -35,10 +32,15 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 強制同步機制：先拉取遠端最新變更，再進行合併，避免 rejected 錯誤
-          git fetch origin main
-          git rebase origin/main
+          # 1. 強制重置工作區，清除任何未提交的殘留變更
+          git reset --hard HEAD
           
-          git add market_data.json backtest_history.json
+          # 2. 拉取遠端最新進度並合併
+          git pull --rebase origin main
+          
+          # 3. 加入數據變更
+          git add market_data.json
+          
+          # 4. 提交與推送 (若沒變更則略過)
           git commit -m "chore: auto-update market data" || echo "No changes to commit"
           git push origin main
