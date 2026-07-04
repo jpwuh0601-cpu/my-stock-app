@@ -7,6 +7,39 @@ import pandas as pd
 st.set_page_config(layout="wide", page_title="專業金融監控終端")
 st.title("📊 專業金融監控終端")
 
+# 強制讀取本地 JSON，不呼叫外部 API
+@st.cache_data(ttl=60)
+def load_json_data():
+    if os.path.exists("market_data.json"):
+        with open("market_data.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+data = load_json_data()
+
+if not data:
+    st.error("數據尚未初始化。請確認 GitHub Actions 是否完成首次更新。")
+else:
+    # 下拉選單只從 JSON 讀取
+    ticker_input = st.selectbox("監控清單", list(data.keys()))
+    m = data[ticker_input]
+    
+    c1, c2, c3 = st.columns(3)
+    c1.metric("即時股價", f"{m.get('price', 0):.2f}")
+    c2.metric("本益比", f"{m.get('pe', 0):.2f}")
+    c3.metric("EPS", f"{m.get('eps', 0):.2f}")
+    
+    st.subheader("🤖 AI 顧問分析")
+    st.info(m.get("ai_prediction", "分析中..."))
+import streamlit as st
+import json
+import os
+import plotly.express as px
+import pandas as pd
+
+st.set_page_config(layout="wide", page_title="專業金融監控終端")
+st.title("📊 專業金融監控終端")
+
 # 強制讀取 JSON
 def load_data():
     if os.path.exists("market_data.json"):
