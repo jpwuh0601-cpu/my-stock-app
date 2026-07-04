@@ -32,10 +32,8 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 【關鍵修正】強制清除殘留變更，確保每次從乾淨狀態開始
+          # 【關鍵修正】強制清除殘留變更並與遠端同步
           git reset --hard HEAD
-          
-          # 拉取最新變更並進行 rebase
           git fetch origin main
           git rebase origin/main
           
