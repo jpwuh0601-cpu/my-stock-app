@@ -2,42 +2,30 @@ name: Daily Stock Analysis
 
 on:
   schedule:
-    - cron: '0 0 * * *' # 每天執行
-  workflow_dispatch: # 支援手動觸發
+    - cron: '0 0 * * *'
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - name: 檢出程式碼
-        uses: actions/checkout@v3
-
+      - uses: actions/checkout@v3
       - name: 設定 Python 環境
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
-
-      - name: 安裝所有必要套件
+      - name: 安裝套件
         run: pip install -r requirements.txt
-
       - name: 執行分析任務
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-        # 這裡明確呼叫 main_task.py，並帶入預設參數以防出錯
         run: python main_task.py --ticker 2330.TW
-
       - name: 推送更新至 GitHub
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
           git fetch origin main
           git rebase origin/main
-          
-          # 將產出的分析結果加入變更
-          git add analysis_result.txt
-          git commit -m "chore: auto-update stock analysis" || echo "No changes to commit"
-          
+          git add market_data.json
+          git commit -m "chore: auto-update market data" || echo "No changes to commit"
           git push origin main
