@@ -1,62 +1,44 @@
 import streamlit as st
+import yfinance as yf
 import pandas as pd
-import json
-import os
 import plotly.express as px
+from analyzer import get_ai_analysis
 
-st.set_page_config(layout="wide", page_title="金融智慧終端")
+st.set_page_config(layout="wide", page_title="即時金融查詢終端")
 
-def load_data():
-    if os.path.exists("market_data.json"):
-        with open("market_data.json", "r", encoding="utf-8") as f:
-            try: return json.load(f)
-            except: return {}
-    return {}
+st.title("🔍 專業金融即時查詢終端")
 
-def main():
-    st.title("📈 專業金融智慧監控系統")
-    
-    # 1. 初始化 Session 用於臨時觀察清單
-    if 'custom_tickers' not in st.session_state:
-        st.session_state.custom_tickers = []
+# 手動輸入模式
+input_ticker = st.text_input("請輸入股票代號 (例如: 2330.TW)", placeholder="輸入代號後按下 Enter")
 
-    # 2. 側邊欄：手動管理區
-    with st.sidebar:
-        st.header("⚙️ 標的管理")
-        new_ticker = st.text_input("輸入股票代號 (例如: 2454.TW)")
-        if st.button("確認加入觀察"):
-            if new_ticker and new_ticker not in st.session_state.custom_tickers:
-                st.session_state.custom_tickers.append(new_ticker)
-                st.rerun() # 點擊後立即重刷介面
-        
-        st.write("---")
-        st.write("目前自選清單:", st.session_state.custom_tickers)
+if input_ticker:
+    with st.spinner(f"正在即時聯網分析 {input_ticker}..."):
+        try:
+            ticker = yf.Ticker(input_ticker)
+            info = ticker.info
+            
+            # 檢查代號有效性
+            if "currentPrice" not in info:
+                st.error("查無此標的，請確認代號是否正確 (台股請加 .TW)")
+            else:
+                # 顯示即時指標
+                col1, col2, col3 = st.columns(3)
+                col1.metric("即時價格", f"{info.get('currentPrice', 0):.2f}")
+                col2.metric("EPS", info.get("trailingEps", "N/A"))
+                col3.metric("本益比", info.get("forwardPE", "N/A"))
+                
+                # 呼叫分析引擎
+                st.subheader("🤖 AI 市場解讀")
+                ai_result = get_ai_analysis(input_ticker)
+                st.info(ai_result)
+                
+                # 歷史趨勢圖
+                st.subheader("📈 歷史走勢")
+                hist = ticker.history(period="1mo")
+                st.line_chart(hist['Close'])
 
-    # 3. 讀取數據並顯示
-    data = load_data()
-    all_available = list(data.keys()) + st.session_state.custom_tickers
-    
-    target = st.selectbox("請選擇要分析的標的", all_available)
-    
-    if target in data:
-        info = data[target]
-        st.success(f"正在監控: {target}")
-        
-        # 指標卡片
-        col1, col2, col3 = st.columns(3)
-        col1.metric("即時價格", info.get("price", 0))
-        col2.metric("EPS", info.get("eps", 0))
-        col3.metric("本益比", info.get("pe", 0))
-        
-        # 籌碼圖表
-        st.subheader("📊 三大法人籌碼分析")
-        inst_data = info.get('institutional_data', [])
-        if inst_data:
-            df = pd.DataFrame(inst_data)
-            fig = px.bar(df.melt(id_vars="日期"), x="日期", y="value", color="variable", barmode="group")
-            st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.warning(f"目前 {target} 暫無即時數據，系統將在下次自動排程時嘗試載入。")
+        except Exception as e:
+            st.error(f"查詢發生錯誤: {e}")
 
-if __name__ == "__main__":
-    main()
+st.sidebar.markdown("### 系統說明")
+st.sidebar.write("本系統已切換為「純即時查詢模式」，不再依賴自動排程，所有數據皆為您輸入代號當下聯網讀取。")
