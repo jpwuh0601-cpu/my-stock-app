@@ -32,10 +32,16 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 強制清除任何殘留檔案，這是解決您截圖錯誤的關鍵
+          # 關鍵修正：強制清除所有未提交的殘留變更
           git reset --hard HEAD
-          git pull --rebase origin main
           
+          # 獲取遠端最新狀態
+          git fetch origin main
+          
+          # 重新基底合併，確保歷史紀錄線性
+          git rebase origin/main
+          
+          # 加入變更並強制推送
           git add market_data.json
           git commit -m "chore: auto-update market data" || echo "No changes to commit"
           git push origin main
