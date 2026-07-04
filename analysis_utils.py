@@ -1,35 +1,31 @@
-# analysis_utils.py
 import yfinance as yf
-import time
-import random
+import requests
+import os
 
-def get_stock_analysis(ticker):
-    if not "." in ticker:
-        ticker = f"{ticker}.TW"
+# 使用 OpenAI/OpenRouter 的 API 進行分析
+def get_ai_analysis(ticker_symbol):
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    ticker = yf.Ticker(ticker_symbol)
+    news = ticker.news
+    latest_news = news[0]['title'] if news else "目前無最新新聞報導"
     
-    time.sleep(random.uniform(1, 2)) 
-    stock = yf.Ticker(ticker)
-    hist = stock.history(period="1mo")
-    
-    if hist.empty:
-        return None, None, "數據取得失敗", {}
-    
-    # 技術數據
-    last_price = hist['Close'].iloc[-1].item()
-    prev_price = hist['Close'].iloc[-2].item()
-    sma_20 = hist['Close'].rolling(window=20).mean().iloc[-1].item()
-    change_pct = ((last_price - prev_price) / prev_price) * 100
-    status = "多頭" if last_price > sma_20 else "空頭"
-    
-    # 基本面數據 (若抓不到則補上 "N/A")
-    info = stock.info
-    data = {
-        "現價": last_price,
-        "漲跌幅": f"{change_pct:.2f}%",
-        "EPS": info.get('trailingEps', 'N/A'),
-        "本益比": info.get('trailingPE', 'N/A'),
-        "每股淨值": info.get('bookValue', 'N/A'),
-        "發行股數": info.get('sharesOutstanding', 'N/A')
+    # 若無 API KEY 則回傳基礎分析
+    if not api_key:
+        return f"【{ticker_symbol} 市場觀點】: 成功獲取最新標題: {latest_news}。 (提示: 請於 Streamlit App Settings 設定 API Key 以啟用 AI 分析)"
+
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": "google/gemini-2.0-flash-exp:free",
+        "messages": [{"role": "user", "content": f"分析這則股市新聞的情緒：{latest_news}。請用一句話簡短總結市場觀點。"}]
     }
     
-    return last_price, sma_20, status, data
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        result = response.json()
+        return result['choices'][0]['message']['content']
+    except Exception as e:
+        return f"AI 分析引擎暫時無法連線: {e}"
