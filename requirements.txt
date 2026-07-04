@@ -1,6 +1,6 @@
-yfinance
+requests
 twstock
+yfinance
 pandas
 streamlit
 plotly
-requests
