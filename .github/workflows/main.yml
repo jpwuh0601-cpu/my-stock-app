@@ -23,7 +23,7 @@ jobs:
 
       - name: 安裝所有必要套件
         run: |
-          pip install pandas requests yfinance openai beautifulsoup4 pandas-ta plotly streamlit
+          pip install pandas requests yfinance openai beautifulsoup4 pandas-ta plotly streamlit twstock
 
       - name: 執行分析任務
         env:
