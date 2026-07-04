@@ -24,8 +24,16 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git fetch origin main
-          git rebase origin/main
-          git add market_data.json
-          git commit -m "chore: auto-update market data" || echo "No changes to commit"
-          git push origin main
+          
+          # 先將所有產生的變更（包含 market_data.json）暫存
+          git add .
+          
+          # 檢查是否有變更，若有則進行 rebase 與提交
+          if ! git diff-index --quiet HEAD --; then
+            git commit -m "chore: auto-update market data"
+            git fetch origin main
+            git rebase origin/main
+            git push origin main
+          else
+            echo "沒有新的數據變更，跳過提交"
+          fi
