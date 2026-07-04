@@ -25,17 +25,22 @@ jobs:
       - name: 執行分析任務
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
         run: python main_task.py
 
-      - name: 強制推送至 GitHub
+      - name: 推送更新至 GitHub
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 關鍵修正：強制清除殘留檔案，防止 Rebase 失敗
-          git reset --hard HEAD
-          git pull --rebase origin main
-          
+          # 確保有變更才進行 commit，避免錯誤
           git add market_data.json
-          git commit -m "chore: auto-update market data" || echo "無變更"
-          git push origin main
+          
+          # 檢查是否有變更
+          if git diff --quiet && git diff --staged --quiet; then
+            echo "沒有資料變更，跳過推送"
+          else
+            git commit -m "chore: auto-update market data"
+            git pull --rebase origin main
+            git push origin main
+          fi
