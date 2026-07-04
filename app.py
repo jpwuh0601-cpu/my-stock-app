@@ -1,15 +1,13 @@
 import streamlit as st
 import json
 import os
-import yfinance as yf
 import plotly.express as px
-import time
-import random
+import pandas as pd
 
 st.set_page_config(layout="wide", page_title="專業金融監控終端")
 st.title("📊 專業金融監控終端")
 
-# 讀取 JSON
+# 強制讀取本地 JSON
 def load_data():
     if os.path.exists("market_data.json"):
         try:
@@ -21,38 +19,29 @@ def load_data():
 
 data = load_data()
 
-st.subheader("🔍 手動查詢股票")
-custom_ticker = st.text_input("輸入股票代號 (例如: 2330.TW)", placeholder="請輸入完整代號")
+st.subheader("🔍 手動輸入標的 (自動從本地清單選取)")
 
-if st.button("取得即時股價"):
-    if not custom_ticker:
-        st.warning("請輸入代號")
+if not data:
+    st.error("系統尚未初始化，請確認 GitHub Actions 是否完成首次更新。")
+else:
+    # 這裡將手動輸入改為自動完成選單，完全避免對 Yahoo 發送請求
+    ticker_options = list(data.keys())
+    ticker_input = st.selectbox("請選擇或輸入標的代號:", ticker_options)
+
+    if ticker_input in data:
+        m = data[ticker_input]
+        
+        c1, c2, c3 = st.columns(3)
+        c1.metric("即時股價", f"{m.get('price', 0):.2f}")
+        c2.metric("本益比", f"{m.get('pe', 0):.2f}")
+        c3.metric("EPS", f"{m.get('eps', 0):.2f}")
+        
+        st.subheader("🤖 AI 顧問分析")
+        st.info(m.get("ai_prediction", "分析中..."))
+        
+        st.warning(f"當前風險狀態: {m.get('black_swan', '安全')}")
     else:
-        # 1. 優先從 JSON 找
-        if custom_ticker in data:
-            m = data[custom_ticker]
-            st.success(f"已讀取自動化備份數據: {custom_ticker}")
-            c1, c2, c3 = st.columns(3)
-            c1.metric("即時股價", f"{m.get('price', 0):.2f}")
-            c2.metric("本益比", f"{m.get('pe', 0):.2f}")
-            c3.metric("EPS", f"{m.get('eps', 0):.2f}")
-            st.info(f"🤖 AI 分析: {m.get('ai_prediction', '無分析資料')}")
-        else:
-            # 2. 只有沒資料才請求 API，加入隨機延遲繞過限制
-            with st.spinner("正在連線 Yahoo Finance (嘗試繞過 API 限制)..."):
-                try:
-                    time.sleep(random.uniform(1.0, 3.0)) # 隨機延遲
-                    ticker = yf.Ticker(custom_ticker)
-                    # 使用 session 請求較穩定
-                    hist = ticker.history(period="1mo")
-                    if hist.empty:
-                        st.error("查無此代號，或已被 Yahoo API 限制。請確認格式 (如 2330.TW)。")
-                    else:
-                        price = hist['Close'].iloc[-1]
-                        st.success(f"已即時獲取 {custom_ticker} 資訊")
-                        st.metric("即時股價", f"{price:.2f}")
-                        st.warning("此標的未在自動化清單中，無 AI 分析數據。")
-                        fig = px.line(hist, y="Close", title=f"{custom_ticker} 近期走勢")
-                        st.plotly_chart(fig, use_container_width=True)
-                except Exception as e:
-                    st.error("連線過於頻繁 (API Limit)。請稍候 1 分鐘再試，或建議將此標的加入 tickers.txt。")
+        st.info("請從上方選單選擇一個標的進行分析。")
+
+st.markdown("---")
+st.caption("提示：若需要分析新股票，請編輯 `tickers.txt` 並手動執行 GitHub Action。此設計是為了避免 Yahoo Finance API 限制。")
