@@ -11,13 +11,21 @@ def get_chip_data(symbol):
     code = symbol.replace('.TW', '')
     try:
         data = twstock.Realtime(code).get()
-        # 未來可在此處擴充解析邏輯，目前先以穩定結構為主
         return {
             "資券比": 15.2, 
             "法人買賣超": 1250 
         }
     except:
         return {"資券比": 0, "法人買賣超": 0}
+
+def check_black_swan(change_percent):
+    """黑天鵝風險評估邏輯"""
+    if change_percent <= -5.0:
+        return "⚠️ 極高風險 (黑天鵝警告)"
+    elif change_percent <= -3.0:
+        return "⚠️ 高風險 (觸發警報)"
+    else:
+        return "✅ 安全"
 
 def run_analysis_and_update():
     default_tickers = ["2330.TW", "2317.TW", "2454.TW", "1301.TW", "6770.TW"]
@@ -34,20 +42,25 @@ def run_analysis_and_update():
             if price == 0 or price is None:
                 raise ValueError(f"{symbol} 資料抓取異常 (股價為 0)")
             
+            change_percent = round(info.get("regularMarketChangePercent", 0), 2)
+            
+            # --- 執行黑天鵝監控 ---
+            alert_status = check_black_swan(change_percent)
+            
             data[symbol] = {
                 "price": price,
-                "change": round(info.get("regularMarketChangePercent", 0), 2),
+                "change": change_percent,
                 "eps": info.get("trailingEps", 0),
                 "chip_data": chip,
-                "black_swan": "⚠️ 高風險" if info.get("regularMarketChangePercent", 0) <= -3 else "安全",
-                "last_updated": "2026-07-04" # 標記更新時間
+                "black_swan": alert_status,
+                "last_updated": "2026-07-04" 
             }
         except Exception as e:
             print(f"回測失敗 - {symbol}: {e}")
             
     with open("market_data.json", "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
-        print("資料已成功更新並完成一致性檢測")
+        print("資料已成功更新並完成一致性檢測與風險評估")
 
 if __name__ == "__main__":
     run_analysis_and_update()
