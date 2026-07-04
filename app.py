@@ -1,17 +1,16 @@
 import streamlit as st
 import json
 import os
-import plotly.express as px
-import pandas as pd
 
 st.set_page_config(layout="wide", page_title="專業金融監控終端")
 st.title("📊 專業金融監控終端")
 
-# 強制讀取本地 JSON
+# 1. 讀取數據，並確保結構正確
 def load_data():
-    if os.path.exists("market_data.json"):
+    file_path = "market_data.json"
+    if os.path.exists(file_path):
         try:
-            with open("market_data.json", "r", encoding="utf-8") as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except:
             return {}
@@ -19,29 +18,36 @@ def load_data():
 
 data = load_data()
 
-st.subheader("🔍 手動輸入標的 (自動從本地清單選取)")
+# 2. 顯示資訊區塊
+st.subheader("🔍 監控標的查詢")
 
 if not data:
-    st.error("系統尚未初始化，請確認 GitHub Actions 是否完成首次更新。")
+    st.error("數據尚未初始化。請確保 GitHub Actions 成功執行過。")
 else:
-    # 這裡將手動輸入改為自動完成選單，完全避免對 Yahoo 發送請求
-    ticker_options = list(data.keys())
-    ticker_input = st.selectbox("請選擇或輸入標的代號:", ticker_options)
-
-    if ticker_input in data:
-        m = data[ticker_input]
-        
-        c1, c2, c3 = st.columns(3)
-        c1.metric("即時股價", f"{m.get('price', 0):.2f}")
-        c2.metric("本益比", f"{m.get('pe', 0):.2f}")
-        c3.metric("EPS", f"{m.get('eps', 0):.2f}")
-        
-        st.subheader("🤖 AI 顧問分析")
-        st.info(m.get("ai_prediction", "分析中..."))
-        
-        st.warning(f"當前風險狀態: {m.get('black_swan', '安全')}")
-    else:
-        st.info("請從上方選單選擇一個標的進行分析。")
+    # 支援手動輸入或從清單選取
+    all_tickers = list(data.keys())
+    # 讓使用者可以輸入，並自動對應到清單
+    selected_ticker = st.selectbox("請選擇或輸入標的:", all_tickers)
+    
+    # 顯示該標的的數據
+    m = data.get(selected_ticker, {})
+    
+    # 使用 columns 呈現美觀數據
+    c1, c2, c3 = st.columns(3)
+    c1.metric("即時股價", f"{m.get('price', 0):.2f}")
+    c2.metric("本益比", f"{m.get('pe', 0):.2f}")
+    c3.metric("EPS", f"{m.get('eps', 0):.2f}")
+    
+    st.info(f"🤖 AI 分析: {m.get('ai_prediction', '正在等待資料更新...')}")
+    st.warning(f"當前風險狀態: {m.get('black_swan', '安全')}")
 
 st.markdown("---")
-st.caption("提示：若需要分析新股票，請編輯 `tickers.txt` 並手動執行 GitHub Action。此設計是為了避免 Yahoo Finance API 限制。")
+st.markdown("""
+### 如何新增監控標的？
+為了避免 Yahoo API 限制與轉圈問題，本系統已改為「後端預抓取」模式：
+1. 開啟專案中的 `tickers.txt`。
+2. 在裡面輸入您想要查詢的代號（例如：`1504.TW`）。
+3. 儲存並提交到 GitHub。
+4. 前往 **Actions** 頁面，點擊 **Run workflow**。
+5. 等待綠色勾勾後，重新整理本網頁，您的新股票就會直接出現在清單中！
+""")
