@@ -7,7 +7,7 @@ import os
 st.set_page_config(layout="wide", page_title="即時金融查詢終端")
 st.title("🔍 專業金融即時查詢終端")
 
-# --- AI 分析核心邏輯 (直接內嵌) ---
+# --- AI 分析邏輯 ---
 def get_ai_analysis(ticker_symbol):
     api_key = os.getenv("OPENROUTER_API_KEY")
     try:
@@ -29,11 +29,13 @@ def get_ai_analysis(ticker_symbol):
     except Exception as e:
         return f"AI 暫時無法分析: {e}"
 
-# --- 主程式 ---
-input_ticker = st.text_input("請輸入股票代號 (例如: 2330.TW)", placeholder="輸入代號後按 Enter")
+# --- 使用 Form 來確保輸入完整 ---
+with st.form(key='ticker_form'):
+    input_ticker = st.text_input("請輸入股票代號 (例如: 2330.TW)")
+    submit_button = st.form_submit_button(label='開始分析')
 
-if input_ticker:
-    with st.spinner(f"正在即時分析 {input_ticker}..."):
+if submit_button and input_ticker:
+    with st.spinner(f"正在即時聯網分析 {input_ticker}..."):
         try:
             ticker = yf.Ticker(input_ticker)
             info = ticker.info
@@ -54,6 +56,9 @@ if input_ticker:
                 # 顯示趨勢圖
                 st.subheader("📈 近期走勢")
                 hist = ticker.history(period="1mo")
-                st.line_chart(hist['Close'])
+                if not hist.empty:
+                    st.line_chart(hist['Close'])
+                else:
+                    st.warning("查無歷史成交資訊。")
         except Exception as e:
-            st.error(f"系統錯誤: {e}")
+            st.error(f"系統發生錯誤: {e}")
