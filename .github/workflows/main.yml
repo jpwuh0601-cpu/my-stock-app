@@ -25,23 +25,19 @@ jobs:
       - name: 執行分析任務
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-        run: python main_task.py
+        # 【關鍵修復】補上預設參數，避免因缺少參數導致 exit code 2
+        run: python main_task.py --ticker 2330.TW
 
       - name: 推送更新至 GitHub
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 【關鍵修正】強制重置以解決 unstaged changes 錯誤
           git reset --hard HEAD
-          
-          # 拉取並合併遠端變更
           git fetch origin main
           git rebase origin/main
           
-          # 加入變更並提交
-          git add market_data.json
-          git commit -m "chore: auto-update market data" || echo "No changes to commit"
+          git add analysis_result.txt
+          git commit -m "chore: auto-update analysis" || echo "No changes to commit"
           
-          # 強制推送
           git push origin main
