@@ -25,10 +25,11 @@ jobs:
         run: |
           pip install pandas requests yfinance openai beautifulsoup4 pandas-ta plotly streamlit twstock
 
-      - name: 執行分析任務
+      - name: 執行分析任務並捕捉錯誤
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-        run: python main_task.py
+        run: |
+          python main_task.py || { echo "分析任務執行失敗，請檢查 worker.py 邏輯或網路連接"; exit 1; }
 
       - name: 推送更新至 GitHub
         run: |
