@@ -33,13 +33,18 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 關鍵修正：確保與遠端同步並解決潛在的合併衝突
+          # 關鍵修正：強制清除所有未提交的殘留變更，避免 rebase 衝突
+          git reset --hard HEAD
+          
+          # 獲取遠端最新狀態
           git fetch origin main
+          
+          # 重新基底合併，確保歷史紀錄線性
           git rebase origin/main
           
           # 加入變更並提交
           git add market_data.json
           git commit -m "chore: auto-update market data" || echo "No changes to commit"
           
-          # 強制推送更新
+          # 推送更新
           git push origin main
