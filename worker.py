@@ -17,13 +17,28 @@ def send_line_notify(message):
     requests.post(url, headers=headers, data=payload)
 
 def get_ai_financial_analysis(symbol, info):
-    """AI 進階分析：財報與選股觀點"""
+    """AI 進階分析：正式串接 OpenRouter API 進行財報與選股觀點評估"""
     if not OPENROUTER_API_KEY:
         return "需設定 API Key 才能啟用進階分析"
     
-    prompt = f"分析 {symbol} 的財務狀況：EPS={info.get('trailingEps')}, 本益比={info.get('forwardPE')}。請提供簡單的選股評價。"
-    # 這裡可呼叫 OpenRouter API
-    return "AI 分析結果：指標顯示財務狀況穩定，可持續關注。"
+    prompt = f"分析 {symbol} 的財務狀況：EPS={info.get('trailingEps')}, 本益比={info.get('forwardPE')}。請提供簡單的選股評價，並指出潛在風險。"
+    
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": "google/gemini-2.0-flash-exp:free",
+        "messages": [{"role": "user", "content": prompt}]
+    }
+    
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        result = response.json()
+        return result['choices'][0]['message']['content']
+    except Exception as e:
+        return f"AI 分析呼叫失敗: {str(e)}"
 
 def get_chip_data(symbol):
     """使用 twstock 獲取籌碼與資券比"""
@@ -82,7 +97,7 @@ def run_analysis_and_update():
             
     with open("market_data.json", "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
-        print("資料已成功更新並完成一致性檢測與風險評估")
+        print("資料已成功更新並完成 AI 分析與一致性檢測")
 
 if __name__ == "__main__":
     run_analysis_and_update()
