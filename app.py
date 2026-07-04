@@ -1,4 +1,15 @@
 import streamlit as st
+import os
+import json
+
+st.write("系統正在初始化...")
+
+# 測試 JSON 是否存在
+if os.path.exists("market_data.json"):
+    st.write("偵測到市場數據檔")
+else:
+    st.write("錯誤：找不到 market_data.json，請確認 Action 是否執行完成")
+import streamlit as st
 import yfinance as yf
 import requests
 import os
