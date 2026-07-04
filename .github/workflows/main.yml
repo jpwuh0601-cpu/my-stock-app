@@ -33,14 +33,13 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 確保有變更才進行 commit，避免錯誤
-          git add market_data.json
+          # 關鍵修正：確保與遠端同步並解決潛在的合併衝突
+          git fetch origin main
+          git rebase origin/main
           
-          # 檢查是否有變更
-          if git diff --quiet && git diff --staged --quiet; then
-            echo "沒有資料變更，跳過推送"
-          else
-            git commit -m "chore: auto-update market data"
-            git pull --rebase origin main
-            git push origin main
-          fi
+          # 加入變更並提交
+          git add market_data.json
+          git commit -m "chore: auto-update market data" || echo "No changes to commit"
+          
+          # 強制推送更新
+          git push origin main
