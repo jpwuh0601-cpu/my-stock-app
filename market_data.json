@@ -1,78 +1,8 @@
 {
     "2330.TW": {
         "price": 2445.0,
-        "change": 0,
-        "nav": 227.166,
-        "pe": 19.305845,
         "eps": 73.59,
-        "margin_ratio": 0,
-        "institutional_data": [
-            {
-                "日期": "N/A",
-                "外資": 0,
-                "投信": 0,
-                "自營商": 0
-            }
-        ],
-        "ai_prediction": "分析數據初始化中...",
-        "news": "最新市場動態待更新。",
-        "black_swan": "安全"
-    },
-    "2317.TW": {
-        "price": 240.5,
-        "change": 0,
-        "nav": 126.905,
-        "pe": 11.2033205,
-        "eps": 13.4,
-        "margin_ratio": 0,
-        "institutional_data": [
-            {
-                "日期": "N/A",
-                "外資": 0,
-                "投信": 0,
-                "自營商": 0
-            }
-        ],
-        "ai_prediction": "分析數據初始化中...",
-        "news": "最新市場動態待更新。",
-        "black_swan": "安全"
-    },
-    "2454.TW": {
-        "price": 4195.0,
-        "change": 0,
-        "nav": 244.52,
-        "pe": 33.525032,
-        "eps": 65.86,
-        "margin_ratio": 0,
-        "institutional_data": [
-            {
-                "日期": "N/A",
-                "外資": 0,
-                "投信": 0,
-                "自營商": 0
-            }
-        ],
-        "ai_prediction": "分析數據初始化中...",
-        "news": "最新市場動態待更新。",
-        "black_swan": "安全"
-    },
-    "1301.TW": {
-        "price": 62.1,
-        "change": 0,
-        "nav": 61.299,
-        "pe": 39.946995,
-        "eps": -1.08,
-        "margin_ratio": 0,
-        "institutional_data": [
-            {
-                "日期": "N/A",
-                "外資": 0,
-                "投信": 0,
-                "自營商": 0
-            }
-        ],
-        "ai_prediction": "分析數據初始化中...",
-        "news": "最新市場動態待更新。",
-        "black_swan": "安全"
+        "pe": 19.305845,
+        "ai_prediction": "基於最新 EPS 73.59 的財務分析完成。"
     }
 }
