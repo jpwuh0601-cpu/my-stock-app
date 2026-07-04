@@ -36,8 +36,8 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
           # 將修改後的資料加入並提交
-          git add market_data.json
-          git commit -m "chore: auto-update market data and AI analysis" || echo "No changes to commit"
+          git add market_data.json backtest_history.json
+          git commit -m "chore: auto-update market data and AI analysis history" || echo "No changes to commit"
           
           # 強制推送以避免同步衝突
           git push origin main --force
