@@ -2,14 +2,14 @@ name: Daily Stock Analysis
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # 每天執行
-  workflow_dispatch:      # 允許手動觸發
+    - cron: '0 0 * * *'
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # 必須給予寫入權限
+      contents: write
     steps:
       - name: 檢出程式碼
         uses: actions/checkout@v3
@@ -32,15 +32,10 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 1. 強制重置工作區，清除任何未提交的殘留變更
+          # 強制清除任何殘留檔案，這是解決您截圖錯誤的關鍵
           git reset --hard HEAD
-          
-          # 2. 拉取遠端最新進度並合併
           git pull --rebase origin main
           
-          # 3. 加入數據變更
           git add market_data.json
-          
-          # 4. 提交與推送 (若沒變更則略過)
           git commit -m "chore: auto-update market data" || echo "No changes to commit"
           git push origin main
