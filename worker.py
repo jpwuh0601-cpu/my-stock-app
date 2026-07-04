@@ -1,48 +1,57 @@
 import yfinance as yf
 import json
-import datetime
-import twstock
 import os
-import logging
 import random
+import datetime
 
-# 設定日誌
-logging.basicConfig(level=logging.INFO)
+# 定義監控標的檔案路徑
+TICKERS_FILE = "tickers.txt"
 
-def get_detailed_institutional_data():
-    """模擬獲取詳細的三大法人與券商買賣超資料 (請在未來串接 twstock.bargin)"""
-    # 模擬 10 日資料
+def get_target_tickers():
+    """從 tickers.txt 讀取代號，若無則使用預設清單"""
+    if os.path.exists(TICKERS_FILE):
+        with open(TICKERS_FILE, "r", encoding="utf-8") as f:
+            return [line.strip() for line in f if line.strip()]
+    return ["2330.TW", "2317.TW", "2454.TW", "1301.TW", "6770.TW"]
+
+def get_mock_institutional_data():
+    """模擬三大法人與券商資料，未來可串接 twstock API"""
     dates = [(datetime.datetime.now() - datetime.timedelta(days=i)).strftime("%m-%d") for i in range(10)]
-    return {
-        "三大法人": [{"日期": d, "外資": random.randint(-5000, 5000), "投信": random.randint(-1000, 1000), "自營商": random.randint(-2000, 2000)} for d in dates],
-        "主力券商": [{"日期": d, "券商A": random.randint(-100, 100), "券商B": random.randint(-100, 100)} for d in dates]
-    }
+    return [
+        {"日期": d, "外資": random.randint(-5000, 5000), "投信": random.randint(-1000, 1000), "自營商": random.randint(-2000, 2000)}
+        for d in dates
+    ]
 
 def run_analysis_and_update():
     target_file = "market_data.json"
-    # 新增：支援外部設定清單 (未來可存入 settings.json)
-    tickers = ["2330.TW", "2317.TW", "2454.TW", "1301.TW"]
-    
-    data = {"last_updated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+    tickers = get_target_tickers()
+    data = {}
     
     for symbol in tickers:
-        ticker = yf.Ticker(symbol)
-        info = ticker.info
-        price = info.get("currentPrice") or info.get("regularMarketPrice") or 0
-        
-        # 籌碼資料寫入
-        chips = get_detailed_institutional_data()
-        
-        data[symbol] = {
-            "price": price,
-            "nav": info.get("bookValue", 0),
-            "pe": info.get("forwardPE", 0),
-            "eps": info.get("trailingEps", 0),
-            "institutional_data": chips["三大法人"],
-            "broker_data": chips["主力券商"],
-            "ai_prediction": "AI 預測：近期觀察籌碼流向顯示主力有吸籌跡象。",
-            "margin_ratio": 12.5  # 模擬資券比
-        }
+        try:
+            ticker = yf.Ticker(symbol)
+            info = ticker.info
             
+            # 整理資料結構以符合前端要求
+            data[symbol] = {
+                "price": info.get("currentPrice") or info.get("regularMarketPrice") or 0,
+                "change": round(random.uniform(-10, 10), 2), # 模擬漲跌幅
+                "nav": info.get("bookValue", 0),
+                "pe": info.get("forwardPE", 0),
+                "eps": info.get("trailingEps", 0),
+                "margin_ratio": round(random.uniform(5, 20), 2),
+                "institutional_data": get_mock_institutional_data(),
+                "ai_prediction": f"{symbol} AI 綜合評估：近期法人籌碼呈現中性，建議持續觀察。",
+                "news": "最新市場動態：總體經濟數據顯示通膨壓力減緩。",
+                "black_swan": "無異常"
+            }
+        except Exception as e:
+            print(f"[-] 抓取失敗 {symbol}: {e}")
+            
+    # 寫入 JSON
     with open(target_file, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
+    print(f"[+] 數據已成功更新至 {target_file}")
+
+if __name__ == "__main__":
+    run_analysis_and_update()
