@@ -3,14 +3,20 @@ import os
 import traceback
 import argparse
 
-# 確保當前目錄在系統路徑中，讓 Python 能順利找到 worker.py
-current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, current_dir)
+# 確保當前目錄絕對路徑已被加入至系統路徑，解決匯入失敗問題
+current_dir = os.path.abspath(os.path.dirname(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
 
 try:
     import worker
 except ImportError as e:
-    print(f"致命錯誤：無法匯入 worker 模組: {e}")
+    # 紀錄目錄資訊以便除錯
+    print(f"致命錯誤：無法匯入 worker 模組。")
+    print(f"當前工作目錄: {os.getcwd()}")
+    print(f"腳本所在目錄: {current_dir}")
+    print(f"系統路徑: {sys.path}")
+    print(f"錯誤詳情: {e}")
     sys.exit(1)
 
 def run():
