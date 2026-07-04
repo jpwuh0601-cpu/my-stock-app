@@ -16,29 +16,34 @@ def run():
     output_file = os.path.join(current_dir, "analysis_result.txt")
     
     try:
-        # 使用絕對路徑確保能正確載入 worker
+        # 顯示當前目錄檔案清單，協助除錯 (這行在執行後會印在 GitHub Action 日誌)
+        print(f"DEBUG: 當前工作目錄檔案: {os.listdir(current_dir)}")
+        
         worker_path = os.path.join(current_dir, "worker.py")
         if not os.path.exists(worker_path):
-            raise ImportError("找不到 worker.py，請確認檔案是否已部署至正確路徑。")
+            raise ImportError(f"找不到 worker.py，路徑: {worker_path}")
             
         import worker
         ticker_symbol = args.ticker.strip()
         if ticker_symbol.isdigit() and not ticker_symbol.endswith(('.TW', '.TWO')):
             ticker_symbol += ".TW"
             
+        print(f"正在分析: {ticker_symbol}")
         result = worker.get_ai_analysis(ticker_symbol)
         
-        # 確保以 UTF-8 無 BOM 格式寫入，並加入寫入防錯
         with open(output_file, "w", encoding="utf-8") as f:
             f.write(f"### {ticker_symbol} 深度金融分析報告\n\n")
             f.write(result)
             
     except Exception as e:
-        # 記錄錯誤並在 Canvas 中顯示詳細錯誤資訊，方便前端除錯
-        error_info = f"分析失敗: {str(e)}\n{traceback.format_exc()}"
+        # 這裡將錯誤資訊詳細印出，GitHub Actions 的 Logs 會直接顯示
+        error_msg = f"--- 分析失敗 ---\n錯誤類型: {type(e).__name__}\n錯誤訊息: {str(e)}\n\n詳細堆疊:\n{traceback.format_exc()}"
+        print(error_msg)
+        
         with open(output_file, "w", encoding="utf-8") as f:
-            f.write(error_info)
-        # 讓程式以非零狀態碼結束，以便於偵測部署失敗
+            f.write(error_msg)
+        
+        # 強制結束並顯示錯誤碼 1，讓 GitHub Actions 記錄失敗
         sys.exit(1)
 
 if __name__ == "__main__":
