@@ -1,85 +1,87 @@
-import yfinance as yf
+import streamlit as st
+import pandas as pd
 import json
-import datetime
-import twstock
+import plotly.graph_objects as go
 import os
 
-def get_real_margin_short_data(symbol):
-    """獲取真實資券比"""
-    clean_symbol = symbol.split('.')[0]
+# 設定頁面配置
+st.set_page_config(layout="wide", page_title="AI 專業金融分析終端")
+
+def load_data(filepath):
+    """載入 JSON 資料，增加防禦性處理"""
+    if not os.path.exists(filepath):
+        return {}
     try:
-        stock = twstock.Stock(clean_symbol)
-        margin = stock.margin
-        short = stock.short
-        if short and margin and short[-1] > 0:
-            ratio = (margin[-1] / short[-1]) * 100
-            return round(ratio, 2)
-        return 0.0
-    except Exception:
-        return 0.0
+        with open(filepath, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        st.error(f"資料讀取錯誤: {e}")
+        return {}
 
-def backtest_system(symbol, current_price):
-    """自動記錄並統計勝率"""
-    history_file = "backtest_history.json"
-    history = {}
-    if os.path.exists(history_file):
-        with open(history_file, 'r', encoding='utf-8') as f:
-            try: history = json.load(f)
-            except: history = {}
-            
-    stats = history.get(symbol, {"prices": [], "total_win": 0, "total_loss": 0})
+def main():
+    st.title("📈 AI 專業金融分析終端")
     
-    if stats["prices"]:
-        change = current_price - stats["prices"][-1]
-        if change > 0: stats["total_win"] += 1
-        else: stats["total_loss"] += 1
-            
-    stats["prices"].append(float(current_price))
-    history[symbol] = stats
+    # 載入數據
+    data = load_data("market_data.json")
+    history = load_data("backtest_history.json")
     
-    with open(history_file, 'w', encoding='utf-8') as f:
-        json.dump(history, f, indent=4)
-    return stats
+    # 側邊欄設定
+    with st.sidebar:
+        st.header("選股設定")
+        user_input = st.text_input("輸入股票代號 (例: 2330.TW)", "2330.TW")
+        if st.button("確認選股"):
+            st.session_state.target = user_input
+            st.rerun()
+            
+    target = st.session_state.get("target", "2330.TW")
+    info = data.get(target)
 
-def run_analysis_and_update():
-    """主分析流程"""
-    # 載入現有監控清單
-    target_file = "market_data.json"
-    tickers = ["2330.TW", "2317.TW", "2454.TW"] # 基礎清單
-    if os.path.exists(target_file):
-        with open(target_file, 'r', encoding='utf-8') as f:
-            existing_data = json.load(f)
-            tickers = list(set(tickers + list(existing_data.keys())))
+    # 防禦性顯示
+    if not info:
+        st.warning(f"⚠️ 找不到 {target} 的資料。若剛設定，請等待 GitHub Actions 自動化任務完成更新。")
+        return
 
-    data = {"last_updated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+    # 1. 即時股價
+    st.header(f"1. 即時股價: {target}")
+    price = info.get("price", 0)
+    prev = info.get("prev_close", 0)
+    diff = round(float(price) - float(prev), 2)
+    st.metric("當前價格", f"{price} 元", delta=f"{diff} 元")
+
+    # 2. 基本面數據
+    st.subheader("2. 基本面數據")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("每股淨值 (NAV)", info.get("nav", "N/A"))
+    c2.metric("本益比 (P/E)", info.get("pe", "N/A"))
+    c3.metric("EPS", info.get("eps", "N/A"))
+
+    # 5 & 6. 籌碼數據 (使用 width=None 修正棄用警告)
+    st.subheader("5. 三大法人買賣超")
+    if "institutional_daily" in info:
+        st.dataframe(pd.DataFrame(info["institutional_daily"]), width=None)
     
-    for symbol in tickers:
-        try:
-            ticker = yf.Ticker(symbol)
-            info = ticker.info
-            price = info.get("currentPrice") or info.get("regularMarketPrice") or 0
-            
-            if price == 0: continue # 跳過無效股票
-            
-            stats = backtest_system(symbol, price)
-            total = stats["total_win"] + stats["total_loss"]
-            win_rate = (stats["total_win"] / total * 100) if total > 0 else 0
-            
-            data[symbol] = {
-                "price": price,
-                "prev_close": info.get("previousClose", 0),
-                "pe": info.get("forwardPE", 0) or 0,
-                "eps": info.get("trailingEps", 0) or 0,
-                "nav": info.get("bookValue", 0) or 0,
-                "win_rate": f"{round(win_rate, 2)}%",
-                "broker_daily": [{"日期": "最新", "資券比": f"{get_real_margin_short_data(symbol)}%"}],
-                "ai_prediction": "AI 分析：基本面穩健，建議持續追蹤。",
-                "news_analysis": "近期展望維持樂觀。",
-                "black_swan_alert": "無異常"
-            }
-        except Exception as e:
-            print(f"Error processing {symbol}: {e}")
-    
-    with open(target_file, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
-    print("數據採集完成，已更新 market_data.json")
+    st.subheader("6. 資券比與主力券商")
+    if "broker_daily" in info:
+        st.dataframe(pd.DataFrame(info["broker_daily"]), width=None)
+
+    # 7. AI 分析
+    st.subheader("7. AI 分析與績效統計")
+    col_a, col_b = st.columns([2, 1])
+    with col_a:
+        st.info(f"📰 GPT 新聞解讀: {info.get('news_analysis', '暫無近期新聞')}")
+        st.success(f"🤖 AI 財報預測: {info.get('ai_prediction', '分析中...')}")
+    with col_b:
+        st.metric("🤖 AI 歷史勝率", info.get("win_rate", "0%"))
+
+    # 繪製圖表
+    st.subheader("📊 AI 預測績效走勢圖")
+    if target in history and "prices" in history[target]:
+        prices = history[target]["prices"]
+        fig = go.Figure(data=go.Scatter(y=prices, mode='lines+markers', line=dict(color='firebrick', width=2)))
+        fig.update_layout(title="歷史回測股價走勢", xaxis_title="更新次數", yaxis_title="價格 (元)")
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.write("尚無足夠歷史數據繪製圖表")
+
+if __name__ == "__main__":
+    main()
