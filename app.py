@@ -1,8 +1,7 @@
 import streamlit as st
-import pandas as pd
 import json
-import plotly.graph_objects as go
 import os
+import pandas as pd
 
 # 設定頁面配置
 st.set_page_config(layout="wide", page_title="AI 專業金融分析終端")
@@ -21,48 +20,41 @@ def main():
     
     # 載入數據
     data = load_data("market_data.json")
-    history = load_data("backtest_history.json")
     
-    # 選股界面
-    target = st.sidebar.text_input("輸入股票代號", "2330.TW")
-    
+    # --- 自選股票側邊欄 ---
+    with st.sidebar:
+        st.header("自選股票管理")
+        # 顯示目前的數據庫中有哪些股票
+        available_tickers = list(data.keys()) if data else []
+        selected_ticker = st.selectbox("從現有監控清單選擇：", available_tickers)
+        
+        # 自定義輸入區
+        custom_input = st.text_input("輸入新股票代號 (例如: 2317.TW)")
+        
+        if st.button("確認選股"):
+            target = custom_input if custom_input else selected_ticker
+            st.session_state.target = target
+            st.rerun()
+
+    # 取得當前目標
+    target = st.session_state.get("target", "2330.TW")
     info = data.get(target)
-    
+
+    # 顯示主頁資訊
     if not info:
-        st.info("請等待自動化排程更新數據...")
+        st.warning(f"⚠️ 找不到 {target} 的資料。若您剛輸入，請等待 GitHub Actions 更新或檢查代號是否正確。")
         return
 
-    # 顯示核心數據
-    st.metric("即時股價", f"{info.get('price', 0)} 元")
+    st.header(f"監控標的: {target}")
     
-    # 視覺化圖表區塊 (恢復 Plotly 渲染)
-    st.subheader("📊 AI 歷史回測走勢")
-    
-    if target in history and "prices" in history[target]:
-        prices = history[target]["prices"]
-        # 使用輕量化圖表配置
-        fig = go.Figure(data=go.Scatter(
-            y=prices, 
-            mode='lines+markers', 
-            line=dict(color='#1f77b4', width=2)
-        ))
-        fig.update_layout(
-            margin=dict(l=20, r=20, t=30, b=20),
-            height=300
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.write("尚無足夠回測數據繪製圖表。")
+    # 核心指標
+    c1, c2, c3 = st.columns(3)
+    c1.metric("當前價格", f"{info.get('price', 0)} 元")
+    c2.metric("本益比 (P/E)", info.get("pe", "N/A"))
+    c3.metric("EPS", info.get("eps", "N/A"))
 
-    # 籌碼與 AI 分析
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("AI 預測摘要")
-        st.write(info.get('ai_prediction', '分析中...'))
-    with col2:
-        st.subheader("三大法人與籌碼")
-        if "broker_daily" in info:
-            st.dataframe(pd.DataFrame(info["broker_daily"]), hide_index=True)
+    st.subheader("AI 分析")
+    st.write(info.get('ai_prediction', '分析中...'))
 
 if __name__ == "__main__":
     main()
