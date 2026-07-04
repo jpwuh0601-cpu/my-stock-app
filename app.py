@@ -7,6 +7,7 @@ import yfinance as yf
 st.set_page_config(layout="wide", page_title="專業金融監控終端")
 st.title("📊 專業金融監控終端")
 
+# 讀取 JSON 數據
 def load_data():
     if os.path.exists("market_data.json"):
         try:
@@ -18,33 +19,38 @@ def load_data():
 
 data = load_data()
 
-# 確保下拉選單有內容，若為空則顯示提示
-ticker_options = list(data.keys()) if data else ["2330.TW", "2317.TW", "2454.TW", "1301.TW", "6770.TW"]
-ticker_input = st.selectbox("請選擇監控標的", ticker_options)
+# --- 新增：手動輸入區塊 ---
+st.subheader("🔍 手動查詢股票")
+custom_ticker = st.text_input("輸入股票代號 (例如: 0050.TW)", placeholder="按下 Enter 鍵搜尋")
 
-if ticker_input in data:
-    m = data[ticker_input]
-    
-    # 財務數據顯示
-    c1, c2, c3 = st.columns(3)
-    c1.metric("即時股價", f"{m.get('price', 0):.2f}")
-    c2.metric("本益比", f"{m.get('pe', 0):.2f}")
-    c3.metric("EPS", f"{m.get('eps', 0):.2f}")
-    
-    # AI 分析區塊
-    st.subheader("🤖 AI 顧問分析")
-    st.info(m.get("ai_prediction", "AI 分析引擎待命中..."))
-    
-    # 風險狀態
-    st.warning(f"當前風險狀態: {m.get('black_swan', '未知')}")
-    
-    # 股價走勢圖 (強連結選定標的)
-    st.subheader(f"📈 {ticker_input} 歷史走勢")
-    hist = yf.Ticker(ticker_input).history(period="1mo")
-    if not hist.empty:
-        fig = px.line(hist, y="Close", title=f"{ticker_input} 近期走勢")
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.write("目前無法獲取歷史走勢圖表。")
+# --- 邏輯：優先使用 JSON，若無則現場查詢 ---
+target_ticker = custom_ticker if custom_ticker else "2330.TW"
+ticker_obj = yf.Ticker(target_ticker)
+
+if custom_ticker:
+    st.info(f"正在為您即時查詢: {custom_ticker}...")
+    info = ticker_obj.info
 else:
-    st.error(f"目前 {ticker_input} 的詳細籌碼與分析數據尚未同步。請檢查 GitHub Actions 執行情況。")
+    info = ticker_obj.info
+
+# 顯示數據
+if "currentPrice" in info:
+    c1, c2, c3 = st.columns(3)
+    c1.metric("即時股價", f"{info.get('currentPrice', 0):.2f}")
+    c2.metric("本益比", f"{info.get('forwardPE', 0):.2f}")
+    c3.metric("EPS", f"{info.get('trailingEps', 0):.2f}")
+    
+    # 若 JSON 中有預先分析好的資料，顯示 AI 分析
+    if target_ticker in data:
+        st.subheader("🤖 AI 顧問分析")
+        st.info(data[target_ticker].get("ai_prediction", "分析中..."))
+    else:
+        st.warning("此標的目前未在自動化清單中，僅顯示即時市場數據。")
+
+    # 股價走勢圖
+    hist = ticker_obj.history(period="1mo")
+    if not hist.empty:
+        fig = px.line(hist, y="Close", title=f"{target_ticker} 近期走勢")
+        st.plotly_chart(fig, use_container_width=True)
+else:
+    st.error("查無此代號資訊，請確認代號是否包含 .TW 後綴 (例如 2330.TW)")
