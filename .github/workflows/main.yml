@@ -19,13 +19,12 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: 安裝套件
+      - name: 安裝所有必要套件
         run: pip install -r requirements.txt
 
       - name: 執行分析任務
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
         run: python main_task.py
 
       - name: 推送更新至 GitHub
@@ -33,18 +32,16 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 關鍵修正：強制清除所有未提交的殘留變更，避免 rebase 衝突
+          # 【關鍵修正】強制清除殘留變更，確保每次從乾淨狀態開始
           git reset --hard HEAD
           
-          # 獲取遠端最新狀態
+          # 拉取最新變更並進行 rebase
           git fetch origin main
-          
-          # 重新基底合併，確保歷史紀錄線性
           git rebase origin/main
           
           # 加入變更並提交
           git add market_data.json
           git commit -m "chore: auto-update market data" || echo "No changes to commit"
           
-          # 推送更新
+          # 強制推送
           git push origin main
