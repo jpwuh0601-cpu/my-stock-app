@@ -1,43 +1,34 @@
 import streamlit as st
-import subprocess
+import yfinance as yf
+import plotly.graph_objects as go
 import os
-import time
+from datetime import datetime
 
-st.set_page_config(page_title="即時金融查詢器", layout="wide")
-st.title("📊 即時金融查詢器")
+st.set_page_config(page_title="金融儀表板", layout="wide")
 
-# 輸入區塊
-ticker_input = st.text_input("輸入股票代號 (例如: 2330.TW)", placeholder="2330.TW")
-query_btn = st.button("立即分析")
+# 顯示最後更新時間
+if os.path.exists("analysis_result.txt"):
+    mtime = os.path.getmtime("analysis_result.txt")
+    st.sidebar.info(f"上次更新: {datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')}")
 
-# 查詢邏輯
-if query_btn and ticker_input:
-    with st.spinner(f"正在分析 {ticker_input}..."):
-        # 移除舊的結果檔案
-        result_file = "analysis_result.txt"
-        if os.path.exists(result_file):
-            os.remove(result_file)
-            
-        # 執行 main_task.py 進行分析
-        try:
-            # 呼叫 main_task.py 並傳入 ticker 參數
-            subprocess.run(["python", "main_task.py", "--ticker", ticker_input], check=True)
-            
-            # 等待檔案生成
-            time.sleep(1)
-            
-            # 讀取分析結果
-            if os.path.exists(result_file):
-                with open(result_file, "r", encoding="utf-8") as f:
-                    analysis_content = f.read()
-                
-                st.subheader("🤖 AI 分析結果")
-                st.info(analysis_content)
-            else:
-                st.error("分析過程發生錯誤，未產生結果檔案。")
-                
-        except Exception as e:
-            st.error(f"分析程序執行失敗: {e}")
+st.title("📊 專業金融分析終端")
 
-st.markdown("---")
-st.caption("輸入代號後點擊「立即分析」，系統將即時呼叫後端模組進行 AI 財報解讀。")
+ticker = st.text_input("輸入股票代號 (例: 2330.TW)", "2330.TW")
+
+if st.button("執行分析"):
+    # 1. 繪製走勢圖 (Plotly)
+    hist = yf.Ticker(ticker).history(period="1mo")
+    fig = go.Figure(data=[go.Candlestick(x=hist.index, open=hist['Open'], high=hist['High'], low=hist['Low'], close=hist['Close'])])
+    fig.update_layout(title=f"{ticker} 近一個月走勢", xaxis_rangeslider_visible=False)
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # 2. 顯示 AI 分析 (依據您的檔案架構)
+    if os.path.exists("analysis_result.txt"):
+        with open("analysis_result.txt", "r", encoding="utf-8") as f:
+            content = f.read()
+        
+        tab1, tab2 = st.tabs(["AI 深度報告", "籌碼表格"])
+        with tab1:
+            st.markdown(content)
+        with tab2:
+            st.write("請見原始報告中的表格區域")
