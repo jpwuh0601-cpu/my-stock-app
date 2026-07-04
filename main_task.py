@@ -2,32 +2,16 @@ import sys
 import os
 import traceback
 import argparse
-import subprocess
 
-# 1. 強制設定環境路徑
+# 強制將當前目錄放入 sys.path，確保 worker.py 可以被找到
 current_dir = os.path.abspath(os.path.dirname(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-# 2. 預檢檢查：確認 yfinance 是否存在，若無則嘗試安裝 (針對環境異常)
-try:
-    import yfinance
-except ImportError:
-    print("警告：未檢測到 yfinance，嘗試自動補安裝...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "yfinance"])
-    import yfinance
-
-# 3. 匯入 worker
-try:
-    import worker
-except ImportError as e:
-    print(f"致命錯誤：無法匯入 worker 模組。")
-    print(f"錯誤詳情: {e}")
-    sys.exit(1)
-
 def run():
     """
-    修正版執行邏輯：確保任何錯誤都會寫入檔案，而不是崩潰退出。
+    優化後的執行邏輯：
+    改採更穩定的匯入方式，並在檔案層級進行錯誤防禦。
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('--ticker', type=str, required=True)
@@ -36,6 +20,9 @@ def run():
     output_file = os.path.join(current_dir, "analysis_result.txt")
     
     try:
+        # 於函數內部執行匯入，避免全域變數載入失敗導致程式直接崩潰
+        import worker
+        
         ticker_symbol = args.ticker.strip()
         if ticker_symbol.isdigit() and not ticker_symbol.endswith(('.TW', '.TWO')):
             ticker_symbol += ".TW"
@@ -49,8 +36,12 @@ def run():
         with open(output_file, "w", encoding="utf-8") as f:
             f.write(result)
             
+    except ImportError as ie:
+        error_msg = f"匯入錯誤 (ImportError): {str(ie)}\n可能是 yfinance 或 worker 未正確安裝。請檢查 requirements.txt。"
+        with open(output_file, "w", encoding="utf-8") as f:
+            f.write(error_msg)
     except Exception as e:
-        error_msg = f"分析失敗: {str(e)}\n建議：請檢查代號是否正確，或稍後再試。"
+        error_msg = f"分析失敗: {str(e)}"
         with open(output_file, "w", encoding="utf-8") as f:
             f.write(error_msg)
 
