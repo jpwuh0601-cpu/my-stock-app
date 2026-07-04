@@ -32,8 +32,10 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 【關鍵修正】強制清除殘留變更並與遠端同步
+          # 【關鍵修正】強制重置以解決 unstaged changes 錯誤
           git reset --hard HEAD
+          
+          # 拉取並合併遠端變更
           git fetch origin main
           git rebase origin/main
           
