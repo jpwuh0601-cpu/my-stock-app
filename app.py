@@ -8,7 +8,7 @@ import os
 st.set_page_config(layout="wide", page_title="AI 專業金融分析終端")
 
 def load_data(filepath):
-    """載入 JSON 資料，增加防禦性處理"""
+    """載入 JSON 資料，加入錯誤處理，防止前端掛起"""
     if not os.path.exists(filepath):
         return {}
     try:
@@ -21,7 +21,7 @@ def load_data(filepath):
 def main():
     st.title("📈 AI 專業金融分析終端")
     
-    # 載入數據
+    # 載入資料
     data = load_data("market_data.json")
     history = load_data("backtest_history.json")
     
@@ -34,12 +34,14 @@ def main():
             st.rerun()
             
     target = st.session_state.get("target", "2330.TW")
-    info = data.get(target)
-
-    # 防禦性顯示
-    if not info:
-        st.warning(f"⚠️ 找不到 {target} 的資料。若剛設定，請等待 GitHub Actions 自動化任務完成更新。")
+    
+    # 確保資料存在，若不存在顯示友善訊息而非崩潰
+    if target not in data:
+        st.warning(f"⚠️ 目前找不到 {target} 的監控數據。請等待自動化任務更新或確認代號是否正確。")
+        st.info("若為剛加入的代號，系統會自動在下次排程抓取。")
         return
+
+    info = data[target]
 
     # 1. 即時股價
     st.header(f"1. 即時股價: {target}")
@@ -55,14 +57,15 @@ def main():
     c2.metric("本益比 (P/E)", info.get("pe", "N/A"))
     c3.metric("EPS", info.get("eps", "N/A"))
 
-    # 5 & 6. 籌碼數據 (使用 width=None 修正棄用警告)
+    # 5. 三大法人買賣超 (修正棄用警告)
     st.subheader("5. 三大法人買賣超")
     if "institutional_daily" in info:
-        st.dataframe(pd.DataFrame(info["institutional_daily"]), width=None)
+        st.dataframe(pd.DataFrame(info["institutional_daily"]), use_container_width=True)
     
-    st.subheader("6. 資券比與主力券商")
+    # 6. 資券比與主力券商 (修正棄用警告)
+    st.subheader("6. 10日資券比與主力券商")
     if "broker_daily" in info:
-        st.dataframe(pd.DataFrame(info["broker_daily"]), width=None)
+        st.dataframe(pd.DataFrame(info["broker_daily"]), use_container_width=True)
 
     # 7. AI 分析
     st.subheader("7. AI 分析與績效統計")
