@@ -25,20 +25,15 @@ jobs:
         run: |
           pip install pandas requests yfinance openai beautifulsoup4 pandas-ta plotly streamlit twstock
 
-      - name: 執行分析任務並捕捉錯誤
+      - name: 執行分析任務
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-        run: |
-          python main_task.py || { echo "分析任務執行失敗，請檢查 worker.py 邏輯"; exit 1; }
+        run: python main_task.py
 
       - name: 推送更新至 GitHub
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # 將修改後的資料加入並提交
           git add market_data.json backtest_history.json
-          git commit -m "chore: auto-update market data and AI analysis history" || echo "No changes to commit"
-          
-          # 強制推送以避免同步衝突
-          git push origin main --force
+          git commit -m "chore: auto-update market data" || echo "No changes to commit"
+          git push origin main
