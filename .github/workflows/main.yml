@@ -1,14 +1,12 @@
 name: Daily Stock Analysis
 
 on:
-  schedule:
-    - cron: '0 0 * * *'
   workflow_dispatch:
     inputs:
       ticker:
-        description: '輸入股票代號 (例如: 2330.TW)，留空則使用 tickers.txt'
-        required: false
-        default: ''
+        description: '輸入要分析的股票代號 (例如: 2330.TW)'
+        required: true
+        default: '2330.TW'
 
 jobs:
   build:
@@ -30,11 +28,9 @@ jobs:
       - name: 執行分析任務
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          INPUT_TICKER: ${{ github.event.inputs.ticker }}
         run: |
-          if [ -n "$INPUT_TICKER" ]; then
-            echo "$INPUT_TICKER" > tickers.txt
-          fi
+          # 直接將輸入的股票代號寫入 tickers.txt，確保每次只分析該檔
+          echo "${{ github.event.inputs.ticker }}" > tickers.txt
           python main_task.py
 
       - name: 推送更新至 GitHub
@@ -52,10 +48,9 @@ jobs:
           fi
           
           # 3. 提交變更
-          git commit -m "chore: auto-update market data"
+          git commit -m "chore: auto-update market data for ${{ github.event.inputs.ticker }}"
           
-          # 4. 強制拉取遠端最新狀態並與本地合併 (rebase)
-          # 處理可能的衝突，讓本地變更接在最新紀錄之後
+          # 4. 強制拉取遠端最新狀態並與本地合併
           git pull --rebase origin main
           
           # 5. 推送更新
