@@ -1,73 +1,43 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
-import re
-from analyzer import generate_ai_analysis
+import os
 
-st.set_page_config(page_title="AI 籌碼深度分析看板", layout="wide")
+st.set_page_config(page_title="股票監控儀表板", layout="wide")
 
-st.title("📈 互動式 AI 籌碼深度分析")
+st.title("📊 股票籌碼與漲跌監控儀表板")
 
-def format_ticker(ticker_input):
-    ticker = ticker_input.strip().upper()
-    base = re.sub(r'(TW|TWO)$', '', ticker)
-    return f"{base}.TW"
+def get_tickers():
+    if os.path.exists("tickers.txt"):
+        with open("tickers.txt", "r") as f:
+            return [line.strip() for line in f if line.strip()]
+    return []
 
-@st.cache_data(ttl=300)
-def fetch_stock_data(ticker):
-    try:
-        formatted = format_ticker(ticker)
-        stock = yf.Ticker(formatted)
-        info = stock.info
-        if 'currentPrice' not in info:
-            stock = yf.Ticker(f"{ticker.replace('TW', '').strip()}.TWO")
-            info = stock.info
-        return info, formatted
-    except Exception:
-        return None, ticker
+def get_market_data(tickers):
+    data = []
+    for t in tickers:
+        stock = yf.Ticker(t)
+        hist = stock.history(period="2d")
+        if len(hist) >= 2:
+            price = hist['Close'].iloc[-1]
+            prev_price = hist['Close'].iloc[-2]
+            change = ((price - prev_price) / prev_price) * 100
+            data.append({"代號": t, "價格": round(price, 2), "漲跌幅": round(change, 2)})
+    return pd.DataFrame(data)
 
-with st.sidebar:
-    st.header("自選股設定")
-    manual_ticker = st.text_input("輸入股票代號 (如 2330):", value="2330")
-    refresh_btn = st.button("即時深度分析")
+tickers = get_tickers()
+df = get_market_data(tickers)
 
-if refresh_btn:
-    with st.spinner(f"正在深度分析..."):
-        info, ticker_used = fetch_stock_data(manual_ticker)
-        
-        if info:
-            st.success(f"成功取得 {ticker_used} 資料")
-            col1, col2, col3 = st.columns(3)
-            col1.metric("當前股價", f"{info.get('currentPrice', 'N/A')}")
-            col2.metric("本益比 (PE)", f"{info.get('forwardPE', 'N/A')}")
-            col3.metric("EPS", f"{info.get('trailingEps', 'N/A')}")
-            
-            analysis_result = generate_ai_analysis(ticker_used, info)
-            
-            st.divider()
-            
-            # 券商視覺化圖表
-            st.subheader("🏢 10 家券商 10 日買賣超視覺化")
-            if not analysis_result['broker_table'].empty:
-                chart_data = analysis_result['broker_table'].copy()
-                # 簡單處理數值以供繪圖
-                chart_data['買賣張數'] = chart_data['買賣張數'].replace(r'[^\d-]', '', regex=True).astype(int)
-                st.bar_chart(chart_data.set_index('券商')['買賣張數'])
-            else:
-                st.info("尚無券商分點數據")
-                
-            # 5. 黑天鵝與 AI 分析
-            col_a, col_b = st.columns(2)
-            with col_a:
-                st.subheader("🦢 黑天鵝危機警示")
-                report = analysis_result['black_swan_report']
-                if report['status'] == "⚠️ 警示":
-                    st.error(report['report'])
-                else:
-                    st.success(report['report'])
-            
-            with col_b:
-                st.subheader("🤖 AI 主力分析")
-                st.info(analysis_result['main_force_analysis'])
-        else:
-            st.error(f"❌ 無法取得 {manual_ticker} 資料。")
+if not df.empty:
+    st.subheader("即時漲跌排行榜")
+    # 設定漲跌顏色標記
+    def highlight_change(val):
+        color = 'red' if val > 3 else 'green' if val < -3 else 'black'
+        return f'color: {color}'
+    
+    st.dataframe(df.style.applymap(highlight_change, subset=['漲跌幅']), use_container_width=True)
+
+    st.divider()
+    st.info("💡 漲跌幅超過 3% 或低於 -3% 將以紅色或綠色標記顯示。")
+else:
+    st.warning("請在 tickers.txt 中輸入有效代號。")
