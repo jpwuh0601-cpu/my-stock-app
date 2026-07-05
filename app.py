@@ -8,7 +8,6 @@ st.set_page_config(page_title="AI 籌碼深度分析看板", layout="wide")
 
 st.title("📈 互動式 AI 籌碼深度分析")
 
-# 增強的代號自動修復邏輯
 def format_ticker(ticker_input):
     ticker = ticker_input.strip().upper()
     base = re.sub(r'(TW|TWO)$', '', ticker)
@@ -37,29 +36,23 @@ if refresh_btn:
         info, ticker_used = fetch_stock_data(manual_ticker)
         
         if info:
-            # 1. 核心指標
             st.success(f"成功取得 {ticker_used} 資料")
             col1, col2, col3 = st.columns(3)
             col1.metric("當前股價", f"{info.get('currentPrice', 'N/A')}")
             col2.metric("本益比 (PE)", f"{info.get('forwardPE', 'N/A')}")
             col3.metric("EPS", f"{info.get('trailingEps', 'N/A')}")
             
-            # 2. 呼叫深度分析模組 (此處模擬傳入數據，未來請填入爬蟲抓取的 DataFrame)
             analysis_result = generate_ai_analysis(ticker_used, info)
             
             st.divider()
             
-            # 3. 三大法人表格
-            st.subheader("🏛️ 三大法人 10 日買賣超明細")
-            if not analysis_result['institutional_table'].empty:
-                st.dataframe(analysis_result['institutional_table'], use_container_width=True)
-            else:
-                st.info("尚無法人數據")
-                
-            # 4. 券商表格
-            st.subheader("🏢 10 家券商 10 日買賣超細項")
+            # 券商視覺化圖表
+            st.subheader("🏢 10 家券商 10 日買賣超視覺化")
             if not analysis_result['broker_table'].empty:
-                st.dataframe(analysis_result['broker_table'], use_container_width=True)
+                chart_data = analysis_result['broker_table'].copy()
+                # 簡單處理數值以供繪圖
+                chart_data['買賣張數'] = chart_data['買賣張數'].replace(r'[^\d-]', '', regex=True).astype(int)
+                st.bar_chart(chart_data.set_index('券商')['買賣張數'])
             else:
                 st.info("尚無券商分點數據")
                 
