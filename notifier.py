@@ -1,9 +1,11 @@
 import requests
-import os
+import streamlit as st
 
 def send_line_notify(message):
     """發送訊息至 LINE"""
-    token = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
+    # 從 Streamlit Secrets 讀取 Token
+    token = st.secrets.get("LINE_CHANNEL_ACCESS_TOKEN")
+    
     if not token:
         print("未設定 LINE_CHANNEL_ACCESS_TOKEN，跳過通知。")
         return
