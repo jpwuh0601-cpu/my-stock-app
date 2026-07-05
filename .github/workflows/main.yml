@@ -1,42 +1,60 @@
 name: Daily Stock Analysis
 
 on:
-workflow_dispatch:
-inputs:
-ticker:
-description: '輸入要分析的股票代號 (例如: 2330.TW)'
-required: true
-default: '2330.TW'
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    inputs:
+      ticker:
+        description: '輸入要分析的股票代號 (例如: 2330.TW)'
+        required: true
+        default: '2330.TW'
 
 jobs:
-build:
-runs-on: ubuntu-latest
-permissions:
-contents: write
-steps:
-- name: 檢出程式碼
-uses: actions/checkout@v3
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: 檢出程式碼
+        uses: actions/checkout@v3
 
-  - name: 設定 Python 環境
-    uses: actions/setup-python@v4
-    with:
-      python-version: '3.12'
+      - name: 設定 Python 環境
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
 
-  - name: 安裝套件
-    run: pip install -r requirements.txt
+      - name: 安裝套件
+        run: pip install -r requirements.txt
 
-  - name: 執行分析任務
-    env:
-      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-    run: |
-      # 將輸入的代號直接傳遞給 main_task.py
-      python main_task.py --ticker "${{ github.event.inputs.ticker }}"
+      - name: 執行分析任務
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          # 將手動輸入的代號覆蓋寫入 tickers.txt
+          echo "${{ github.event.inputs.ticker }}" > tickers.txt
+          python main_task.py
 
-  - name: 推送更新至 GitHub
-    run: |
-      git config --global user.name "github-actions[bot]"
-      git config --global user.email "github-actions[bot]@users.noreply.github.com"
-      git add market_data.json
-      git commit -m "chore: update data for ${{ github.event.inputs.ticker }}" || echo "No changes"
-      git pull --rebase origin main
-      git push origin main
+      - name: 推送更新至 GitHub
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # 將結果暫存
+          git add market_data.json
+          
+          # 檢查是否有變更，若無則跳過以避免錯誤
+          if git diff-index --quiet HEAD --; then
+            echo "沒有檢測到數據變更，跳過推送。"
+            exit 0
+          fi
+          
+          # 提交變更
+          git commit -m "chore: auto-update market data for ${{ github.event.inputs.ticker }}"
+          
+          # 先取得遠端最新狀態，並以 rebase 方式合併，解決衝突
+          git fetch origin main
+          git rebase origin/main
+          
+          # 推送更新
+          git push origin main
