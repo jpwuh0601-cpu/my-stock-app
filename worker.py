@@ -3,11 +3,11 @@ from bs4 import BeautifulSoup
 
 def fetch_real_broker_data(ticker_symbol):
     """
-    獲取真實券商分點明細 (Goodinfo 範例)
+    獲取真實券商分點明細 (支援手動輸入股票代號)
     """
     try:
-        # 移除 .TW 以符合網址格式
-        code = ticker_symbol.split('.')[0]
+        # 確保代號處理正確，手動輸入時移除可能存在的 .TW
+        code = str(ticker_symbol).split('.')[0].strip()
         url = f"https://goodinfo.tw/tw/StockBroker.asp?STOCK_ID={code}"
         headers = {"User-Agent": "Mozilla/5.0"}
         
@@ -29,5 +29,7 @@ def fetch_real_broker_data(ticker_symbol):
                     data.append({"券商": broker_name, "買賣張數": buy_sell})
         return data
     except Exception as e:
-        print(f"真實券商爬蟲執行中斷: {e}")
+        print(f"真實券商爬蟲執行中斷 (代號: {ticker_symbol}): {e}")
         return [{"日期": "Error", "券商": "暫無數據", "買賣張數": 0}]
+
+# 其餘維持您 worker.py 原有的 fetch_stock_data 與 main 函式邏輯
