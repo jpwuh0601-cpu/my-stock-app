@@ -1,50 +1,38 @@
 import streamlit as st
 import json
 import os
+import time
 
-# 設定網頁標題與排版
 st.set_page_config(page_title="AI 投資秘書儀表板", layout="wide")
 st.title("📈 AI 投資秘書儀表板")
 
 def load_data():
-    """從 GitHub Actions 產生的 JSON 檔案載入分析結果"""
-    if os.path.exists("market_data.json"):
-        with open("market_data.json", "r", encoding="utf-8") as f:
-            try:
+    """使用簡單且強固的方式載入數據"""
+    file_path = "market_data.json"
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
                 return json.load(f)
-            except json.JSONDecodeError:
-                return {}
-    return {}
+        except Exception as e:
+            st.error(f"數據讀取錯誤: {e}")
+            return None
+    return None
 
+# 讀取數據
 data = load_data()
 
-if data:
-    # 建立左側選單
+if data and isinstance(data, dict):
     tickers = list(data.keys())
     selected_ticker = st.sidebar.selectbox("請選擇分析個股", tickers)
     
-    # 顯示分析結果
-    ticker_data = data[selected_ticker]
+    ticker_data = data.get(selected_ticker, {})
     st.header(f"個股分析: {selected_ticker}")
     
-    # 快速看板區域
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("目前價格", ticker_data.get('price', 'N/A'))
+    st.metric("目前價格", ticker_data.get('price', '資料載入中...'))
     
-    # AI 報告區塊
-    st.subheader("🤖 AI 深度財經分析")
-    report = ticker_data.get('ai_report', '尚未進行分析或數據載入中...')
-    
-    # 根據 AI 報告中的符號進行 UI 顏色強化
-    if "⚠️" in report:
-        st.warning(report)
-    elif "🚀" in report:
-        st.success(report)
-    else:
-        st.markdown(report)
-        
-    st.divider()
-    st.caption("自動化數據更新於 GitHub Actions")
+    st.subheader("🤖 AI 深度分析")
+    st.write(ticker_data.get('ai_report', '分析生成中...'))
 else:
-    st.info("系統尚未產生數據，請確認 GitHub Actions 是否已執行完畢。")
+    st.warning("正在初始化系統，請稍候幾秒鐘，若持續出現此訊息請檢查 market_data.json 是否已生成。")
+    if st.button("手動刷新"):
+        st.rerun()
