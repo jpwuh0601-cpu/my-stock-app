@@ -2,13 +2,14 @@ import requests
 import os
 
 def send_line_notify(message):
-    """支援 GitHub Actions 環境變數的通知發送器"""
-    
-    # 優先從系統環境變數讀取 (GitHub Actions 使用)
+    """
+    修正版通知發送器：完全依賴環境變數，避免讀取 Streamlit Secrets 失敗
+    """
+    # 直接從環境變數讀取
     token = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN")
     
     if not token:
-        print("警告: 找不到 LINE_CHANNEL_ACCESS_TOKEN，請檢查 Secrets 設定")
+        print("錯誤: 無法讀取 LINE_CHANNEL_ACCESS_TOKEN，請確認 GitHub Secrets 設定")
         return
     
     url = "https://notify-api.line.me/api/notify"
