@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '0 0 * * *'
   workflow_dispatch:
+    inputs:
+      ticker:
+        description: '輸入股票代號 (例如: 2330.TW)，留空則使用 tickers.txt'
+        required: false
+        default: ''
 
 jobs:
   build:
@@ -25,25 +30,22 @@ jobs:
       - name: 執行分析任務
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-        run: python main_task.py
+          INPUT_TICKER: ${{ github.event.inputs.ticker }}
+        run: |
+          if [ -n "$INPUT_TICKER" ]; then
+            echo "$INPUT_TICKER" > tickers.txt
+          fi
+          python main_task.py
 
       - name: 推送更新至 GitHub
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 1. 將任何變更暫存起來，確保工作目錄乾淨
           git stash
-          
-          # 2. 拉取遠端最新狀態並進行 rebase，確保不會發生衝突
           git pull --rebase origin main
-          
-          # 3. 將剛剛暫存的變更復原
           git stash pop || echo "無 stash 變更"
           
-          # 4. 加入並提交
           git add market_data.json
-          git commit -m "chore: auto-update market data from tickers.txt" || echo "無資料變更"
-          
-          # 5. 推送至遠端
+          git commit -m "chore: auto-update market data" || echo "無資料變更"
           git push origin main
