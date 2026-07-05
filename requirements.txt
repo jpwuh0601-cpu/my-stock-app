@@ -4,3 +4,4 @@ yfinance
 pandas
 streamlit
 plotly
+pandas_ta
