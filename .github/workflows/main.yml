@@ -42,14 +42,21 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 強制設定變更，並處理所有產生的檔案
+          # 1. 將變更暫存，確保工作區乾淨
+          git stash
+          
+          # 2. 拉取遠端變更並 rebase，解決衝突
+          git pull --rebase origin main
+          
+          # 3. 還原變更
+          git stash pop || echo "無暫存變更"
+          
+          # 4. 加入並提交
           git add market_data.json
           
-          # 若有變更才進行 commit
+          # 5. 若有變更才進行 commit 並推送到遠端
           if ! git diff-index --quiet HEAD --; then
             git commit -m "chore: auto-update market data"
-            # 嘗試拉取遠端變更並 rebase，若有衝突則強制採用我們的變更
-            git pull --rebase origin main || git rebase --abort
             git push origin main
           else
             echo "沒有檢測到變更，跳過推送。"
