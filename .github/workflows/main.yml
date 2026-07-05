@@ -25,6 +25,7 @@ jobs:
       - name: 執行分析任務
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        # 這裡不再需要 --ticker 參數，因為 main_task.py 會自動讀取 tickers.txt
         run: python main_task.py
 
       - name: 推送更新至 GitHub
@@ -32,7 +33,7 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 清理本地變更並同步遠端
+          # 清理本地變更並同步遠端，確保不發生衝突
           git fetch origin main
           git rebase origin/main
           
