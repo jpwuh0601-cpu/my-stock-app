@@ -32,16 +32,18 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 關鍵修正：先暫存所有變更，處理 rebase 前的殘留
-          git add .
+          # 1. 將任何變更暫存起來，確保工作目錄乾淨
+          git stash
           
-          # 檢查是否有實際變更
-          if ! git diff-index --quiet HEAD --; then
-            # 若有變更，則進行 rebase 與提交
-            git fetch origin main
-            git rebase origin/main
-            git commit -m "chore: auto-update market data from tickers.txt"
-            git push origin main
-          else
-            echo "無資料變更，跳過提交"
-          fi
+          # 2. 拉取遠端最新狀態並進行 rebase，確保不會發生衝突
+          git pull --rebase origin main
+          
+          # 3. 將剛剛暫存的變更復原
+          git stash pop || echo "無 stash 變更"
+          
+          # 4. 加入並提交
+          git add market_data.json
+          git commit -m "chore: auto-update market data from tickers.txt" || echo "無資料變更"
+          
+          # 5. 推送至遠端
+          git push origin main
