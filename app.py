@@ -2,40 +2,38 @@ import streamlit as st
 import json
 import os
 
+# 設定頁面，將資源載入移至函式內，避免啟動時卡住
 st.set_page_config(page_title="AI 股票分析看板", layout="wide")
 
-@st.cache_data(ttl=3600)
-def load_market_data():
-    """讀取數據，並確保回傳正確格式"""
-    file_path = 'market_data.json'
-    if not os.path.exists(file_path):
-        return {}
+@st.cache_data(ttl=600) # 增加快取機制，降低頻繁讀取壓力
+def load_data():
+    """確保檔案讀取過程不會導致程式崩潰"""
+    if not os.path.exists('market_data.json'):
+        return None
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            return data if isinstance(data, dict) else {}
+        with open('market_data.json', 'r', encoding='utf-8') as f:
+            return json.load(f)
     except Exception as e:
-        st.error(f"讀取 JSON 錯誤: {e}")
-        return {}
+        return {"error": str(e)}
 
 st.title("📊 每日股票 AI 分析系統")
 
-# 1. 載入數據
-data = load_market_data()
+# 讀取數據
+data = load_data()
 
-# 2. 檢查數據是否為空
-if not data:
-    st.warning("⚠️ 目前沒有數據，請等待 GitHub Actions 完成分析任務，或確認 market_data.json 是否已生成。")
+# 處理數據讀取狀態
+if data is None:
+    st.warning("⚠️ 尚未偵測到市場數據檔 (market_data.json)。請確認 GitHub Actions 是否已執行完畢。")
+elif "error" in data:
+    st.error(f"⚠️ 讀取數據時發生錯誤: {data['error']}")
 else:
-    # 3. 確保 tickers 清單與 data 對應
+    # 只有在資料成功載入時才繪製互動元件
     tickers = list(data.keys())
-    selected_ticker = st.selectbox("請選擇欲查看的股票代號：", tickers)
-    
-    # 4. 關鍵防錯：檢查選中的代號是否存在於資料中
-    if selected_ticker and selected_ticker in data:
-        stock_info = data[selected_ticker]
+    if tickers:
+        selected_ticker = st.selectbox("請選擇欲查看的股票代號：", tickers)
+        stock_info = data.get(selected_ticker, {})
         
-        # 顯示指標 (加入 get 預設值防止 KeyError)
+        # 顯示指標
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("當前股價", f"{stock_info.get('price', 0)}")
         col2.metric("EPS", f"{stock_info.get('eps', 0)}")
@@ -45,8 +43,7 @@ else:
         st.markdown("### 💡 AI 分析觀點")
         st.info(stock_info.get('ai_prediction', '無分析數據'))
     else:
-        st.error(f"選取的代號 {selected_ticker} 在數據庫中不存在。")
+        st.info("數據檔案為空，請檢查分析任務。")
 
 with st.sidebar:
-    st.header("系統狀態")
-    st.write("已連接至 market_data.json")
+    st.write("系統運作中...")
