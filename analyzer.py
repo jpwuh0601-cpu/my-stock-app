@@ -4,11 +4,15 @@ import os
 
 def fetch_market_sentiment(ticker_symbol):
     """
-    透過外部資料源或簡單邏輯獲取市場情緒
+    獲取市場情緒：目前為基礎邏輯，未來可擴充為爬蟲或 API 串接
     """
-    # 這裡未來可整合 Google News API 或 RSS 爬蟲
-    # 目前先以 ticker_symbol 進行關鍵字判定
-    return "近期該股票於社群討論度上升，市場普遍關注其財報發布。"
+    # 此處邏輯會判斷股票代號，並返回對應的情緒描述
+    sentiment_data = {
+        "2330.TW": "外資持續買入，市場對先進製程預期樂觀。",
+        "2317.TW": "鴻海電動車布局持續發酵，法人看法中性偏多。",
+        "2454.TW": "手機晶片需求回溫，市場關注度高。"
+    }
+    return sentiment_data.get(ticker_symbol, "該個股目前市場無重大負面新聞，走勢平穩。")
 
 def generate_ai_analysis(ticker_symbol, info, broker_data=None):
     """
@@ -18,18 +22,17 @@ def generate_ai_analysis(ticker_symbol, info, broker_data=None):
     pe = info.get('forwardPE', 'N/A')
     eps = info.get('trailingEps', 'N/A')
     
-    # 獲取新聞情緒
+    # 獲取新聞情緒分析結果
     sentiment_report = fetch_market_sentiment(ticker_symbol)
     
     # 建構深度分析提示詞 (Prompt)
     prompt = f"""
     請針對股票 {ticker_symbol} 進行綜合財經分析。
-    基本面: 本益比 {pe}, EPS {eps}。
+    基本面數據: 本益比 {pe}, EPS {eps}。
     市場情緒與新聞: {sentiment_report}。
-    籌碼面: 根據券商數據 {broker_data}，請分析主力動向。
+    籌碼面分析: 根據券商數據 {broker_data}，分析主力進出動向。
     
-    請綜合上述資訊，給出投資建議，並給出一個 1-10 的情緒分數 (10 為最樂觀)。
-    請輸出結構化的分析報告。
+    請綜合上述資訊，分析該股票的未來風險，並給出投資建議，最後請給出一個 1-10 的樂觀情緒分數 (10 為最樂觀)。
     """
     
     ai_result = call_llm(prompt, api_key) if api_key else "⚠️ API Key 未設定。"
