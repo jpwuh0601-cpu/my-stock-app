@@ -14,7 +14,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write # 確保擁有寫入權限
     steps:
       - name: 檢出程式碼
         uses: actions/checkout@v3
@@ -30,6 +30,7 @@ jobs:
       - name: 執行分析任務
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
           INPUT_TICKER: ${{ github.event.inputs.ticker }}
         run: |
           if [ -n "$INPUT_TICKER" ]; then
@@ -42,22 +43,18 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 1. 將變更暫存，確保工作區乾淨
-          git stash
-          
-          # 2. 拉取遠端變更並 rebase，解決衝突
-          git pull --rebase origin main
-          
-          # 3. 還原變更
-          git stash pop || echo "無暫存變更"
-          
-          # 4. 加入並提交
+          # 1. 將變更加入暫存區
           git add market_data.json
           
-          # 5. 若有變更才進行 commit 並推送到遠端
+          # 2. 檢查是否有變更
           if ! git diff-index --quiet HEAD --; then
             git commit -m "chore: auto-update market data"
+            
+            # 3. 執行 rebase 同步遠端，並處理衝突
+            git pull --rebase origin main
+            
+            # 4. 推送至遠端
             git push origin main
           else
-            echo "沒有檢測到變更，跳過推送。"
+            echo "沒有檢測到數據變更，跳過推送。"
           fi
