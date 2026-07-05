@@ -1,7 +1,5 @@
 requests
-twstock
 yfinance
 pandas
-streamlit
-plotly
 pandas_ta
+streamlit
