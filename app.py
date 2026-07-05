@@ -1,41 +1,55 @@
 import streamlit as st
-import yfinance as yf
-import plotly.graph_objects as go
-import time
+import json
+import os
 
-st.title("股票分析應用 (優化版)")
+# 設定頁面標題與佈局
+st.set_page_config(page_title="每日股票 AI 分析", layout="wide")
 
-# 獲取使用者輸入
-ticker = st.text_input("輸入股票代號 (例如 2330.TW)", "2330.TW")
-
-# 使用快取函式來獲取數據，避免觸發 Rate Limit
-@st.cache_data(ttl=3600)  # 每小時更新一次快取
-def get_stock_data(ticker_symbol):
-    stock = yf.Ticker(ticker_symbol)
-    # 加入簡單的重試邏輯
-    for i in range(3):
+def load_market_data():
+    """從本地 JSON 檔案讀取數據"""
+    file_path = 'market_data.json'
+    if os.path.exists(file_path):
         try:
-            return stock.history(period="1mo")
-        except Exception:
-            time.sleep(2)  # 如果失敗，等待 2 秒再重試
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            st.error(f"讀取數據時發生錯誤: {e}")
+            return None
     return None
 
-if st.button("執行分析"):
-    with st.spinner('正在從 Yahoo Finance 獲取數據...'):
-        hist = get_stock_data(ticker)
-        
-        if hist is not None and not hist.empty:
-            # 繪製走勢圖
-            fig = go.Figure(data=[go.Candlestick(
-                x=hist.index, 
-                open=hist['Open'], 
-                high=hist['High'], 
-                low=hist['Low'], 
-                close=hist['Close']
-            )])
-            fig.update_layout(title=f"{ticker} 近一個月走勢", xaxis_rangeslider_visible=False)
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.error("無法取得數據，請確認代號是否正確，或稍後再試 (目前已被 Yahoo 限制流量)。")
+st.title("📊 每日股票 AI 分析系統")
+st.markdown("---")
 
-st.info("提示：若發生 Error，請等待約 10-15 分鐘後再重新整理頁面。")
+# 載入數據
+data = load_market_data()
+
+if data:
+    # 建立下拉選單選擇股票
+    tickers = list(data.keys())
+    selected_ticker = st.selectbox("請選擇欲查看的股票代號：", tickers)
+    
+    # 取得選定股票的資料
+    stock_info = data[selected_ticker]
+    
+    # 顯示核心數據指標
+    col1, col2, col3 = st.columns(3)
+    col1.metric("股價", f"{stock_info.get('price', 'N/A')}")
+    col2.metric("EPS", f"{stock_info.get('eps', 'N/A')}")
+    col3.metric("本益比 (PE)", f"{stock_info.get('pe', 'N/A')}")
+    
+    # 顯示 AI 分析觀點
+    st.markdown("### 💡 AI 分析觀點")
+    st.info(stock_info.get('ai_prediction', '目前暫無分析觀點，請稍候更新。'))
+    
+    # 顯示最後更新時間（若有的話）
+    st.caption(f"數據最後更新於本地分析流程完成時")
+else:
+    # 顯示錯誤提示
+    st.warning("⚠️ 找不到分析數據檔 (market_data.json)。")
+    st.info("請確認 GitHub Actions 的自動化任務是否已成功執行並產出檔案。")
+
+# 側邊欄顯示額外資訊
+with st.sidebar:
+    st.header("系統狀態")
+    st.success("自動化分析：已連線")
+    st.write("本系統每日自動更新最新股市分析數據。")
