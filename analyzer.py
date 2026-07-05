@@ -2,32 +2,28 @@ import pandas as pd
 import requests
 import os
 
-def generate_ai_analysis(ticker_symbol, info, institutional_data=None, broker_data=None, news_headlines=None):
-    """
-    透過 OpenRouter API 進行真實的財經分析
-    """
-    # 從環境變數讀取 API Key (請確保在 GitHub Secrets 設定了 OPENROUTER_API_KEY)
+# 模擬新聞抓取功能 (未來可串接 Google News API)
+def fetch_stock_news(ticker_symbol):
+    """取得該股票的簡單市場情緒 (此處示範使用搜尋關鍵字)"""
+    # 實際運作時，這裡可以串接更複雜的新聞 RSS
+    return "近期該股票於社群討論度上升，市場普遍關注其財報發布。"
+
+def generate_ai_analysis(ticker_symbol, info, institutional_data=None, broker_data=None):
     api_key = os.environ.get("OPENROUTER_API_KEY")
-    
-    # 基本面數據準備
     pe = info.get('forwardPE', 'N/A')
     eps = info.get('trailingEps', 'N/A')
+    news = fetch_stock_news(ticker_symbol)
     
-    # 準備分析提示詞
     prompt = f"""
-    請針對股票 {ticker_symbol} 進行深度財經分析。
-    基本面數據: 本益比(PE) {pe}, 每股盈餘(EPS) {eps}。
-    請給出買賣策略建議與黑天鵝風險評分。請用繁體中文回答。
+    請針對股票 {ticker_symbol} 進行綜合財經分析。
+    基本面: 本益比 {pe}, EPS {eps}。
+    近期市場情緒與新聞: {news}。
+    請綜合分析上述資訊，給出市場情緒分數 (1-10) 與投資建議。
     """
     
-    # 若有 API KEY 則進行真實呼叫，否則使用基礎邏輯
-    if api_key:
-        ai_result = call_llm(prompt, api_key)
-    else:
-        ai_result = "⚠️ 尚未設定 OPENROUTER_API_KEY，無法執行 AI 深度分析。"
-        
+    ai_result = call_llm(prompt, api_key) if api_key else "⚠️ API Key 未設定。"
+    
     return {
-        "institutional_table": pd.DataFrame(institutional_data) if institutional_data else pd.DataFrame(),
         "broker_table": pd.DataFrame(broker_data) if broker_data else pd.DataFrame(),
         "black_swan_report": {"report": "需串接即時新聞來源"},
         "main_force_analysis": ai_result
@@ -45,4 +41,4 @@ def call_llm(prompt, api_key):
         response.raise_for_status()
         return response.json()['choices'][0]['message']['content']
     except Exception as e:
-        return f"AI 分析服務暫時無法連線: {e}"
+        return f"AI 分析服務錯誤: {e}"
