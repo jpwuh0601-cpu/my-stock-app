@@ -14,7 +14,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # 確保擁有寫入權限
+      contents: write
     steps:
       - name: 檢出程式碼
         uses: actions/checkout@v3
@@ -43,17 +43,16 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 1. 將變更加入暫存區
+          # 同步遠端狀態並解決潛在衝突
+          git fetch origin main
+          git rebase origin/main
+          
+          # 加入變更
           git add market_data.json
           
-          # 2. 檢查是否有變更
+          # 若有變更則提交並推送
           if ! git diff-index --quiet HEAD --; then
             git commit -m "chore: auto-update market data"
-            
-            # 3. 執行 rebase 同步遠端，並處理衝突
-            git pull --rebase origin main
-            
-            # 4. 推送至遠端
             git push origin main
           else
             echo "沒有檢測到數據變更，跳過推送。"
