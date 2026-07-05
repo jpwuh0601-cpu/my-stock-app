@@ -1,57 +1,26 @@
 import yfinance as yf
-import pandas_ta as ta
 import json
-
-def get_technical_indicators(ticker_symbol):
-    """計算 RSI 與 KD 指標"""
-    # 獲取近一個月的數據
-    df = yf.download(ticker_symbol, period="1mo", interval="1d")
-    if df.empty:
-        return "N/A", "N/A"
-    
-    # 計算 RSI (14)
-    rsi = ta.rsi(df['Close'], length=14)
-    # 計算 KD (14, 3, 3)
-    stoch = ta.stoch(df['High'], df['Low'], df['Close'])
-    
-    current_rsi = rsi.iloc[-1] if not rsi.empty else "N/A"
-    current_k = stoch['STOCHk_14_3_3'].iloc[-1] if not stoch.empty else "N/A"
-    
-    return round(float(current_rsi), 2) if isinstance(current_rsi, float) else "N/A", \
-           round(float(current_k), 2) if isinstance(current_k, float) else "N/A"
+# 導入您新建的 analyzer 模組
+from analyzer import generate_ai_analysis 
 
 def get_ai_analysis_data(ticker_symbol):
-    """獲取完整數據、計算指標並生成分析 Prompt"""
+    """
+    獲取完整數據、計算指標並呼叫 analyzer 模組進行 AI 分析
+    確保回傳的欄位結構符合 app.py 的讀取需求
+    """
     stock = yf.Ticker(ticker_symbol)
     info = stock.info
     
-    # 獲取技術指標
-    rsi, kd = get_technical_indicators(ticker_symbol)
+    # 1. 取得 AI 分析觀點 (呼叫 analyzer.py 中的函式)
+    analysis_prompt = generate_ai_analysis(ticker_symbol, info)
     
-    # 建構結構化分析提示詞 (Prompt)
-    # 這裡將基本面與技術面交叉比對邏輯放入 Prompt
-    prompt = f"""
-    你是一位專業的證券分析師，請針對 {ticker_symbol} 進行綜合分析。
-    
-    【基本面數據】：
-    - EPS: {info.get('trailingEps', 'N/A')}
-    - 本益比 (PE): {info.get('forwardPE', 'N/A')}
-    
-    【技術面指標】：
-    - RSI (14): {rsi}
-    - KD指標 (K值): {kd}
-    
-    請依照以下嚴謹格式分析：
-    1. 【趨勢判斷】：綜合基本面與技術面指標（特別是RSI與KD），判斷當前是超買、超賣或中性。
-    2. 【投資建議】：明確給出「積極買入」、「觀望」或「建議減碼」。
-    3. 【核心理由】：簡短有力，指出關鍵技術支撐或壓力點。
-    4. 【潛在風險】：指出一項目前最需關注的市場風險。
-    """
-    
+    # 2. 彙整數據，確保與 app.py 的欄位對接
+    # app.py 預期有: price, eps, pe, black_swan, ai_prediction, news
     return {
-        "price": info.get('currentPrice', 0),
+        "price": info.get('currentPrice', info.get('regularMarketPrice', 0)),
         "eps": info.get('trailingEps', 0),
         "pe": info.get('forwardPE', 0),
-        "ai_prediction": prompt, # 此欄位將被傳給 AI 進行後續推論
-        "news": "最新市場資訊已整合技術指標分析。"
+        "black_swan": "安全" if info.get('trailingEps', 0) > 0 else "高風險", # 簡單的財務安全判斷邏輯
+        "ai_prediction": analysis_prompt, 
+        "news": "最新市場數據已整合技術分析指標。"
     }
