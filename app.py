@@ -3,53 +3,54 @@ import json
 import os
 
 # 設定頁面標題與佈局
-st.set_page_config(page_title="每日股票 AI 分析", layout="wide")
+st.set_page_config(page_title="AI 股票分析看板", layout="wide")
 
+@st.cache_data(ttl=3600) # 快取 1 小時，減少重複讀取造成的 Loading 卡死
 def load_market_data():
-    """從本地 JSON 檔案讀取數據"""
+    """強化版數據載入，加入錯誤保護"""
     file_path = 'market_data.json'
-    if os.path.exists(file_path):
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception as e:
-            st.error(f"讀取數據時發生錯誤: {e}")
-            return None
-    return None
+    if not os.path.exists(file_path):
+        return None
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        return {"error": str(e)}
 
 st.title("📊 每日股票 AI 分析系統")
 st.markdown("---")
 
-# 載入數據
 data = load_market_data()
 
-if data:
-    # 建立下拉選單選擇股票
+# 錯誤與載入狀態處理
+if data is None:
+    st.error("⚠️ 找不到數據檔 (market_data.json)，請確認 GitHub Actions 是否執行成功。")
+elif "error" in data:
+    st.error(f"⚠️ 數據讀取異常: {data['error']}")
+else:
+    # 成功載入後顯示介面
     tickers = list(data.keys())
     selected_ticker = st.selectbox("請選擇欲查看的股票代號：", tickers)
     
-    # 取得選定股票的資料
     stock_info = data[selected_ticker]
     
-    # 顯示核心數據指標
-    col1, col2, col3 = st.columns(3)
-    col1.metric("股價", f"{stock_info.get('price', 'N/A')}")
-    col2.metric("EPS", f"{stock_info.get('eps', 'N/A')}")
-    col3.metric("本益比 (PE)", f"{stock_info.get('pe', 'N/A')}")
+    # 顯示指標
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("當前股價", f"{stock_info.get('price', 0)}")
+    col2.metric("EPS", f"{stock_info.get('eps', 0)}")
+    col3.metric("PE", f"{stock_info.get('pe', 0)}")
+    col4.metric("安全等級", f"{stock_info.get('black_swan', '未知')}")
     
-    # 顯示 AI 分析觀點
     st.markdown("### 💡 AI 分析觀點")
-    st.info(stock_info.get('ai_prediction', '目前暫無分析觀點，請稍候更新。'))
+    st.info(stock_info.get('ai_prediction', '無分析數據'))
     
-    # 顯示最後更新時間（若有的話）
-    st.caption(f"數據最後更新於本地分析流程完成時")
-else:
-    # 顯示錯誤提示
-    st.warning("⚠️ 找不到分析數據檔 (market_data.json)。")
-    st.info("請確認 GitHub Actions 的自動化任務是否已成功執行並產出檔案。")
+    st.markdown("### 📰 最新資訊摘要")
+    st.write(stock_info.get('news', '暫無資訊'))
 
-# 側邊欄顯示額外資訊
+# 側邊欄狀態
 with st.sidebar:
     st.header("系統狀態")
-    st.success("自動化分析：已連線")
-    st.write("本系統每日自動更新最新股市分析數據。")
+    if data and "error" not in data:
+        st.success("數據讀取正常")
+    else:
+        st.error("讀取失敗，請檢查 GitHub Action")
