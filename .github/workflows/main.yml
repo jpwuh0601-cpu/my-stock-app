@@ -30,34 +30,31 @@ jobs:
       - name: 執行分析任務
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
           INPUT_TICKER: ${{ github.event.inputs.ticker }}
         run: |
           if [ -n "$INPUT_TICKER" ]; then
             echo "$INPUT_TICKER" > tickers.txt
           fi
-          python main_task.py
+          # 執行核心分析邏輯 (確保 worker.py 已更新為最新版本)
+          python worker.py
 
       - name: 推送更新至 GitHub
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 1. 將變更暫存，確保工作區乾淨
-          git stash
+          # 確保遠端狀態同步
+          git fetch origin main
+          git rebase origin/main
           
-          # 2. 拉取遠端變更並 rebase，解決衝突
-          git pull --rebase origin main
-          
-          # 3. 還原變更
-          git stash pop || echo "無暫存變更"
-          
-          # 4. 加入並提交
+          # 加入變更
           git add market_data.json
           
-          # 5. 若有變更才進行 commit 並推送到遠端
+          # 若有變更則提交並推送
           if ! git diff-index --quiet HEAD --; then
             git commit -m "chore: auto-update market data"
             git push origin main
           else
-            echo "沒有檢測到變更，跳過推送。"
+            echo "沒有檢測到數據變更，跳過推送。"
           fi
