@@ -1,48 +1,39 @@
-import pandas as pd
-import pandas_ta as ta
 import yfinance as yf
-import streamlit as st
-import requests
+import json
+# 導入您新建的 analyzer 模組，確保該檔案位於同一目錄下
+from analyzer import generate_ai_analysis 
 
-def send_line_notify(message):
-    """從 analyzer 內直接調用的發送通知功能"""
-    try:
-        token = st.secrets.get("LINE_CHANNEL_ACCESS_TOKEN")
-        if not token:
-            return
-        url = "https://notify-api.line.me/api/notify"
-        headers = {"Authorization": f"Bearer {token}"}
-        requests.post(url, headers=headers, data={"message": message})
-    except Exception as e:
-        print(f"通知發送失敗: {e}")
-
-def get_technical_indicators(ticker_symbol):
-    """計算 RSI 與 KD 指標"""
-    try:
-        df = yf.download(ticker_symbol, period="1mo", interval="1d", progress=False)
-        if df.empty or len(df) < 14:
-            return "N/A", "N/A"
-        df['Close'] = pd.to_numeric(df['Close'], errors='coerce')
-        rsi = ta.rsi(df['Close'], length=14)
-        stoch = ta.stoch(df['High'], df['Low'], df['Close'])
-        return round(float(rsi.iloc[-1]), 2), round(float(stoch['STOCHk_14_3_3'].iloc[-1]), 2)
-    except Exception:
-        return "N/A", "N/A"
-
-def generate_ai_analysis(ticker_symbol, info):
-    """生成結構化 AI 分析報告"""
-    rsi, kd = get_technical_indicators(ticker_symbol)
-    advice = "觀望"
-    if isinstance(rsi, float) and isinstance(kd, float):
-        if rsi < 40 and kd < 30:
-            advice = "積極買入"
-            # 若為積極買入，直接觸發通知
-            send_line_notify(f"🚀 {ticker_symbol} 偵測到積極買入訊號！")
-        elif rsi > 70:
-            advice = "建議減碼"
-            
-    return f"""
-    【分析報告】{ticker_symbol}
-    - 建議: {advice}
-    - RSI: {rsi}, KD: {kd}
+def get_ai_analysis_data(ticker_symbol):
     """
+    獲取完整數據、計算指標並呼叫 analyzer 模組進行 AI 分析
+    確保回傳的欄位結構完美對接前端 app.py 的需求
+    """
+    try:
+        stock = yf.Ticker(ticker_symbol)
+        info = stock.info
+        
+        # 1. 取得 AI 分析觀點 (呼叫 analyzer.py 中的函式)
+        # 傳入 info 字典，analyzer 將根據其中的基本面數據與指標進行分析
+        analysis_prompt = generate_ai_analysis(ticker_symbol, info)
+        
+        # 2. 彙整數據，確保欄位對齊 app.py 的 metric 與 info 讀取邏輯
+        # 確保即使獲取失敗也有預設值，避免 app.py 報錯
+        data = {
+            "price": info.get('currentPrice', info.get('regularMarketPrice', 0)),
+            "eps": info.get('trailingEps', 0),
+            "pe": info.get('forwardPE', 0),
+            # 簡單的財務安全判斷邏輯，作為安全等級參考
+            "black_swan": "安全" if info.get('trailingEps', 0) > 0 else "高風險", 
+            "ai_prediction": analysis_prompt, 
+            "news": "最新市場數據已整合 RSI 與 KD 技術指標分析。"
+        }
+        return data
+        
+    except Exception as e:
+        print(f"處理 {ticker_symbol} 時發生錯誤: {e}")
+        # 返回一個錯誤狀態的字典，確保自動化流程不會中斷
+        return {
+            "price": 0, "eps": 0, "pe": 0, "black_swan": "未知",
+            "ai_prediction": "無法取得分析數據，請稍後再試。",
+            "news": "更新失敗。"
+        }
