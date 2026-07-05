@@ -19,13 +19,12 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: 安裝所有必要套件
+      - name: 安裝套件
         run: pip install -r requirements.txt
 
       - name: 執行分析任務
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-        # 這裡不再需要 --ticker 參數，因為 main_task.py 會自動讀取 tickers.txt
         run: python main_task.py
 
       - name: 推送更新至 GitHub
@@ -33,11 +32,13 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 清理本地變更並同步遠端，確保不發生衝突
+          # 強制更新並處理衝突
           git fetch origin main
           git rebase origin/main
           
-          # 提交 market_data.json 的更新
+          # 將變更存檔
           git add market_data.json
-          git commit -m "chore: auto-update market data for all tickers" || echo "無資料變更"
+          git commit -m "chore: auto-update market data from tickers.txt" || echo "無變更跳過"
+          
+          # 推送
           git push origin main
