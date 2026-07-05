@@ -1,54 +1,58 @@
 import pandas as pd
 import pandas_ta as ta
 import yfinance as yf
-# 從您根目錄下的 notifier.py 導入通知功能
 from notifier import send_line_notify
 
 def get_technical_indicators(ticker_symbol):
-    """計算 RSI 與 KD 指標"""
+    """計算 RSI、KD 與移動平均線 (MA)"""
     try:
-        df = yf.download(ticker_symbol, period="1mo", interval="1d", progress=False)
-        if df.empty or len(df) < 14:
-            return "N/A", "N/A"
+        # 下載更多歷史數據以計算 MA
+        df = yf.download(ticker_symbol, period="3mo", interval="1d", progress=False)
+        if df.empty or len(df) < 20:
+            return "N/A", "N/A", "N/A"
         
         df['Close'] = pd.to_numeric(df['Close'], errors='coerce')
+        
+        # 指標計算
         rsi = ta.rsi(df['Close'], length=14)
         stoch = ta.stoch(df['High'], df['Low'], df['Close'])
+        ma5 = ta.sma(df['Close'], length=5)
+        ma20 = ta.sma(df['Close'], length=20)
         
-        return round(float(rsi.iloc[-1]), 2), round(float(stoch['STOCHk_14_3_3'].iloc[-1]), 2)
+        return round(float(rsi.iloc[-1]), 2), \
+               round(float(stoch['STOCHk_14_3_3'].iloc[-1]), 2), \
+               round(float(ma5.iloc[-1]), 2) > round(float(ma20.iloc[-1]), 2) # True 為黃金交叉
     except Exception as e:
         print(f"指標計算錯誤: {e}")
-        return "N/A", "N/A"
+        return "N/A", "N/A", "N/A"
 
 def generate_ai_analysis(ticker_symbol, info):
-    """生成結構化 AI 分析報告，並自動觸發 LINE 通知"""
-    rsi, kd = get_technical_indicators(ticker_symbol)
+    """生成包含 MA 與減碼邏輯的實戰分析報告"""
+    rsi, kd, is_golden_cross = get_technical_indicators(ticker_symbol)
     
-    # 邏輯判斷：若 RSI < 40 且 KD < 30，AI 給予更積極的建議
     advice = "觀望"
+    alert_msg = ""
+
+    # 實戰決策邏輯
     if isinstance(rsi, (int, float)) and isinstance(kd, (int, float)):
-        if rsi < 40 and kd < 30:
+        # 買入條件：RSI 低檔 + KD 低檔 + 黃金交叉
+        if rsi < 40 and kd < 30 and is_golden_cross:
             advice = "積極買入"
-            # 當偵測到買入訊號時，自動透過 notifier 發送 LINE 通知
-            notification_msg = f"🚀 {ticker_symbol} 買入訊號通知！\n目前股價: {info.get('currentPrice', 'N/A')}\n技術面: RSI {rsi}, KD {kd}"
-            send_line_notify(notification_msg)
-        elif rsi > 70:
+            alert_msg = f"🚀 {ticker_symbol} 偵測到強力買進訊號！(均線黃金交叉)"
+        
+        # 風險控制：賣出/減碼條件
+        elif rsi > 70 or (rsi > 60 and not is_golden_cross):
             advice = "建議減碼"
+            alert_msg = f"⚠️ {ticker_symbol} 風險警示：超買或趨勢轉弱，建議減碼保護獲利。"
+
+    # 若有觸發警示，發送通知
+    if alert_msg:
+        send_line_notify(alert_msg)
             
-    prompt = f"""
-    你是一位專業的證券分析師，請針對 {ticker_symbol} 進行綜合分析。
-    
-    【基本數據】：
-    - 當前股價: {info.get('currentPrice', 'N/A')}
-    - 本益比: {info.get('forwardPE', 'N/A')}
-    
-    【技術面指標】：
-    - RSI (14): {rsi}
-    - KD指標 (K值): {kd}
-    
-    【分析判斷】：
-    - 系統建議: {advice}
-    
-    請簡述您的核心理由與潛在風險。
+    return f"""
+    【AI 實戰分析】{ticker_symbol}
+    - 建議策略: {advice}
+    - 技術指標: RSI {rsi}, KD {kd}
+    - 均線狀態: {'黃金交叉 (多頭)' if is_golden_cross else '死亡交叉/整理 (空頭)'}
+    - 綜合建議: 依照當前 {advice} 建議執行操作。
     """
-    return prompt
