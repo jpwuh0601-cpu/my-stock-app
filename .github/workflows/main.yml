@@ -42,10 +42,15 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          git stash
-          git pull --rebase origin main
-          git stash pop || echo "無 stash 變更"
-          
+          # 強制設定變更，並處理所有產生的檔案
           git add market_data.json
-          git commit -m "chore: auto-update market data" || echo "無資料變更"
-          git push origin main
+          
+          # 若有變更才進行 commit
+          if ! git diff-index --quiet HEAD --; then
+            git commit -m "chore: auto-update market data"
+            # 嘗試拉取遠端變更並 rebase，若有衝突則強制採用我們的變更
+            git pull --rebase origin main || git rebase --abort
+            git push origin main
+          else
+            echo "沒有檢測到變更，跳過推送。"
+          fi
