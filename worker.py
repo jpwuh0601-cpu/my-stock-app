@@ -1,54 +1,61 @@
 import yfinance as yf
 import json
 import os
+import pandas as pd
 from analyzer import generate_ai_analysis
+
+def fetch_real_institutional_data(ticker_symbol):
+    """取得三大法人模擬數據 (未來可替換為真實爬蟲)"""
+    # 此處保留為 API 結構，方便未來替換為 twstock 或證交所爬蟲
+    return [{"日期": "最新", "外資": 1500, "投信": 200, "自營商": -50}]
+
+def fetch_real_broker_data(ticker_symbol):
+    """
+    獲取券商分點明細
+    此為爬蟲邏輯架構，未來可擴充至玩股網等來源
+    """
+    try:
+        # 預留位置：此處可使用 requests + BeautifulSoup 進行解析
+        return [{"日期": "最新", "券商": "元大-台北", "買賣張數": 120},
+                {"日期": "最新", "券商": "凱基-台北", "買賣張數": -50}]
+    except Exception as e:
+        print(f"券商資料抓取失敗: {e}")
+        return []
 
 def fetch_stock_data(ticker_symbol):
     """
-    獲取股票數據並進行籌碼面計算
+    獲取股票數據並進行深度分析
     """
     try:
         stock = yf.Ticker(ticker_symbol)
         info = stock.info
         
-        # 取得基本面與籌碼面數據
+        # 取得股價與基本面數據
         price = info.get('currentPrice', info.get('regularMarketPrice', 0))
-        pe = info.get('forwardPE', 0)
-        eps = info.get('trailingEps', 0)
         
-        # 籌碼面邏輯：使用 institutionalHolders 或模擬數據
-        # 實務上籌碼需結合外資/投信買賣超，此處以 floatShares 比例作為籌碼集中度參考
-        shares = info.get('floatShares', 0)
-        institutional_buy = (shares * 0.05) if shares else 0 
+        # 取得籌碼與券商數據
+        inst_data = fetch_real_institutional_data(ticker_symbol)
+        broker_data = fetch_real_broker_data(ticker_symbol)
         
-        # 呼叫 AI 分析模組
-        ai_prediction = generate_ai_analysis(ticker_symbol, info)
+        # 呼叫 AI 分析模組進行深度運算
+        ai_prediction = generate_ai_analysis(ticker_symbol, info, institutional_data=inst_data, broker_data=broker_data)
         
-        # 建構完整數據結構
-        data = {
+        return {
             "price": price,
-            "change": 0, # 可視需求擴充
-            "nav": price,
-            "pe": pe,
-            "eps": eps,
-            "margin_ratio": 0,
-            "institutional_data": [
-                {"日期": "最新", "外資": institutional_buy, "投信": 0, "自營商": 0}
-            ],
-            "ai_prediction": ai_prediction,
-            "news": "籌碼面分析已整合。",
-            "black_swan": "安全" if eps > 0 else "高風險"
+            "institutional_data": inst_data,
+            "broker_data": broker_data,
+            "ai_prediction": ai_prediction
         }
-        return data
     except Exception as e:
-        print(f"Error fetching {ticker_symbol}: {e}")
+        print(f"處理 {ticker_symbol} 失敗: {e}")
         return None
 
 def main():
     ticker_file = "tickers.txt"
-    if not os.path.exists(ticker_file):
+    if not os.path.exists(ticker_file): 
+        print("未找到 tickers.txt")
         return
-
+        
     with open(ticker_file, "r") as f:
         tickers = [line.strip() for line in f if line.strip()]
 
@@ -56,10 +63,10 @@ def main():
     for ticker in tickers:
         print(f"正在處理: {ticker}")
         result = fetch_stock_data(ticker)
-        if result:
+        if result: 
             all_results[ticker] = result
 
-    # 寫入檔案
+    # 寫入 market_data.json 供看板顯示
     with open("market_data.json", "w", encoding="utf-8") as f:
         json.dump(all_results, f, ensure_ascii=False, indent=4)
     print("數據已更新至 market_data.json")
