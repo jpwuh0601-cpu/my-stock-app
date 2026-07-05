@@ -6,21 +6,5 @@
             "price": 2445.0,
             "marketCap": 63404643450880
         }
-    },
-    "2317.TW": {
-        "price": 240.5,
-        "ai_report": "券商分析: 無資料",
-        "raw_info": {
-            "price": 240.5,
-            "marketCap": 3367461715968
-        }
-    },
-    "2454.TW": {
-        "price": 4195.0,
-        "ai_report": "券商分析: 無資料",
-        "raw_info": {
-            "price": 4195.0,
-            "marketCap": 6695682572288
-        }
     }
 }
