@@ -1,12 +1,27 @@
 import requests
+import yfinance as yf
 from bs4 import BeautifulSoup
+
+def fetch_stock_data(ticker_symbol):
+    """
+    從 Yahoo Finance 抓取股價等基本資料
+    """
+    try:
+        ticker = yf.Ticker(ticker_symbol)
+        info = ticker.info
+        return {
+            "price": info.get("currentPrice", info.get("regularMarketPrice", 0)),
+            "marketCap": info.get("marketCap", 0)
+        }
+    except Exception as e:
+        print(f"fetch_stock_data 錯誤: {e}")
+        return None
 
 def fetch_real_broker_data(ticker_symbol):
     """
-    獲取真實券商分點明細 (支援手動輸入股票代號)
+    獲取真實券商分點明細
     """
     try:
-        # 確保代號處理正確，手動輸入時移除可能存在的 .TW
         code = str(ticker_symbol).split('.')[0].strip()
         url = f"https://goodinfo.tw/tw/StockBroker.asp?STOCK_ID={code}"
         headers = {"User-Agent": "Mozilla/5.0"}
@@ -15,13 +30,11 @@ def fetch_real_broker_data(ticker_symbol):
         response.encoding = 'utf-8'
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # 根據 Goodinfo 結構抓取表格
-        # 注意：若網頁改版，可能需要調整這裡的 CSS Selector
         table = soup.find('table', {'id': 'tblStockBroker'})
         data = []
         if table:
             rows = table.find_all('tr', {'class': 'bg_white'})
-            for row in rows[:5]: # 取前 5 大分點
+            for row in rows[:5]:
                 cols = row.find_all('td')
                 if len(cols) > 2:
                     broker_name = cols[0].text.strip()
@@ -29,7 +42,7 @@ def fetch_real_broker_data(ticker_symbol):
                     data.append({"券商": broker_name, "買賣張數": buy_sell})
         return data
     except Exception as e:
-        print(f"真實券商爬蟲執行中斷 (代號: {ticker_symbol}): {e}")
+        print(f"fetch_real_broker_data 錯誤: {e}")
         return [{"日期": "Error", "券商": "暫無數據", "買賣張數": 0}]
 
-# 其餘維持您 worker.py 原有的 fetch_stock_data 與 main 函式邏輯
+# 確保這兩個函數都被定義了，這樣 main_task.py 才能正確 import
