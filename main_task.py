@@ -1,47 +1,44 @@
 import json
 import os
-import yfinance as yf
-from worker import fetch_real_broker_data
-from analyzer import generate_ai_analysis
-from notifier import send_line_notify
+# 假設您引用了 worker.py 中的爬蟲函數
+from worker import fetch_stock_data
 
-def run_analysis():
-    ticker_file = "tickers.txt"
-    if not os.path.exists(ticker_file): return
-    with open(ticker_file, "r") as f:
-        tickers = [line.strip() for line in f if line.strip()]
-
-    # 準備存放給 LINE 的最終通知訊息
-    notify_report = ["📊 每日籌碼監控報告:"]
+def main():
+    final_data = {}
     
+    # 讀取 tickers.txt 確保股票清單正確
+    if os.path.exists("tickers.txt"):
+        with open("tickers.txt", "r") as f:
+            tickers = [line.strip() for line in f if line.strip()]
+    else:
+        tickers = ["2330.TW", "2317.TW", "2454.TW"]
+
+    print(f"開始分析股票: {tickers}")
+
     for ticker in tickers:
         try:
-            # 1. 取得股價與漲跌幅
-            stock = yf.Ticker(ticker)
-            hist = stock.history(period="2d")
-            if len(hist) < 2: continue
+            # 這裡呼叫您的爬蟲函數，請確保 fetch_stock_data 有正確回傳資料
+            data = fetch_stock_data(ticker)
             
-            price = hist['Close'].iloc[-1]
-            prev_price = hist['Close'].iloc[-2]
-            change = ((price - prev_price) / prev_price) * 100
-            
-            # 2. 取得券商數據
-            broker_data = fetch_real_broker_data(ticker)
-            
-            # 3. 判斷是否有異常 (若漲幅超過 3% 標記為 🔥，否則為 ✅)
-            is_active = "🔥" if change > 3 else "✅"
-            
-            # 4. 產生分析摘要
-            analysis = generate_ai_analysis(ticker, stock.info, broker_data=broker_data)
-            
-            notify_report.append(f"{is_active} [{ticker}] 現價:{price:.2f} 漲幅:{change:+.2f}%")
-            
+            # 確保資料不為空才寫入
+            if data:
+                final_data[ticker] = data
+                print(f"成功處理: {ticker}")
+            else:
+                print(f"警告: 無法獲取 {ticker} 的數據")
         except Exception as e:
-            print(f"處理 {ticker} 發生錯誤: {e}")
+            print(f"處理 {ticker} 時發生錯誤: {e}")
 
-    # 5. 發送整合訊息至 LINE
-    if len(notify_report) > 1:
-        send_line_notify("\n".join(notify_report))
+    # 強制寫入邏輯
+    if final_data:
+        try:
+            with open("market_data.json", "w", encoding="utf-8") as f:
+                json.dump(final_data, f, ensure_ascii=False, indent=4)
+            print("數據成功寫入 market_data.json")
+        except Exception as e:
+            print(f"寫入檔案失敗: {e}")
+    else:
+        print("警告：未收集到任何數據，為避免覆蓋，跳過寫入。")
 
 if __name__ == "__main__":
-    run_analysis()
+    main()
