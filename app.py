@@ -1,44 +1,41 @@
 import streamlit as st
 import json
 import os
-import time
 
-st.set_page_config(page_title="AI 投資秘書儀表板", layout="wide")
+# 設定頁面標題
+st.set_page_config(page_title="個股分析儀表板", layout="wide")
 
-# 強制讀取檔案，並清除快取以避免舊數據殘留
-@st.cache_data(ttl=1) # 設定快取時間為 1 秒，強制每次重新載入
-def load_data():
-    file_path = "market_data.json"
-    if os.path.exists(file_path):
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                return data
-        except Exception as e:
-            return {"error": str(e)}
-    return None
+st.title("📈 個股籌碼分析系統")
 
-st.title("📈 AI 投資秘書儀表板")
+# --- 側邊欄：設定監控股票 ---
+st.sidebar.subheader("⚙️ 設定監控股票")
+with st.sidebar.form("ticker_form"):
+    # 預設載入目前設定的股票
+    current_ticker = "2330.TW"
+    if os.path.exists("user_config.json"):
+        with open("user_config.json", "r") as f:
+            try:
+                current_ticker = json.load(f).get("ticker", "2330.TW")
+            except:
+                pass
+                
+    user_ticker = st.text_input("輸入股票代號 (例如: 2330.TW)", value=current_ticker)
+    submitted = st.form_submit_button("儲存並更新")
 
-data = load_data()
+if submitted:
+    # 儲存代號到設定檔
+    with open("user_config.json", "w") as f:
+        json.dump({"ticker": user_ticker}, f)
+    
+    # 這裡會將設定檔寫入，當您 Push 到 GitHub 時，Action 會自動觸發
+    st.success(f"已儲存 {user_ticker}。請執行 Git Push，系統將自動更新數據。")
+    st.info("提示：若您使用 GitHub 自動化，請確認已提交此設定檔案。")
 
-# 顯示數據時間戳記，幫助確認資料是否為最新
+# --- 顯示數據 ---
+st.subheader("分析結果")
 if os.path.exists("market_data.json"):
-    last_modified = time.ctime(os.path.getmtime("market_data.json"))
-    st.caption(f"數據最後更新時間: {last_modified}")
-
-if data and "error" not in data:
-    tickers = list(data.keys())
-    selected_ticker = st.sidebar.selectbox("請選擇分析個股", tickers)
-    
-    ticker_data = data.get(selected_ticker, {})
-    st.header(f"個股分析: {selected_ticker}")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("目前價格", ticker_data.get('price', '資料載入中...'))
-        
-    st.subheader("🤖 AI 深度分析")
-    st.markdown(ticker_data.get('ai_report', '分析生成中...'))
+    with open("market_data.json", "r", encoding="utf-8") as f:
+        data = json.load(f)
+        st.json(data)
 else:
-    st.warning("數據更新中，請稍候。如果持續看不到數據，請確認 GitHub Actions 是否執行成功。")
+    st.warning("尚未有數據，請等待 GitHub Actions 執行分析。")
