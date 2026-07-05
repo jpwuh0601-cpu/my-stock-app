@@ -1,33 +1,36 @@
 import streamlit as st
 import yfinance as yf
+import re
 
 st.set_page_config(page_title="AI 籌碼分析看板", layout="wide")
 
 st.title("📈 互動式 AI 籌碼實戰分析")
 
-# 自動補全代號邏輯
+# 增強的代號自動修復邏輯
 def format_ticker(ticker_input):
-    ticker = ticker_input.strip()
-    # 如果沒有包含 .TW 或 .TWO，自動幫使用者加上
-    if not any(x in ticker for x in [".TW", ".TWO"]):
-        # 簡單判斷：若代號為 4 碼通常為上市，若無則依使用者輸入
-        return f"{ticker}.TW"
-    return ticker
+    ticker = ticker_input.strip().upper()
+    # 移除可能存在的 TW 或 TWO
+    base = re.sub(r'(TW|TWO)$', '', ticker)
+    # 檢查是否為上市 (預設為 .TW)
+    return f"{base}.TW"
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=300)
 def fetch_stock_data(ticker):
     try:
-        # 強制使用 format_ticker 處理輸入
-        formatted_ticker = format_ticker(ticker)
-        stock = yf.Ticker(formatted_ticker)
+        formatted = format_ticker(ticker)
+        stock = yf.Ticker(formatted)
         info = stock.info
+        # 如果無法取得股價，嘗試上櫃格式
         if 'currentPrice' not in info:
-            return None, formatted_ticker
-        return info, formatted_ticker
+            stock = yf.Ticker(f"{ticker.replace('TW', '').strip()}.TWO")
+            info = stock.info
+            
+        if 'currentPrice' not in info:
+            return None, formatted
+        return info, formatted
     except Exception:
         return None, ticker
 
-# UI 佈局
 with st.sidebar:
     st.header("自選股設定")
     manual_ticker = st.text_input("輸入股票代號 (如 2330):", value="2330")
@@ -46,6 +49,6 @@ if refresh_btn:
             
             st.divider()
             st.subheader("🤖 AI 籌碼分析觀點")
-            st.info(f"分析標的: {ticker_used}\n\n基本面數據顯示運作正常。AI 建議：請參考上方籌碼與財務指標進行決策。")
+            st.info(f"分析標的: {ticker_used}\n\n數據讀取正常。AI 觀點：籌碼面分析已聯動，請觀察主力資金流向。")
         else:
-            st.error(f"❌ 無法取得 {manual_ticker} 資料。請確認代號是否正確，或檢查是否為未上市/其他特殊代號。")
+            st.error(f"❌ 無法取得 {manual_ticker} 資料。請確認代號是否正確。")
