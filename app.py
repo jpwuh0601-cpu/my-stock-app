@@ -1,43 +1,50 @@
 import streamlit as st
-import yfinance as yf
-import pandas as pd
+import json
 import os
 
-st.set_page_config(page_title="股票監控儀表板", layout="wide")
+# 設定網頁標題與排版
+st.set_page_config(page_title="AI 投資秘書儀表板", layout="wide")
+st.title("📈 AI 投資秘書儀表板")
 
-st.title("📊 股票籌碼與漲跌監控儀表板")
+def load_data():
+    """從 GitHub Actions 產生的 JSON 檔案載入分析結果"""
+    if os.path.exists("market_data.json"):
+        with open("market_data.json", "r", encoding="utf-8") as f:
+            try:
+                return json.load(f)
+            except json.JSONDecodeError:
+                return {}
+    return {}
 
-def get_tickers():
-    if os.path.exists("tickers.txt"):
-        with open("tickers.txt", "r") as f:
-            return [line.strip() for line in f if line.strip()]
-    return []
+data = load_data()
 
-def get_market_data(tickers):
-    data = []
-    for t in tickers:
-        stock = yf.Ticker(t)
-        hist = stock.history(period="2d")
-        if len(hist) >= 2:
-            price = hist['Close'].iloc[-1]
-            prev_price = hist['Close'].iloc[-2]
-            change = ((price - prev_price) / prev_price) * 100
-            data.append({"代號": t, "價格": round(price, 2), "漲跌幅": round(change, 2)})
-    return pd.DataFrame(data)
-
-tickers = get_tickers()
-df = get_market_data(tickers)
-
-if not df.empty:
-    st.subheader("即時漲跌排行榜")
-    # 設定漲跌顏色標記
-    def highlight_change(val):
-        color = 'red' if val > 3 else 'green' if val < -3 else 'black'
-        return f'color: {color}'
+if data:
+    # 建立左側選單
+    tickers = list(data.keys())
+    selected_ticker = st.sidebar.selectbox("請選擇分析個股", tickers)
     
-    st.dataframe(df.style.applymap(highlight_change, subset=['漲跌幅']), use_container_width=True)
-
+    # 顯示分析結果
+    ticker_data = data[selected_ticker]
+    st.header(f"個股分析: {selected_ticker}")
+    
+    # 快速看板區域
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("目前價格", ticker_data.get('price', 'N/A'))
+    
+    # AI 報告區塊
+    st.subheader("🤖 AI 深度財經分析")
+    report = ticker_data.get('ai_report', '尚未進行分析或數據載入中...')
+    
+    # 根據 AI 報告中的符號進行 UI 顏色強化
+    if "⚠️" in report:
+        st.warning(report)
+    elif "🚀" in report:
+        st.success(report)
+    else:
+        st.markdown(report)
+        
     st.divider()
-    st.info("💡 漲跌幅超過 3% 或低於 -3% 將以紅色或綠色標記顯示。")
+    st.caption("自動化數據更新於 GitHub Actions")
 else:
-    st.warning("請在 tickers.txt 中輸入有效代號。")
+    st.info("系統尚未產生數據，請確認 GitHub Actions 是否已執行完畢。")
