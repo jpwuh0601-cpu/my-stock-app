@@ -13,8 +13,6 @@ jobs:
     steps:
       - name: 檢出程式碼
         uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 設定 Python 環境
         uses: actions/setup-python@v4
@@ -31,21 +29,22 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: python main_task.py
 
-      - name: 推送更新至 GitHub
+      - name: 推送更新
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 解決同步衝突：強制獲取並重定基底，確保線性紀錄
-          git fetch origin main
-          git rebase origin/main
-          
+          # 關鍵修正：強制暫存所有變更，並清除任何未預期的狀態
           git add market_data.json
           
-          # 檢查是否有實際變更，避免無意義的 Commit
+          # 如果沒有變更，直接退出
           if git diff-index --quiet HEAD --; then
             echo "沒有檢測到數據變更，跳過推送。"
-          else
-            git commit -m "chore: auto-update market data"
-            git push origin main
+            exit 0
           fi
+          
+          git commit -m "chore: auto-update market data"
+          
+          # 使用強制 pull 來取代 rebase，避免未暫存檔案衝突
+          git pull --rebase origin main
+          git push origin main
