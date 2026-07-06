@@ -26,25 +26,27 @@ if st.sidebar.button("查詢分析數據"):
     data_cache = load_market_data()
     
     if ticker in data_cache:
-        d = data_cache.get(ticker)
+        d = data_cache.get(ticker) or {}
         
-        # 關鍵修正：如果 d 為 None，顯示資料異常提示
-        if d is None:
-            st.warning(f"代號 {ticker} 在資料庫中存在，但數據內容為空 (None)。請檢查 GitHub Actions 執行結果。")
-        else:
-            # 安全獲取各項數據，防止任何 NoneType 錯誤
-            price = d.get("price") or 0
-            st.metric("最新股價", f"{float(price):.2f}")
-            
-            st.subheader("法人籌碼分析")
-            inst_data = d.get("institutional_data")
-            if isinstance(inst_data, list) and len(inst_data) > 0:
+        # 1. 確保價格顯示正常
+        price = d.get("price") or 0
+        st.metric("最新股價", f"{float(price):.2f}")
+        
+        # 2. 安全讀取法人資料，若找不到該欄位，自動補上空列表
+        st.subheader("法人籌碼分析")
+        inst_data = d.get("institutional_data")
+        
+        if inst_data and isinstance(inst_data, list):
+            try:
                 st.table(pd.DataFrame(inst_data))
-            else:
-                st.write("目前無法人籌碼資料")
+            except:
+                st.write("資料格式無法轉為表格")
+        else:
+            st.write("目前無法人籌碼資料")
             
-            st.subheader("AI 深度分析")
-            st.info(d.get("ai_prediction") or "暫無分析數據")
+        # 3. 安全讀取 AI 分析
+        st.subheader("AI 深度分析")
+        st.info(d.get("ai_prediction") or "暫無分析數據")
     else:
         st.warning(f"資料庫中無此代號: {ticker}")
 else:
