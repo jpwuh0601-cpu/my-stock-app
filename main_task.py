@@ -1,10 +1,9 @@
 import json
-import os
 import time
 from worker import fetch_stock_data, fetch_institutional_data
 
 def run_main():
-    # 讀取 tickers.txt
+    # 讀取目標股票清單
     try:
         with open("tickers.txt", "r") as f:
             tickers = [line.strip() for line in f if line.strip()]
@@ -12,7 +11,7 @@ def run_main():
         tickers = ["2330.TW", "2317.TW", "2454.TW"]
 
     final_results = {}
-    print(f"DEBUG: 開始執行，處理清單: {tickers}")
+    print(f"DEBUG: 開始執行任務，處理對象: {tickers}")
 
     for ticker in tickers:
         try:
@@ -20,25 +19,27 @@ def run_main():
             stock_data = fetch_stock_data(ticker)
             inst_data = fetch_institutional_data(ticker)
             
-            # 使用 .get() 確保即使數據缺失也不會崩潰
+            # 將資料標準化，確保即使缺失也不會寫入 None 或非法結構
             final_results[ticker] = {
-                "price": stock_data.get("price", 0),
-                "eps": stock_data.get("eps", 0),
-                "institutional_data": inst_data if inst_data else [],
-                "ai_prediction": "分析完成",
-                "news": "無最新新聞"
+                "price": str(stock_data.get("price", "0")),
+                "eps": str(stock_data.get("eps", "0")),
+                "nav": "0",  # 預留位
+                "pe": "0",   # 預留位
+                "institutional_data": inst_data if isinstance(inst_data, list) else [],
+                "ai_prediction": "AI 分析生成中...",
+                "news": "無最新資訊"
             }
-            time.sleep(5) # 降低頻率避免被封鎖
+            time.sleep(5) # 緩衝時間，避免被 Yahoo 封鎖
         except Exception as e:
-            print(f"DEBUG: 處理 {ticker} 失敗: {e}")
+            print(f"DEBUG: 處理 {ticker} 時發生錯誤: {e}")
 
-    # 寫入檔案
+    # 安全寫入 JSON
     try:
         with open("market_data.json", "w", encoding="utf-8") as f:
             json.dump(final_results, f, ensure_ascii=False, indent=4)
-        print("DEBUG: 檔案寫入成功。")
+        print("DEBUG: market_data.json 寫入成功。")
     except Exception as e:
-        print(f"DEBUG: 寫入檔案失敗: {e}")
+        print(f"DEBUG: 檔案寫入失敗: {e}")
 
 if __name__ == "__main__":
     run_main()
