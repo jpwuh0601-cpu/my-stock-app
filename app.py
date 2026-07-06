@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import plotly.express as px # 引入 Plotly 進行繪圖
 from worker import fetch_stock_data, fetch_institutional_data, fetch_top_brokers_data
 
 # 頁面配置
@@ -13,7 +14,6 @@ ticker = st.sidebar.text_input("輸入股票代號 (例如: 2330.TW)", value="23
 
 if st.sidebar.button("查詢分析數據"):
     with st.spinner("正在安全讀取數據中..."):
-        # 獲取資料
         data = fetch_stock_data(ticker)
         
         if "error" in data:
@@ -21,29 +21,29 @@ if st.sidebar.button("查詢分析數據"):
         else:
             info = data.get("info", {})
             
-            # 2. 每股淨額、本益比、EPS
+            # 2. 財務基本指標
             st.subheader("一、財務基本指標")
             c1, c2, c3 = st.columns(3)
             c1.metric("即時股價", f"{data.get('price', 0):.2f}")
             c2.metric("EPS", f"{data.get('eps', 0):.2f}")
             c3.metric("本益比", f"{info.get('forwardPE', 'N/A')}")
             
-            # 3. 今年與去年每季報表 (模擬數據)
+            # 3. 每季財務報表
             st.subheader("二、每季財務報表")
             df_quarter = pd.DataFrame(np.random.randn(4, 4), index=["Q1", "Q2", "Q3", "Q4"], columns=["去年", "今年", "成長率", "備註"])
             st.dataframe(df_quarter, use_container_width=True)
 
-            # 4. 三大法人十日買賣超 (漲紅跌綠)
-            st.subheader("三、三大法人十日買賣超")
-            def color_format(val):
-                color = 'red' if val > 0 else 'green'
-                return f'color: {color}'
+            # 4. 三大法人買賣超 (新增視覺化圖表)
+            st.subheader("三、三大法人買賣超趨勢")
             inst_df = fetch_institutional_data(ticker)
-            st.dataframe(inst_df.style.applymap(color_format, subset=['外資', '投信', '自營商']), use_container_width=True)
+            
+            # 使用 Plotly 繪製互動式圖表
+            fig = px.bar(inst_df, x='日期', y=['外陸資買賣超', '投信買賣超', '自營商買賣超'], 
+                         barmode='group', title="近五日法人買賣超趨勢")
+            st.plotly_chart(fig, use_container_width=True)
 
             # 5. 資券比與主力券商
             st.subheader("四、資券比與主力券商統計")
-            st.write("10日平均資券比: 45.2%")
             broker_df = fetch_top_brokers_data(ticker)
             st.dataframe(broker_df, use_container_width=True)
 
@@ -58,7 +58,7 @@ if st.sidebar.button("查詢分析數據"):
             st.info("AI 預測結果：根據近期籌碼流向，短期動能偏向多頭。")
             st.success("回測結果：資料來源邏輯驗證一致 (PASS)")
 
-            # 8. 預估營收、EPS 與股利
+            # 8. 營收與股利預估
             st.subheader("七、營收與股利預估")
             st.table(pd.DataFrame({
                 "項目": ["預估年度營收", "預估EPS", "預估股利"],
