@@ -3,16 +3,16 @@ name: Daily Stock Analysis
 on:
   push:
     paths:
-      - 'user_config.json' # 當您在網頁儲存代號並 Push 時自動觸發
+      - 'user_config.json'
   schedule:
-    - cron: '0 0 * * *' # 每天固定時間執行
-  workflow_dispatch: # 支援手動觸發測試
+    - cron: '0 0 * * *'
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # 確保 Action 有權限寫入 GitHub 儲存庫
+      contents: write
     steps:
       - name: 檢出程式碼
         uses: actions/checkout@v3
@@ -23,7 +23,10 @@ jobs:
           python-version: '3.12'
 
       - name: 安裝套件
-        run: pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install streamlit yfinance pandas twstock requests
 
       - name: 執行分析任務
         env:
@@ -35,21 +38,14 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 將產生的數據加入暫存區
           git add market_data.json
           
-          # 檢查是否有變更，若無則跳過以避免錯誤
           if git diff-index --quiet HEAD --; then
             echo "沒有檢測到數據變更，跳過推送。"
             exit 0
           fi
           
-          # 提交變更
-          git commit -m "chore: auto-update market data from web config"
-          
-          # 先獲取遠端狀態，並以 rebase 方式合併，解決常見推送衝突
+          git commit -m "chore: auto-update market data"
           git fetch origin main
           git rebase origin/main
-          
-          # 推送更新回儲存庫
           git push origin main
