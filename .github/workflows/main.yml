@@ -32,19 +32,15 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 強制清理環境，解決 "You have unstaged changes"
-          git reset --hard HEAD
+          # 清除任何修改過的檔案，確保狀態與遠端一致
+          git checkout .
           
-          # 拉取遠端最新變更
-          git pull origin main
-          
-          # 加入變更
           git add market_data.json
           
-          # 檢查是否有實際變更
+          # 檢查是否有變更
           if git diff-index --quiet HEAD --; then
-            echo "沒有數據變更，無需推送。"
+            echo "沒有數據變更，跳過推送。"
           else
-            git commit -m "chore: auto-update market data"
+            git commit -m "chore: update market data"
             git push origin main
           fi
