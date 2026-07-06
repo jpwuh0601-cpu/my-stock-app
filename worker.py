@@ -4,7 +4,7 @@ import time
 import random
 
 def fetch_stock_data(ticker):
-    """抓取基礎股價資料 (含隨機延遲)"""
+    """抓取基礎股價資料 (增加隨機延遲)"""
     time.sleep(random.uniform(3, 7))
     try:
         stock = yf.Ticker(ticker)
@@ -26,4 +26,4 @@ def fetch_top_brokers_data(ticker):
     return pd.DataFrame([{"券商": "元大-台北", "買賣張數": 0}])
 
 if __name__ == "__main__":
-    print("Worker 模組已更新完成，補齊了所有缺失函數。")
+    print("Worker 模組已更新，補齊所有函數。")
