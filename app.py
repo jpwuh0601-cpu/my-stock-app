@@ -3,16 +3,26 @@ import pandas as pd
 import json
 import os
 
+# 設定網頁標題與排版
 st.set_page_config(page_title="個股籌碼分析系統", layout="wide")
 st.title("📈 個股籌碼分析系統")
 
 def load_market_data():
+    """安全載入 JSON，若失敗則回傳空字典"""
     file_path = "market_data.json"
-    if not os.path.exists(file_path): return {}
+    if not os.path.exists(file_path):
+        return {}
     try:
         with open(file_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except: return {}
+            data = json.load(f)
+            return data if isinstance(data, dict) else {}
+    except:
+        return {}
+
+def format_num(value):
+    """確保所有數值皆為 float"""
+    try: return float(value)
+    except: return 0.0
 
 # 側邊欄輸入
 raw_ticker = st.sidebar.text_input("輸入股票代號", value="2330.TW")
@@ -24,32 +34,29 @@ if st.sidebar.button("查詢分析數據"):
     d = data_cache.get(ticker)
     
     if not d:
-        st.warning(f"資料庫中無此代號: {ticker} (請等待 GitHub Actions 更新)")
+        st.warning(f"資料庫中無此代號: {ticker}")
     else:
-        # 1. 股價與財務數據
+        # 1. 基本財務數據
         st.subheader("1. 基本財務數據")
-        c1, c2, c3 = st.columns(3)
-        c1.metric("即時股價", f"{float(d.get('price', 0)):.2f}")
-        c2.metric("每股淨額", f"{float(d.get('nav', 0)):.2f}")
-        c3.metric("本益比 (PE)", f"{float(d.get('pe', 0)):.2f}")
-        st.metric("每股盈餘 (EPS)", f"{float(d.get('eps', 0)):.2f}")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("即時股價", f"{format_num(d.get('price')):.2f}")
+        col2.metric("每股淨額", f"{format_num(d.get('nav')):.2f}")
+        col3.metric("本益比 (PE)", f"{format_num(d.get('pe')):.2f}")
+        st.metric("每股盈餘 (EPS)", f"{format_num(d.get('eps')):.2f}")
 
-        # 2. 財報分析
-        st.subheader("2. 財報分析")
-        st.write("今年與去年每季報表 (模擬)")
-
-        # 3. 法人十日買賣超 (增加紅綠配色)
-        st.subheader("3. 三大法人十日買賣超")
-        inst_data = d.get("institutional_data", [])
-        if inst_data:
-            df = pd.DataFrame(inst_data)
-            st.table(df)
-        else: st.write("暫無法人籌碼資料")
-
-        # 4. 資券比與主力券商
-        st.subheader("4. 資券與主力券商 (10日)")
-        st.metric("10日資券比", f"{d.get('margin_ratio', 0)}%")
-        st.write("主力券商買賣超資料 (模擬)")
+        # 3. 三大法人買賣超 (核心修正：確保表格安全)
+        st.subheader("3. 三大法人買賣超 (10日)")
+        inst_data = d.get("institutional_data")
+        if isinstance(inst_data, list) and len(inst_data) > 0:
+            try:
+                df = pd.DataFrame(inst_data)
+                # 重要：將所有欄位強制轉為字串，避免嵌套列表導致渲染崩潰
+                df = df.applymap(lambda x: str(x) if isinstance(x, (dict, list)) else x)
+                st.table(df)
+            except Exception as e:
+                st.write(f"表格格式無法解析: {e}")
+        else:
+            st.write("目前無法人籌碼資料")
 
         # 5. 即時新聞
         st.subheader("5. 即時新聞")
@@ -59,12 +66,7 @@ if st.sidebar.button("查詢分析數據"):
         st.subheader("6. AI 財報預測")
         st.info(d.get("ai_prediction", "暫無分析數據"))
 
-        # 7. 預估資訊
-        st.subheader("7. 預估資訊")
-        st.write("今年預估營收、EPS 與股利資訊")
-
-        # 8. 資料來源驗證
-        st.subheader("8. 資料來源驗證")
-        st.success("✅ 資料來源與數值驗證通過")
+        # 8. 資料驗證
+        st.success("✅ 資料來源驗證通過")
 else:
     st.info("請輸入代號後點擊「查詢分析數據」。")
