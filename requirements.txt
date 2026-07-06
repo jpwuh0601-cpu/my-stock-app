@@ -1,7 +1,5 @@
-requests
+streamlit
 yfinance
 pandas
-pandas_ta
-streamlit
 twstock
-beautifulsoup4
+requests
