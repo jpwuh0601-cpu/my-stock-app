@@ -34,16 +34,17 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 強制重置以解決衝突問題
+          # 強制重置工作區以清除任何衝突檔案
           git reset --hard HEAD
           
           git add market_data.json
           
-          # 檢查是否有實際變更，避免無效提交
+          # 檢查是否有變更
           if git diff-index --quiet HEAD --; then
             echo "沒有數據變更，跳過推送。"
           else
             git commit -m "chore: auto-update market data"
+            # 優先使用 pull --rebase 確保本地與遠端線性同步
             git pull --rebase origin main
             git push origin main
           fi
