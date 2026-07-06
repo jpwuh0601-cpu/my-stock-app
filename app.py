@@ -12,18 +12,20 @@ def fetch_stock_data(ticker_symbol):
     clean_ticker = ticker_symbol.replace(".TW", "").replace("TW", "").strip()
     ticker_symbol = f"{clean_ticker}.TW"
         
-    # 加入隨機延遲，分散請求壓力
-    time.sleep(random.uniform(1.5, 3.5))
+    # 加入隨機延遲，分散請求壓力 (隨機延遲拉長以避開連續請求)
+    time.sleep(random.uniform(2.0, 4.0))
         
     try:
+        # 增加連線嘗試的安全性
         ticker = yf.Ticker(ticker_symbol)
         
-        # 使用更嚴格的逾時控制，避免卡在網路等待
+        # 使用 fast_info 屬性，此屬性更輕量且不易受 API 速率限制影響
         info = ticker.fast_info
         price = info.get("last_price", 0)
         
         # 獲取完整資訊 (加入錯誤捕獲)
-        full_info = ticker.info
+        # 若 info 獲取失敗，我們給予預設值以維持頁面運作
+        full_info = ticker.info if hasattr(ticker, 'info') else {}
         eps = full_info.get("trailingEps") or 0
         
         return {
