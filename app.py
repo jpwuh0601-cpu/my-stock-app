@@ -1,53 +1,31 @@
-import yfinance as yf
-import time
-import random
 import streamlit as st
+from worker import fetch_stock_data, fetch_real_broker_data
+import pandas as pd
 
-@st.cache_data(ttl=600)  # 將資料快取 10 分鐘，避免重複請求
-def fetch_stock_data(ticker_symbol):
-    """
-    獲取股票基本數據，加入隨機延遲與快取機制，避免被 Yahoo 封鎖
-    """
-    # 確保格式正確
-    clean_ticker = ticker_symbol.replace(".TW", "").replace("TW", "").strip()
-    ticker_symbol = f"{clean_ticker}.TW"
+st.set_page_config(page_title="個股籌碼分析系統", layout="wide")
+
+# 側邊欄設計
+st.sidebar.header("系統設定")
+ticker = st.sidebar.text_input("輸入股票代號 (例如: 2330.TW)", value="1301.TW")
+
+st.title("📈 個股籌碼分析系統")
+st.write("請在左側輸入代號並點擊「查詢股價數據」，系統將為您分析籌碼與財報數據。")
+
+if st.sidebar.button("查詢股價數據"):
+    with st.spinner("正在為您讀取 Yahoo Finance 資料..."):
+        data = fetch_stock_data(ticker)
         
-    # 加入隨機延遲，分散請求壓力 (隨機延遲拉長以避開連續請求)
-    time.sleep(random.uniform(2.0, 4.0))
-        
-    try:
-        # 增加連線嘗試的安全性
-        ticker = yf.Ticker(ticker_symbol)
-        
-        # 使用 fast_info 屬性，此屬性更輕量且不易受 API 速率限制影響
-        info = ticker.fast_info
-        price = info.get("last_price", 0)
-        
-        # 獲取完整資訊 (加入錯誤捕獲)
-        # 若 info 獲取失敗，我們給予預設值以維持頁面運作
-        full_info = ticker.info if hasattr(ticker, 'info') else {}
-        eps = full_info.get("trailingEps") or 0
-        
-        return {
-            "price": price, 
-            "eps": eps, 
-            "info": full_info,
-            "error": None
-        }
-    except Exception as e:
-        # 捕捉速率限制與連線錯誤
-        error_msg = str(e)
-        if "429" in error_msg or "Too Many Requests" in error_msg:
-            return {"price": 0, "eps": 0, "info": {}, "error": "請求過於頻繁 (429)，請稍候再試"}
-        if "404" in error_msg:
-            return {"price": 0, "eps": 0, "info": {}, "error": "找不到股票代號"}
+        # 錯誤處理機制
+        if data.get("error"):
+            st.error(f"系統提示: {data['error']}")
+        else:
+            # 顯示介面
+            st.subheader("基本指標")
+            col1, col2 = st.columns(2)
+            col1.metric("股價", f"{data['price']:.2f}")
+            col2.metric("EPS", f"{data['eps']:.2f}")
             
-        return {"price": 0, "eps": 0, "info": {}, "error": f"連線錯誤: {error_msg[:20]}"}
-
-def fetch_real_broker_data(ticker_symbol):
-    """
-    獲取主力券商數據 (模擬資料)
-    """
-    return [
-        {"日期": "近10日平均", "外資": "+5000", "投信": "+1200", "自營商": "-300"}
-    ]
+            st.subheader("三大法人買賣超")
+            st.table(pd.DataFrame(fetch_real_broker_data(ticker)))
+            
+            st.success("✅ 資料讀取完成")
