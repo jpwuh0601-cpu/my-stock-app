@@ -6,40 +6,48 @@ import os
 st.set_page_config(page_title="個股籌碼分析系統", layout="wide")
 st.title("📈 個股籌碼分析系統")
 
-# 顯示當前目錄，幫助除錯
-st.sidebar.write(f"當前工作目錄: {os.getcwd()}")
-
 def load_market_data():
-    path = "market_data.json"
-    if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as f:
-            try:
-                return json.load(f)
-            except:
-                return {}
-    return None # 回傳 None 代表檔案真的找不到
+    file_path = "market_data.json"
+    if not os.path.exists(file_path):
+        return None
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return {}
+
+# 側邊欄輸入
+raw_ticker = st.sidebar.text_input("輸入股票代號", value="2330.TW")
+ticker = raw_ticker.strip().upper()
+if ticker.isdigit():
+    ticker = f"{ticker}.TW"
 
 if st.sidebar.button("查詢分析數據"):
     data_cache = load_market_data()
     
     if data_cache is None:
-        st.error("錯誤：找不到 market_data.json 檔案。請檢查 GitHub Actions 執行結果。")
-    elif not data_cache:
-        st.warning("檔案存在但內容為空 ({} )。")
-    else:
-        # 顯示目前資料庫內有的所有代號，讓您確認資料結構
-        available_tickers = list(data_cache.keys())
-        st.write(f"目前資料庫內包含: {available_tickers}")
+        st.error("錯誤：找不到 market_data.json，請確認 GitHub Actions 是否執行成功。")
+    elif not isinstance(data_cache, dict):
+        st.error("錯誤：資料庫格式異常。")
+    elif ticker in data_cache:
+        d = data_cache[ticker]
+        st.success(f"已載入 {ticker}")
+        st.metric("最新股價", f"{float(d.get('price', 0)):.2f}")
         
-        raw_ticker = st.sidebar.text_input("輸入代號", value="2330.TW")
-        ticker = raw_ticker.strip().upper()
-        if ticker.isdigit(): ticker = f"{ticker}.TW"
-        
-        if ticker in data_cache:
-            d = data_cache[ticker]
-            st.metric("股價", d.get("price", 0))
-            st.subheader("法人籌碼")
-            st.table(pd.DataFrame(d.get("institutional_data", [])))
-            st.info(d.get("ai_prediction", "無分析"))
+        st.subheader("法人籌碼分析")
+        inst_data = d.get("institutional_data", [])
+        if isinstance(inst_data, list) and len(inst_data) > 0:
+            st.table(pd.DataFrame(inst_data))
         else:
-            st.warning(f"找不到代號: {ticker}")
+            st.write("目前無法人籌碼資料")
+            
+        st.subheader("AI 深度分析")
+        st.info(d.get("ai_prediction", "暫無分析數據"))
+    else:
+        # 關鍵除錯功能：如果找不到代號，列出目前 JSON 裡有的代號
+        available = list(data_cache.keys())
+        st.warning(f"資料庫中無此代號: {ticker}")
+        st.write(f"目前資料庫中包含的代號: `{', '.join(available)}`")
+        st.write("若該股票不在清單中，請檢查 `tickers.txt` 並執行 GitHub Actions 更新。")
+else:
+    st.info("請輸入代號後點擊查詢。")
