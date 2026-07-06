@@ -3,17 +3,22 @@ import pandas as pd
 import plotly.express as px
 from worker import fetch_stock_data, fetch_institutional_data, fetch_top_brokers_data
 
-# 頁面配置
+# 設定頁面配置
 st.set_page_config(page_title="個股籌碼分析系統", layout="wide")
 st.title("📈 個股籌碼分析系統")
 
-# 側邊欄設定
+# 使用 Streamlit 快取，有效解決 Yahoo API 限制與無窮迴圈問題
+@st.cache_data(ttl=3600)
+def get_stock_data_cached(ticker):
+    return fetch_stock_data(ticker)
+
+# 側邊欄輸入
 ticker = st.sidebar.text_input("輸入股票代號 (例如: 2330.TW)", value="2330.TW")
 
 if st.sidebar.button("查詢分析數據"):
-    with st.spinner("正在讀取真實市場數據..."):
-        # 取得資料
-        data = fetch_stock_data(ticker)
+    with st.spinner("正在讀取即時市場數據..."):
+        # 呼叫快取函數，避免頻繁請求 API
+        data = get_stock_data_cached(ticker)
         
         if "error" in data:
             st.error(f"系統訊息: {data['error']}")
@@ -32,6 +37,7 @@ if st.sidebar.button("查詢分析數據"):
             inst_df = fetch_institutional_data(ticker)
             
             if not inst_df.empty and "日期" in inst_df.columns:
+                # 繪製視覺化圖表
                 df_plot = inst_df.melt(id_vars=["日期"], var_name="法人", value_name="買賣超")
                 fig = px.bar(df_plot, x="日期", y="買賣超", color="法人", barmode="group", 
                              title="三大法人買賣超趨勢")
