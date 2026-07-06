@@ -2,40 +2,32 @@ import streamlit as st
 import json
 import os
 
-# 設定頁面標題
-st.set_page_config(page_title="個股分析儀表板", layout="wide")
+st.set_page_config(page_title="個股分析", layout="centered")
 
-st.title("📈 個股籌碼分析系統")
+st.title("📈 個股分析儀表板")
 
-# --- 側邊欄：設定監控股票 ---
-st.sidebar.subheader("⚙️ 設定監控股票")
-with st.sidebar.form("ticker_form"):
-    # 預設載入目前設定的股票
-    current_ticker = "2330.TW"
-    if os.path.exists("user_config.json"):
-        with open("user_config.json", "r") as f:
-            try:
-                current_ticker = json.load(f).get("ticker", "2330.TW")
-            except:
-                pass
-                
-    user_ticker = st.text_input("輸入股票代號 (例如: 2330.TW)", value=current_ticker)
-    submitted = st.form_submit_button("儲存並更新")
+# 側邊欄：手動輸入代號
+st.sidebar.subheader("⚙️ 設定")
+with st.sidebar.form("ticker_input_form"):
+    user_ticker = st.text_input("輸入股票代號 (例如: 2330.TW)", value="2330.TW")
+    submitted = st.form_submit_button("儲存代號")
 
 if submitted:
-    # 儲存代號到設定檔
     with open("user_config.json", "w") as f:
         json.dump({"ticker": user_ticker}, f)
-    
-    # 這裡會將設定檔寫入，當您 Push 到 GitHub 時，Action 會自動觸發
-    st.success(f"已儲存 {user_ticker}。請執行 Git Push，系統將自動更新數據。")
-    st.info("提示：若您使用 GitHub 自動化，請確認已提交此設定檔案。")
+    st.sidebar.success(f"已儲存 {user_ticker}，請等待後台更新。")
 
-# --- 顯示數據 ---
+# 顯示分析資料
 st.subheader("分析結果")
 if os.path.exists("market_data.json"):
-    with open("market_data.json", "r", encoding="utf-8") as f:
-        data = json.load(f)
-        st.json(data)
+    try:
+        with open("market_data.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+            # 強制只顯示該代號的內容
+            ticker = list(data.keys())[0]
+            st.write(f"### 目前分析標的: {ticker}")
+            st.json(data[ticker])
+    except Exception as e:
+        st.error(f"讀取資料發生錯誤: {e}")
 else:
-    st.warning("尚未有數據，請等待 GitHub Actions 執行分析。")
+    st.info("尚無資料，請確認後台分析是否已完成。")
