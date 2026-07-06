@@ -32,15 +32,18 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 強制同步最新狀態，處理衝突
-          git fetch origin main
-          git rebase origin/main
+          # 強制清理環境，解決 rebase 衝突
+          git reset --hard HEAD
           
+          # 拉取最新遠端內容，強制合併
+          git pull origin main --rebase
+          
+          # 加入變更
           git add market_data.json
           
-          # 檢查是否有變更
+          # 若有變更才提交
           if git diff-index --quiet HEAD --; then
-            echo "沒有檢測到數據變更，跳過推送。"
+            echo "沒有數據變更，跳過推送。"
           else
             git commit -m "chore: auto-update market data"
             git push origin main
