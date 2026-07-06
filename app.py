@@ -1,16 +1,17 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
+import plotly.express as px
 from worker import fetch_stock_data, fetch_institutional_data, fetch_top_brokers_data
 
 # 頁面配置
 st.set_page_config(page_title="個股籌碼分析系統", layout="wide")
 st.title("📈 個股籌碼分析系統")
 
+# 側邊欄設定
 ticker = st.sidebar.text_input("輸入股票代號 (例如: 2330.TW)", value="2330.TW")
 
 if st.sidebar.button("查詢分析數據"):
-    with st.spinner("正在讀取即時市場數據..."):
+    with st.spinner("正在讀取真實市場數據..."):
         # 取得資料
         data = fetch_stock_data(ticker)
         
@@ -26,12 +27,20 @@ if st.sidebar.button("查詢分析數據"):
             cols[1].metric("EPS", f"{data.get('eps', 0):.2f}")
             cols[2].metric("本益比", f"{info.get('forwardPE', 'N/A')}")
             
-            # 2. 法人籌碼統計 (顯示真實數據)
-            st.subheader("2. 法人籌碼統計")
+            # 2. 法人籌碼統計 (加入 Plotly 視覺化)
+            st.subheader("2. 法人籌碼統計 (近 5 日趨勢)")
             inst_df = fetch_institutional_data(ticker)
-            st.dataframe(inst_df, use_container_width=True)
             
-            # 3. 最新新聞 (補上真實新聞抓取邏輯)
+            if not inst_df.empty and "日期" in inst_df.columns:
+                df_plot = inst_df.melt(id_vars=["日期"], var_name="法人", value_name="買賣超")
+                fig = px.bar(df_plot, x="日期", y="買賣超", color="法人", barmode="group", 
+                             title="三大法人買賣超趨勢")
+                st.plotly_chart(fig, use_container_width=True)
+                st.dataframe(inst_df, use_container_width=True)
+            else:
+                st.warning("目前無法人籌碼統計資料。")
+            
+            # 3. 最新新聞
             st.subheader("3. 最新新聞")
             news_list = info.get("news", [])
             if news_list:
@@ -57,4 +66,4 @@ if st.sidebar.button("查詢分析數據"):
             }))
 
 else:
-    st.info("請在左側輸入代號並點擊「查詢分析數據」。")
+    st.info("請在左側輸入股票代號並點擊「查詢分析數據」。")
