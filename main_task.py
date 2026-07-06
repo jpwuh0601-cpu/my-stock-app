@@ -1,60 +1,53 @@
-import streamlit as st
-import pandas as pd
 import json
 import os
+import time
+from worker import fetch_stock_data, fetch_institutional_data
 
-st.set_page_config(page_title="個股籌碼分析系統", layout="wide")
-st.title("📈 個股籌碼分析系統")
-
-def load_data():
-    if os.path.exists("market_data.json"):
-        with open("market_data.json", "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}
-
-# 1. 輸入股票
-ticker = st.sidebar.text_input("輸入股票代號", value="2330.TW")
-if st.sidebar.button("查詢分析數據"):
-    data = load_data()
-    d = data.get(ticker)
-    
-    if not d:
-        st.error("查無資料，請確認 Actions 已成功執行。")
+def run_main():
+    """
+    主要任務腳本：負責讀取股票清單，抓取資料並寫入 market_data.json。
+    此腳本不應包含任何 UI (Streamlit) 相關模組。
+    """
+    ticker_file = "tickers.txt"
+    if os.path.exists(ticker_file):
+        with open(ticker_file, "r") as f:
+            tickers = [line.strip() for line in f if line.strip()]
     else:
-        # 2. 財務數據
-        st.subheader("2. 財務數據 (每股淨額/本益比/EPS)")
-        c1, c2, c3 = st.columns(3)
-        c1.metric("每股淨額", d.get('nav', '0'))
-        c2.metric("本益比", d.get('pe', '0'))
-        c3.metric("EPS", d.get('eps', '0'))
+        tickers = ["2330.TW", "2317.TW", "2454.TW", "1301.TW", "6770.TW"]
 
-        # 3. 每季報表
-        st.subheader("3. 歷史每季報表")
-        st.info("歷史財報資料載入中...")
+    final_results = {}
+    print(f"DEBUG: 開始執行任務，處理目標: {tickers}")
 
-        # 4. 法人買賣超 (紅漲綠跌)
-        st.subheader("4. 三大法人十日買賣超")
-        inst_data = d.get("institutional_data", [])
-        if inst_data:
-            df = pd.DataFrame(inst_data)
-            st.table(df)
+    for ticker in tickers:
+        try:
+            print(f"DEBUG: 正在處理 {ticker}...")
+            # 抓取股價與法人籌碼數據
+            stock_data = fetch_stock_data(ticker)
+            inst_data = fetch_institutional_data(ticker)
+            
+            # 將資料標準化，確保即使缺失也不會寫入 None 或非法結構
+            # 數值皆轉為字串以確保 JSON 可序列化且前端顯示友善
+            final_results[ticker] = {
+                "price": str(stock_data.get("price", "0")),
+                "eps": str(stock_data.get("eps", "0")),
+                "nav": "0",  # 預留位
+                "pe": "0",   # 預留位
+                "institutional_data": inst_data if isinstance(inst_data, list) else [],
+                "ai_prediction": "AI 分析生成中...",
+                "news": "目前無最新即時新聞"
+            }
+            # 避免觸發 API 限制
+            time.sleep(5) 
+        except Exception as e:
+            print(f"DEBUG: 處理 {ticker} 時發生錯誤: {e}")
 
-        # 5. 資券比與主力券商
-        st.subheader("5. 資券比與主力券商買賣超")
-        st.write("資券比資料庫連結中...")
+    # 安全寫入 JSON，確保檔案結構為 UTF-8
+    try:
+        with open("market_data.json", "w", encoding="utf-8") as f:
+            json.dump(final_results, f, ensure_ascii=False, indent=4)
+        print("DEBUG: market_data.json 已成功寫入。")
+    except Exception as e:
+        print(f"DEBUG: 檔案寫入失敗: {e}")
 
-        # 8. 即時新聞 (順序：財報預測前)
-        st.subheader("8. 即時新聞")
-        st.write(d.get("news", "無最新新聞"))
-
-        # 6. AI 財報預測與回測
-        st.subheader("6. AI 財報預測")
-        st.success(d.get("ai_prediction", "分析中..."))
-        st.caption("✅ 資料來源回測驗證：已比對 JSON 結構正確性。")
-
-        # 7. 年度預估
-        st.subheader("7. 預估今年營收、EPS 與股利")
-        st.write(d.get("annual_forecast", "預估資料分析中..."))
-
-else:
-    st.info("請輸入代號查詢。")
+if __name__ == "__main__":
+    run_main()
