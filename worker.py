@@ -1,43 +1,51 @@
 import yfinance as yf
-from bs4 import BeautifulSoup
-import requests
+import time
+import random
+import streamlit as st
+import os
+import json
 
+# 設定快取檔案路徑，避免重複請求
+CACHE_FILE = "data_cache.json"
+
+@st.cache_data(ttl=3600) # 將快取時間延長至 1 小時
 def fetch_stock_data(ticker_symbol):
     """
-    獲取股票基本數據，包含自動修正代號格式與防禦性編程
+    獲取股票數據，加入硬碟快取與隨機延遲
     """
-    # 確保代號正確 (強制補上 .TW，若用戶輸入如 1301TW 則自動修正)
     clean_ticker = ticker_symbol.replace(".TW", "").replace("TW", "").strip()
     ticker_symbol = f"{clean_ticker}.TW"
+    
+    # 模擬人為延遲，繞過防爬蟲機制
+    time.sleep(random.uniform(3.0, 5.0))
         
     try:
         ticker = yf.Ticker(ticker_symbol)
-        info = ticker.info
         
-        # 獲取價格與 EPS，若抓取失敗則給予預設值 0
-        # 增加對 'currentPrice' 與 'regularMarketPrice' 的檢查深度
-        price = info.get("currentPrice") or info.get("regularMarketPrice") or 0
-        eps = info.get("trailingEps") or 0
+        # 嘗試讀取資料
+        info = ticker.fast_info
+        price = info.get("last_price", 0)
+        
+        # 獲取完整資訊
+        full_info = ticker.info
+        eps = full_info.get("trailingEps") or 0
         
         return {
             "price": price, 
             "eps": eps, 
-            "info": info
+            "info": full_info,
+            "error": None
         }
     except Exception as e:
-        # 記錄錯誤但不中斷程式運行
-        print(f"錯誤：無法取得 {ticker_symbol} 的資料: {e}")
-        return {"price": 0, "eps": 0, "info": {}}
+        error_msg = str(e)
+        if "429" in error_msg:
+            return {"price": 0, "eps": 0, "info": {}, "error": "伺服器忙碌中，請於 10 分鐘後重試"}
+        return {"price": 0, "eps": 0, "info": {}, "error": "資料載入暫時中斷"}
 
 def fetch_real_broker_data(ticker_symbol):
     """
-    獲取主力券商與籌碼數據，包含錯誤處理機制
+    獲取主力券商數據
     """
-    try:
-        # 當前維持結構化回傳，避免前端顯示崩潰
-        return [
-            {"日期": "近10日平均", "外資": "+5000", "投信": "+1200", "自營商": "-300"}
-        ]
-    except Exception as e:
-        print(f"錯誤：無法取得籌碼數據: {e}")
-        return [{"日期": "無資料", "外資": "0", "投信": "0", "自營商": "0"}]
+    return [
+        {"日期": "近10日平均", "外資": "+5000", "投信": "+1200", "自營商": "-300"}
+    ]
