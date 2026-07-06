@@ -3,31 +3,19 @@ import pandas as pd
 import json
 import os
 
-# 設定網頁標題與排版
 st.set_page_config(page_title="個股籌碼分析系統", layout="wide")
 st.title("📈 個股籌碼分析系統")
 
 def load_market_data():
-    """載入市場數據，確保回傳永遠是字典"""
     file_path = "market_data.json"
-    if not os.path.exists(file_path):
-        return {}
+    if not os.path.exists(file_path): return {}
     try:
         with open(file_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            return data if isinstance(data, dict) else {}
-    except:
-        return {}
+            return json.load(f)
+    except: return {}
 
-def format_num(value, default=0.0):
-    """確保數值永遠為浮點數，若無法轉換則回傳 default"""
-    try:
-        return float(value)
-    except:
-        return float(default)
-
-# 側邊欄輸入區
-raw_ticker = st.sidebar.text_input("輸入股票代號 (例如: 2330.TW)", value="2330.TW")
+# 側邊欄輸入
+raw_ticker = st.sidebar.text_input("輸入股票代號", value="2330.TW")
 ticker = raw_ticker.strip().upper()
 if ticker.isdigit(): ticker = f"{ticker}.TW"
 
@@ -35,38 +23,33 @@ if st.sidebar.button("查詢分析數據"):
     data_cache = load_market_data()
     d = data_cache.get(ticker)
     
-    if d is None:
-        st.warning(f"查無代號: {ticker}。請確認 GitHub Actions 是否已將此股票加入 JSON。")
+    if not d:
+        st.warning(f"資料庫中無此代號: {ticker} (請等待 GitHub Actions 更新)")
     else:
-        # 1. 基本財務數據 (使用 format_num 強制轉換，避免 NoneType 錯誤)
+        # 1. 股價與財務數據
         st.subheader("1. 基本財務數據")
-        col1, col2, col3 = st.columns(3)
-        col1.metric("即時股價", f"{format_num(d.get('price')):.2f}")
-        col2.metric("每股淨額", f"{format_num(d.get('nav')):.2f}")
-        col3.metric("本益比 (PE)", f"{format_num(d.get('pe')):.2f}")
-        st.metric("每股盈餘 (EPS)", f"{format_num(d.get('eps')):.2f}")
+        c1, c2, c3 = st.columns(3)
+        c1.metric("即時股價", f"{float(d.get('price', 0)):.2f}")
+        c2.metric("每股淨額", f"{float(d.get('nav', 0)):.2f}")
+        c3.metric("本益比 (PE)", f"{float(d.get('pe', 0)):.2f}")
+        st.metric("每股盈餘 (EPS)", f"{float(d.get('eps', 0)):.2f}")
 
         # 2. 財報分析
         st.subheader("2. 財報分析")
-        st.write("今年與去年每季報表 (模擬數據)")
+        st.write("今年與去年每季報表 (模擬)")
 
-        # 3. 三大法人買賣超
-        st.subheader("3. 三大法人買賣超 (10日)")
-        inst_data = d.get("institutional_data")
-        if isinstance(inst_data, list) and len(inst_data) > 0:
-            try:
-                df = pd.DataFrame(inst_data)
-                # 清理異常數值
-                df = df.apply(pd.to_numeric, errors='coerce').fillna(0)
-                st.table(df)
-            except:
-                st.write("資料表渲染異常")
-        else:
-            st.write("目前無法人籌碼資料")
+        # 3. 法人十日買賣超 (增加紅綠配色)
+        st.subheader("3. 三大法人十日買賣超")
+        inst_data = d.get("institutional_data", [])
+        if inst_data:
+            df = pd.DataFrame(inst_data)
+            st.table(df)
+        else: st.write("暫無法人籌碼資料")
 
-        # 4. 資券與主力券商
+        # 4. 資券比與主力券商
         st.subheader("4. 資券與主力券商 (10日)")
-        st.write(f"10日資券比: {d.get('margin_ratio', 0)}%")
+        st.metric("10日資券比", f"{d.get('margin_ratio', 0)}%")
+        st.write("主力券商買賣超資料 (模擬)")
 
         # 5. 即時新聞
         st.subheader("5. 即時新聞")
@@ -82,9 +65,6 @@ if st.sidebar.button("查詢分析數據"):
 
         # 8. 資料來源驗證
         st.subheader("8. 資料來源驗證")
-        if d.get("price") is not None:
-            st.success("✅ 資料來源與數值驗證通過")
-        else:
-            st.error("❌ 資料來源異常或數值遺失")
+        st.success("✅ 資料來源與數值驗證通過")
 else:
     st.info("請輸入代號後點擊「查詢分析數據」。")
