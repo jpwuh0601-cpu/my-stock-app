@@ -8,52 +8,44 @@ st.title("📈 個股籌碼分析系統")
 
 def load_market_data():
     file_path = "market_data.json"
-    if not os.path.exists(file_path): return {}
+    if not os.path.exists(file_path): 
+        return {}
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             return json.load(f)
-    except: return {}
+    except Exception as e:
+        st.error(f"讀取 JSON 失敗: {e}")
+        return {}
 
-# 側邊欄輸入
-ticker = st.sidebar.text_input("輸入股票代號 (例如: 2330.TW)", value="2330.TW")
+ticker = st.sidebar.text_input("輸入股票代號", value="2330.TW")
 
 if st.sidebar.button("查詢分析數據"):
-    data_cache = load_market_data()
-    d = data_cache.get(ticker)
+    data = load_market_data()
+    d = data.get(ticker)
     
     if d is None:
-        st.warning(f"找不到代號 '{ticker}'。目前的資料庫包含: {list(data_cache.keys())}")
+        st.warning(f"找不到 '{ticker}'，目前 JSON 內的代號有: {list(data.keys())}")
     else:
-        # 1. 基本財務數據
+        # 1. 財務數據顯示
         st.subheader("1. 基本財務數據")
-        col1, col2, col3 = st.columns(3)
-        col1.metric("即時股價", str(d.get('price', '0')))
-        col2.metric("每股盈餘 (EPS)", str(d.get('eps', '0')))
+        st.metric("即時股價", str(d.get('price', '0')))
         
-        # 3. 三大法人買賣超 (最穩定的顯示邏輯)
+        # 3. 三大法人買賣超 (強效清潔版)
         st.subheader("3. 三大法人買賣超")
-        inst_data = d.get('institutional_data', [])
+        inst_data = d.get('institutional_data')
         
-        if isinstance(inst_data, list) and len(inst_data) > 0:
-            # 強制將每一筆資料轉換為純字串字典
-            flat_data = []
-            for item in inst_data:
-                if isinstance(item, dict):
-                    # 將字典內的所有值都轉為字串
-                    flat_data.append({k: str(v) for k, v in item.items()})
-                else:
-                    # 如果不是字典，直接轉字串當作一欄顯示
-                    flat_data.append({"資料": str(item)})
-            
-            df = pd.DataFrame(flat_data)
-            st.table(df)
+        # 【最嚴格檢查】：確保它是 list 且每一項都是 dict
+        if isinstance(inst_data, list) and len(inst_data) > 0 and isinstance(inst_data[0], dict):
+            try:
+                # 建立 dataframe
+                df = pd.DataFrame(inst_data)
+                # 強制將所有內容轉字串，防止 Pandas 渲染出錯
+                st.table(df.astype(str))
+            except Exception as e:
+                st.error(f"表格渲染失敗: {e}")
+                st.write("原始資料結構:", inst_data)
         else:
-            st.write("目前沒有法人資料")
-
-        # 6. AI 財報預測
-        st.subheader("6. AI 財報預測")
-        st.info(str(d.get('ai_prediction', '暫無數據')))
-        
-        st.success("✅ 資料已成功渲染")
-else:
-    st.info("請輸入代號後點擊查詢。")
+            st.info("目前無有效的法人買賣超資料，原始內容如下：")
+            st.write(inst_data) # 讓我們看看它究竟是什麼，以便修正 worker.py
+            
+        st.success("✅ 資料處理程序已執行完畢")
