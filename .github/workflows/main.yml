@@ -1,9 +1,6 @@
 name: Daily Stock Analysis
 
 on:
-  push:
-    paths:
-      - 'user_config.json'
   schedule:
     - cron: '0 0 * * *'
   workflow_dispatch:
@@ -16,6 +13,8 @@ jobs:
     steps:
       - name: 檢出程式碼
         uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 設定 Python 環境
         uses: actions/setup-python@v4
@@ -25,8 +24,7 @@ jobs:
       - name: 安裝套件
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install streamlit yfinance pandas twstock requests
+          pip install yfinance pandas requests
 
       - name: 執行分析任務
         env:
@@ -38,14 +36,16 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          git add market_data.json
-          
-          if git diff-index --quiet HEAD --; then
-            echo "沒有檢測到數據變更，跳過推送。"
-            exit 0
-          fi
-          
-          git commit -m "chore: auto-update market data"
+          # 解決同步衝突：強制獲取並重定基底，確保線性紀錄
           git fetch origin main
           git rebase origin/main
-          git push origin main
+          
+          git add market_data.json
+          
+          # 檢查是否有實際變更，避免無意義的 Commit
+          if git diff-index --quiet HEAD --; then
+            echo "沒有檢測到數據變更，跳過推送。"
+          else
+            git commit -m "chore: auto-update market data"
+            git push origin main
+          fi
