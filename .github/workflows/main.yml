@@ -5,6 +5,7 @@ on:
     paths:
       - 'tickers.txt'
       - 'main_task.py'
+      - 'worker.py'
   schedule:
     - cron: '0 0 * * *'
   workflow_dispatch:
@@ -38,14 +39,14 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 強制更新遠端狀態以避免衝突
+          # 強制獲取遠端最新變更，確保 rebase 不會失敗
           git fetch origin main
           git rebase origin/main
           
           # 加入變更
           git add market_data.json
           
-          # 檢查是否有變更，若無則跳過 commit
+          # 檢查是否有實際變更，若無則安靜退出，避免 Action 報錯
           if git diff-index --quiet HEAD --; then
             echo "沒有檢測到數據變更，跳過推送。"
             exit 0
