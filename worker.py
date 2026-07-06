@@ -1,26 +1,33 @@
 import yfinance as yf
 import pandas as pd
+import time
 
 def fetch_stock_data(ticker):
     """
-    抓取 Yahoo Finance 的個股資料
+    抓取 Yahoo Finance 資料，加入重試機制與錯誤處理
     """
     try:
+        # 增加短暫延遲避免觸發 Rate Limit
+        time.sleep(1.5) 
         stock = yf.Ticker(ticker)
         info = stock.info
+        
+        # 檢查是否觸發速率限制 (info 為 None 或缺乏關鍵欄位)
+        if info is None or 'currentPrice' not in info:
+            return {"error": "API 頻繁呼叫限制中，請稍候再試。"}
+            
         return {
             "price": info.get("currentPrice", 0),
             "eps": info.get("trailingEps", 0),
             "info": info
         }
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": f"資料讀取失敗: {str(e)}"}
 
 def fetch_real_broker_data(ticker):
     """
     模擬券商分析數據，確保與 main_task.py 中的調用相容
     """
-    # 這裡未來可替換為真實的網路爬蟲程式碼
     return [{"券商": "元大-台北", "買賣張數": 100}, {"券商": "凱基-信義", "買賣張數": -50}]
 
 def fetch_institutional_data(ticker):
