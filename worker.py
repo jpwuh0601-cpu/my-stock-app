@@ -18,7 +18,9 @@ def fetch_top_brokers_data(ticker):
     更新：回傳測試用的券商數據，確保表格格式正確
     """
     time.sleep(random.uniform(1.0, 2.0))
-    data = {元大-台北", "凱基-台北", "富邦-總公司"],
+    # 修正語法：補上漏掉的引號
+    data = {
+        "券商": ["元大-台北", "凱基-台北", "富邦-總公司"],
         "買賣張數": [450, -210, 150]
     }
     return pd.DataFrame(data)
@@ -45,4 +47,4 @@ def fetch_stock_data(ticker):
         return {"error": f"資料抓取異常: {str(e)}"}
 
 if __name__ == "__main__":
-    print("Canvas 中的 worker.py 模組已完成優化。")
+    print("Canvas 中的 worker.py 模組已修正語法錯誤並完成優化。")
