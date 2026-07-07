@@ -20,7 +20,7 @@ jobs:
           python-version: '3.12'
 
       - name: 安裝套件
-        run: pip install yfinance pandas requests streamlit
+        run: pip install yfinance pandas requests
 
       - name: 執行分析任務
         env:
@@ -31,11 +31,8 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout .
+          git fetch origin main
+          git rebase origin/main
           git add market_data.json
-          if git diff-index --quiet HEAD --; then
-            echo "沒有數據變更，跳過推送。"
-          else
-            git commit -m "chore: auto-update market data"
-            git push origin main
-          fi
+          git commit -m "chore: auto-update market data" || echo "No changes to commit"
+          git push origin main
