@@ -31,8 +31,16 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git fetch origin main
-          git rebase origin/main
+          
+          # 關鍵修正：強制將未追蹤或已修改的狀態重置，確保環境乾淨
+          git reset --hard HEAD
+          
+          # 拉取最新資料並使用 rebase 以保持紀錄整潔
+          git pull --rebase origin main
+          
+          # 加入變更
           git add market_data.json
+          
+          # 只有在有變更時才 commit，避免空 commit 錯誤
           git commit -m "chore: auto-update market data" || echo "No changes to commit"
           git push origin main
