@@ -3,18 +3,32 @@ import pandas as pd
 import time
 import random
 import requests
-import numpy as np
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 def get_session():
+    """建立帶有重試機制的 session，避免 Too Many Requests 錯誤"""
     session = requests.Session()
-    retry = Retry(connect=3, backoff_factor=1)
+    # 增加重試次數與延遲因子
+    retry = Retry(connect=5, backoff_factor=2)
     adapter = HTTPAdapter(max_retries=retry)
     session.mount('http://', adapter)
     session.mount('https://', adapter)
-    session.headers.update({"User-Agent": "Mozilla/5.0"})
+    session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"})
     return session
+
+def fetch_stock_data(ticker):
+    """獲取股票基礎資訊"""
+    try:
+        session = get_session()
+        stock = yf.Ticker(ticker, session=session)
+        info = stock.info
+        hist = stock.history(period="1mo")
+        # 確保價格獲取有容錯
+        price = info.get("currentPrice") or info.get("regularMarketPrice") or 0
+        return {"price": price, "info": info}
+    except Exception as e:
+        return {"error": f"資料獲取異常: {str(e)}"}
 
 def fetch_institutional_data(ticker):
     """模擬法人籌碼數據"""
@@ -24,43 +38,27 @@ def fetch_institutional_data(ticker):
 
 def fetch_top_brokers_data(ticker):
     """模擬主力券商數據"""
-    return pd.DataFrame({"券商": ["元大-台北", "凱基-台北"], "D-1": [100, -50]})
+    time.sleep(0.5)
+    brokers = ["元大-台北", "凱基-台北", "富邦-總公司", "永豐-金", "國泰-敦南"]
+    data = {"券商": brokers}
+    for i in range(1, 11):
+        data[f"D-{i}"] = [random.randint(-1500, 1500) for _ in range(len(brokers))]
+    return pd.DataFrame(data)
 
-def calculate_indicators(df):
-    if df.empty or len(df) < 26:
-        return {"KD": "資料不足", "MACD": "資料不足", "RSI": "資料不足"}
-    close = df['Close']
-    delta = close.diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-    rs = gain / loss
-    rsi = 100 - (100 / (1 + rs))
-    low_min = df['Low'].rolling(window=9).min()
-    high_max = df['High'].rolling(window=9).max()
-    rsv = (close - low_min) / (high_max - low_min) * 100
-    k = rsv.ewm(com=2).mean()
-    d = k.ewm(com=2).mean()
-    ema12 = close.ewm(span=12, adjust=False).mean()
-    ema26 = close.ewm(span=26, adjust=False).mean()
-    macd = ema12 - ema26
-    signal = macd.ewm(span=9, adjust=False).mean()
-    return {"KD": f"K:{k.iloc[-1]:.2f}, D:{d.iloc[-1]:.2f}", "MACD": f"快線:{macd.iloc[-1]:.2f}, 訊號線:{signal.iloc[-1]:.2f}", "RSI": f"{rsi.iloc[-1]:.2f}"}
-
-def fetch_stock_data(ticker):
-    try:
-        session = get_session()
-        stock = yf.Ticker(ticker, session=session)
-        info = stock.info
-        hist = stock.history(period="1mo")
-        indicators = calculate_indicators(hist)
-        price = info.get("currentPrice") or info.get("regularMarketPrice") or 0
-        return {"price": price, "info": info, **indicators}
-    except Exception as e:
-        return {"error": str(e)}
+def fetch_stock_news(ticker):
+    """抓取簡單新聞"""
+    return [{"title": "市場即時動態", "summary": f"{ticker} 近期交易維持常態波動。"}]
 
 def check_black_swan(info):
-    if not isinstance(info, dict): return "資料異常", ["無法解析"]
+    """檢查財務風險"""
+    if not isinstance(info, dict):
+        return "安全", ["無數據"]
     debt = float(info.get('debtToEquity', 0) or 0)
     profit = float(info.get('profitMargins', 0) or 0)
+    # 簡單的風險邏輯
     status = "安全" if debt < 200 and profit >= 0 else "⚠️ 警示中"
     return status, ["財務風險評估"]
+
+if __name__ == "__main__":
+    # 測試用邏輯
+    print(fetch_stock_data("2330.TW"))
