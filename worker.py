@@ -5,55 +5,46 @@ import random
 import requests
 
 def fetch_institutional_data(ticker):
-    """
-    回傳法人籌碼數據，並加入隨機等待
-    """
-    time.sleep(random.uniform(1.5, 2.5)) 
+    """回傳法人籌碼每日細項資料"""
+    time.sleep(random.uniform(1.0, 2.0))
+    # 模擬 10 日法人資料
+    dates = pd.date_range(end=pd.Timestamp.today(), periods=10).strftime('%Y-%m-%d').tolist()
     return [
-        {"日期": "2026-07-06", "外資": 1250, "投信": -300, "自營商": 50},
-        {"日期": "2026-07-05", "外資": -800, "投信": 200, "自營商": -120}
+        {"日期": d, "外資": random.randint(-5000, 5000), "投信": random.randint(-1000, 1000), "自營商": random.randint(-500, 500)}
+        for d in reversed(dates)
     ]
 
 def fetch_top_brokers_data(ticker):
-    """
-    回傳主力券商數據
-    """
-    time.sleep(random.uniform(1.5, 2.5))
-    data = {
-        "券商": ["元大-台北", "凱基-台北", "富邦-總公司"],
-        "買賣張數": [450, -210, 150]
-    }
+    """回傳主力 10 家券商 10 日買賣張數"""
+    time.sleep(random.uniform(1.0, 2.0))
+    brokers = [f"券商-{i+1}" for i in range(10)]
+    data = {"券商": brokers}
+    for i in range(1, 11):
+        data[f"D-{i}"] = [random.randint(-1000, 1000) for _ in range(10)]
     return pd.DataFrame(data)
 
+def check_black_swan(ticker, info):
+    """黑天鵝危機警示邏輯"""
+    score = 0
+    reasons = []
+    if info.get('debtToEquity', 0) > 200: 
+        score += 30; reasons.append("負債比過高")
+    if info.get('profitMargins', 0) < 0: 
+        score += 40; reasons.append("營收虧損中")
+    
+    status = "安全" if score < 30 else "⚠️ 警示中"
+    return status, reasons
+
 def fetch_stock_data(ticker):
-    """
-    使用偽裝瀏覽器的方式抓取股價資料，提升穩定性
-    """
+    """偽裝瀏覽器抓取基礎股價"""
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"}
     try:
-        time.sleep(random.uniform(1.5, 2.5))
-        
-        # 定義偽裝瀏覽器的 Header
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
-        }
-        
-        # 建立一個 session 來發送請求
         session = requests.Session()
         session.headers.update(headers)
-        
         stock = yf.Ticker(ticker, session=session)
         info = stock.info
-        
         if not info or ("regularMarketPrice" not in info and "currentPrice" not in info):
-             return {"error": "無法獲取股價資訊，伺服器繁忙，請稍後再試。"}
-             
-        return {
-            "price": info.get("currentPrice") or info.get("regularMarketPrice", 0),
-            "eps": info.get("trailingEps", 0),
-            "info": info
-        }
+             return {"error": "伺服器繁忙，請稍後再試。"}
+        return {"price": info.get("currentPrice") or info.get("regularMarketPrice", 0), "info": info}
     except Exception as e:
-        return {"error": f"資料抓取異常: {str(e)}"}
-
-if __name__ == "__main__":
-    print("Canvas 中的 worker.py 模組已更新 User-Agent 偽裝，提升抓取穩定性。")
+        return {"error": str(e)}
