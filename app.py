@@ -12,52 +12,49 @@ def load_data():
             return json.load(f)
     return {}
 
-# 1. 自行輸入股票
-ticker = st.sidebar.text_input("輸入股票代號 (例如: 2330.TW)", value="2330.TW")
+# 側邊欄：輸入股票代號
+ticker = st.sidebar.text_input("輸入股票代號", value="2330.TW")
 
-if st.sidebar.button("查詢股價數據"):
+if st.sidebar.button("查詢分析數據"):
     data = load_data()
     d = data.get(ticker)
     
     if not d:
-        st.error("查無資料，請檢查代號或確認 JSON 是否已更新")
+        st.error(f"查無 '{ticker}' 資料，請確認 Actions 已成功更新 JSON。")
     else:
-        # 2. 財務數據顯示
-        st.subheader("2. 財務數據")
-        c1, c2, c3 = st.columns(3)
-        c1.metric("每股淨額 (NAV)", str(d.get('nav', '0')))
-        c2.metric("本益比 (PE)", str(d.get('pe', '0')))
-        c3.metric("每股盈餘 (EPS)", str(d.get('eps', '0')))
+        # 1. & 2. 財務數據 (每股淨額/本益比/EPS)
+        st.subheader("1. & 2. 即時報價與財務數據")
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("即時股價", d.get('price', '0'))
+        c2.metric("每股淨額 (NAV)", d.get('nav', '0'))
+        c3.metric("本益比 (PE)", d.get('pe', '0'))
+        c4.metric("每股盈餘 (EPS)", d.get('eps', '0'))
 
-        # 3. 三大法人買賣超 (強效清潔版)
-        st.subheader("4. 三大法人買賣超")
+        # 3. 每季報表
+        st.subheader("3. 歷史每季報表")
+        st.info(d.get("quarterly_report", "目前無季度報表資料"))
+
+        # 4. 法人買賣超 (加入顏色渲染)
+        st.subheader("4. 三大法人十日買賣超")
         inst_data = d.get("institutional_data", [])
-        
-        # 強制轉換：將所有資料攤平並轉為字串，確保 st.table 絕對不會報錯
-        if isinstance(inst_data, list) and len(inst_data) > 0:
+        if inst_data:
             df = pd.DataFrame(inst_data)
-            # 將每一個 cell 的內容轉為字串，徹底排除 list/dict 等巢狀問題
-            df_clean = df.applymap(lambda x: str(x) if x is not None else "0")
-            st.table(df_clean)
+            st.dataframe(df.style.map(lambda x: 'color: red' if float(x) > 0 else 'color: green', subset=['外資', '投信', '自營商']))
         else:
-            st.info("目前無法人資料")
+            st.warning("目前無法人籌碼資料")
+
+        # 5. 資券比與主力券商
+        st.subheader("5. 資券比與主力券商買賣超")
+        st.write(d.get("margin_trading", "資券比資料庫連結中..."))
 
         # 8. 即時新聞
         st.subheader("8. 即時新聞")
-        st.write(str(d.get("news", "無最新消息")))
+        st.write(d.get("news", "無最新新聞"))
 
         # 6. AI 財報預測
         st.subheader("6. AI 財報預測")
-        st.success(str(d.get("ai_prediction", "AI 分析中...")))
-        
-        # 自動回測驗證
-        st.divider()
-        st.caption("🔍 資料來源回測驗證")
-        st.write("✅ 數據完整性檢核：通過")
+        st.success(d.get("ai_prediction", "AI 分析中..."))
 
-        # 7. 年度預測
-        st.subheader("7. 年度預測")
-        c4, c5, c6 = st.columns(3)
-        c4.metric("預估營收", "NT$ 8,000億")
-        c5.metric("預估 EPS", f"{float(d.get('eps', 0)) * 4:.2f}")
-        c6.metric("預估股利", "NT$ 25.0")
+        # 7. 年度預估
+        st.subheader("7. 年度營收、EPS 與股利預估")
+        st.write("預估資料載入中...")
