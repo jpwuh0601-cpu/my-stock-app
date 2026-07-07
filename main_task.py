@@ -5,8 +5,13 @@ import yfinance as yf
 from worker import fetch_stock_data, fetch_institutional_data
 from analyzer import generate_ai_analysis
 
-def run_main():
-    tickers = ["2330.TW", "2317.TW", "2454.TW", "1301.TW", "6770.TW"]
+def run_main(target_tickers=None):
+    """
+    執行股市數據抓取與 AI 分析
+    若未傳入 tickers，則預設執行空清單或由外部觸發
+    """
+    # 若沒有外部傳入，則設為空，等待手動指定
+    tickers = target_tickers if target_tickers else []
     final_results = {}
 
     for ticker in tickers:
