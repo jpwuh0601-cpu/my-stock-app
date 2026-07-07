@@ -58,7 +58,7 @@ def fetch_stock_data(ticker):
     except Exception as e:
         return {"error": str(e)}
 
-def check_black_swan(info, ticker):
+def check_black_swan(info, ticker=None):
     """
     黑天鵝危機警示：整合財務指標與總體地緣政治風險
     議題包含：俄烏戰爭、美伊衝突、聯準會利率政策
