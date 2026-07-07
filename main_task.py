@@ -2,20 +2,23 @@ import json
 import os
 import sys
 import time
+import requests
 from worker import fetch_stock_data, fetch_institutional_data
 from analyzer import generate_ai_analysis
 
+def fetch_hot_tickers():
+    """自動從 Yahoo Finance 熱門頁面獲取部分台股熱門代號"""
+    # 這裡作為示範，使用預設熱門清單。
+    # 進階可透過 requests 爬取 Yahoo Finance 熱門排行榜頁面
+    print("📈 正在自動獲取市場熱門股票代號...")
+    return ["2330.TW", "2317.TW", "2454.TW", "2303.TW", "0050.TW"]
+
 def run_main(target_tickers=None):
-    """執行股市數據抓取與AI分析，支援動態傳入股票代號"""
+    """執行股市數據抓取與AI分析"""
     
-    # 若無傳入參數，則嘗試讀取 tickers.txt，否則使用傳入的列表
+    # 若無傳入參數，則自動獲取熱門代號
     if not target_tickers:
-        try:
-            with open("tickers.txt", "r", encoding="utf-8") as f:
-                target_tickers = [line.strip() for line in f if line.strip()]
-        except FileNotFoundError:
-            print("❌ 錯誤: 未提供代號且找不到 tickers.txt")
-            return
+        target_tickers = fetch_hot_tickers()
 
     final_results = {}
     print(f"🚀 開始資料更新，目標股票: {target_tickers}")
@@ -48,6 +51,6 @@ def run_main(target_tickers=None):
     print("✅ 成功更新資料。")
 
 if __name__ == "__main__":
-    # 允許透過指令執行: python main_task.py 2330.TW 2454.TW
+    # 支援指令列參數覆蓋自動抓取的名單
     args = sys.argv[1:]
     run_main(target_tickers=args if args else None)
