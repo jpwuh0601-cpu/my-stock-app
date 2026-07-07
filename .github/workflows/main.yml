@@ -19,16 +19,22 @@ jobs:
           python-version: '3.12'
 
       - name: 安裝套件
-        run: pip install yfinance pandas requests
+        run: pip install -r requirements.txt
 
       - name: 執行分析任務
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: python main_task.py
 
       - name: 推送更新至 GitHub
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # 強制清理與同步，避免 rebase 衝突
+          git fetch origin main
+          git reset --hard origin/main
+          
           git add market_data.json
-          # 如果沒有變更，這行會成功但不做任何事
-          git commit -m "chore: update market data" || echo "No changes"
+          git commit -m "chore: auto-update market data" || echo "No changes"
           git push origin main
