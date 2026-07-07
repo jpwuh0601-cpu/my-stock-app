@@ -3,13 +3,47 @@ import pandas as pd
 import time
 import random
 import requests
+import numpy as np
+
+def calculate_indicators(df):
+    """計算 KD, MACD, RSI 技術指標"""
+    # 確保資料有足夠長度
+    if df.empty or len(df) < 26:
+        return {"KD": "資料不足", "MACD": "資料不足", "RSI": "資料不足"}
+    
+    close = df['Close']
+    
+    # RSI 計算
+    delta = close.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    rs = gain / loss
+    rsi = 100 - (100 / (1 + rs))
+    
+    # KD 計算 (簡化版)
+    low_min = df['Low'].rolling(window=9).min()
+    high_max = df['High'].rolling(window=9).max()
+    rsv = (close - low_min) / (high_max - low_min) * 100
+    k = rsv.ewm(com=2).mean()
+    d = k.ewm(com=2).mean()
+    
+    # MACD 計算
+    ema12 = close.ewm(span=12, adjust=False).mean()
+    ema26 = close.ewm(span=26, adjust=False).mean()
+    macd = ema12 - ema26
+    signal = macd.ewm(span=9, adjust=False).mean()
+    
+    return {
+        "KD": f"K:{k.iloc[-1]:.2f}, D:{d.iloc[-1]:.2f}",
+        "MACD": f"快線:{macd.iloc[-1]:.2f}, 訊號線:{signal.iloc[-1]:.2f}",
+        "RSI": f"{rsi.iloc[-1]:.2f}"
+    }
 
 def fetch_stock_news(ticker):
     """抓取 3 則相關新聞，增加詳細錯誤處理以便於除錯"""
     try:
         time.sleep(0.5)
         stock = yf.Ticker(ticker)
-        # 嘗試直接獲取新聞，若列表為空則會拋出或返回空列表
         news = stock.news
         
         if not news:
@@ -22,7 +56,6 @@ def fetch_stock_news(ticker):
             results.append({"title": title, "summary": summary})
         return results
     except Exception as e:
-        # 在開發階段，將錯誤訊息記錄下來會更有幫助
         print(f"DEBUG: 新聞抓取錯誤 - {e}")
         return [{"title": "新聞暫時無法讀取", "summary": "連線服務繁忙，請稍後再試。"}]
 
@@ -52,16 +85,24 @@ def fetch_top_brokers_data(ticker):
     return pd.DataFrame(data)
 
 def fetch_stock_data(ticker):
-    """偽裝瀏覽器抓取基礎股價"""
+    """偽裝瀏覽器抓取基礎股價並計算指標"""
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"}
     try:
         session = requests.Session()
         session.headers.update(headers)
         stock = yf.Ticker(ticker, session=session)
         info = stock.info
+        
+        # 取得歷史股價以計算指標
+        hist = stock.history(period="1mo")
+        indicators = calculate_indicators(hist)
+        
         if not isinstance(info, dict) or ("regularMarketPrice" not in info and "currentPrice" not in info):
              return {"error": "伺服器繁忙，請稍後再試。"}
-        return {"price": info.get("currentPrice") or info.get("regularMarketPrice", 0), "info": info}
+        
+        result = {"price": info.get("currentPrice") or info.get("regularMarketPrice", 0), "info": info}
+        result.update(indicators) # 加入指標數據
+        return result
     except Exception as e:
         return {"error": str(e)}
 
