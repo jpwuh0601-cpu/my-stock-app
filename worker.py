@@ -85,7 +85,7 @@ def fetch_top_brokers_data(ticker):
     return pd.DataFrame(data)
 
 def fetch_stock_data(ticker):
-    """偽裝瀏覽器抓取基礎股價並計算指標"""
+    """偽裝瀏覽器抓取基礎股價並計算指標，並加入強健容錯"""
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"}
     try:
         session = requests.Session()
@@ -93,49 +93,52 @@ def fetch_stock_data(ticker):
         stock = yf.Ticker(ticker, session=session)
         info = stock.info
         
+        # 確保 info 為字典且包含必要資訊
+        if not isinstance(info, dict):
+            return {"error": "無法獲取股票資訊，請確認代號是否正確。"}
+            
         # 取得歷史股價以計算指標
         hist = stock.history(period="1mo")
         indicators = calculate_indicators(hist)
         
-        if not isinstance(info, dict) or ("regularMarketPrice" not in info and "currentPrice" not in info):
-             return {"error": "伺服器繁忙，請稍後再試。"}
+        # 獲取價格，增加預設值避免 KeyError
+        price = info.get("currentPrice") or info.get("regularMarketPrice") or 0
         
-        result = {"price": info.get("currentPrice") or info.get("regularMarketPrice", 0), "info": info}
+        result = {"price": price, "info": info}
         result.update(indicators) # 加入指標數據
         return result
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": f"資料獲取失敗: {str(e)}"}
 
 def check_black_swan(info, ticker=None):
     """
     黑天鵝危機警示：整合財務指標與總體地緣政治風險
-    議題包含：俄烏戰爭升級、中東衝突擴散、聯準會降息路徑
+    增加了對 info 字典欄位的空值檢查，防止 TypeError
     """
     score = 0
     reasons = []
     
-    # 1. 財務基礎風險檢查
-    if not isinstance(info, dict): info = {}
-    debt = float(info.get('debtToEquity', 0) or 0)
-    profit = float(info.get('profitMargins', 0) or 0)
+    # 確保 info 是字典格式，避免傳入錯誤導致崩潰
+    if not isinstance(info, dict):
+        return "資料異常", ["無法解析財報資訊"]
+    
+    # 使用 .get() 確保欄位缺失時回傳 0，並強制轉型為 float
+    def safe_float(val):
+        try:
+            return float(val) if val is not None else 0.0
+        except (ValueError, TypeError):
+            return 0.0
+            
+    debt = safe_float(info.get('debtToEquity'))
+    profit = safe_float(info.get('profitMargins'))
     
     if debt > 200: score += 20; reasons.append("財務：負債比過高，對利率敏感")
     if profit < 0: score += 20; reasons.append("財務：營收虧損中，抗風險能力弱")
     
-    # 2. 地緣政治與總體經濟風險評估 (近期發展)
-    # 俄烏戰事導致能源與糧食供應鏈不確定性
-    score += 15 
-    reasons.append("總體：俄烏戰事膠著，能源市場震盪風險")
+    # 地緣政治風險因子
+    score += 15; reasons.append("總體：俄烏戰事膠著，能源市場震盪風險")
+    score += 15; reasons.append("總體：中東衝突擴散，全球航運物流受阻風險")
+    score += 15; reasons.append("總體：聯準會利率政策路徑不確定性")
     
-    # 中東美伊地緣衝突影響航運與原油價格
-    score += 15
-    reasons.append("總體：中東衝突擴散，全球航運物流受阻風險")
-    
-    # 聯準會 (FED) 貨幣政策調整：利率維持高檔或降息路徑反覆
-    score += 15
-    reasons.append("總體：聯準會利率政策路徑不確定性，市場資金波動")
-    
-    # 綜合評估
-    # 若分數總和超過 50 分，將警示等級提升
     status = "安全" if score < 50 else "⚠️ 警示中 (市場高風險)"
     return status, reasons
