@@ -5,27 +5,27 @@ import random
 import requests
 
 def fetch_institutional_data(ticker):
-    """回傳法人籌碼每日細項資料，確保數據類型統一"""
+    """回傳法人籌碼每日細項資料，確保回傳值為標準的 List[Dict] 結構"""
     time.sleep(random.uniform(1.0, 2.0))
-    # 模擬 10 日法人資料，強制確保數值為整數
     dates = pd.date_range(end=pd.Timestamp.today(), periods=10).strftime('%Y-%m-%d').tolist()
-    return [
-        {
-            "日期": d, 
+    
+    # 確保每個項目都是明確的字典結構
+    data = []
+    for d in reversed(dates):
+        data.append({
+            "日期": str(d), 
             "外資": int(random.randint(-5000, 5000)), 
             "投信": int(random.randint(-1000, 1000)), 
             "自營商": int(random.randint(-500, 500))
-        }
-        for d in reversed(dates)
-    ]
+        })
+    return data
 
 def fetch_top_brokers_data(ticker):
-    """回傳主力 10 家券商 10 日買賣張數，確保格式為數值"""
+    """回傳主力 10 家券商 10 日買賣張數，回傳 DataFrame 以便 app.py 直接使用"""
     time.sleep(random.uniform(1.0, 2.0))
     brokers = [f"券商-{i+1}" for i in range(10)]
     data = {"券商": brokers}
     for i in range(1, 11):
-        # 確保所有買賣張數均為整數
         data[f"D-{i}"] = [int(random.randint(-1000, 1000)) for _ in range(10)]
     return pd.DataFrame(data)
 
@@ -33,7 +33,11 @@ def check_black_swan(ticker, info):
     """黑天鵝危機警示邏輯"""
     score = 0
     reasons = []
-    # 使用 safe_float 概念處理潛在的字串或 None
+    
+    # 增加對 info 可能為 None 的防護
+    if not isinstance(info, dict):
+        info = {}
+        
     debt = float(info.get('debtToEquity', 0) or 0)
     profit = float(info.get('profitMargins', 0) or 0)
     
@@ -53,8 +57,11 @@ def fetch_stock_data(ticker):
         session.headers.update(headers)
         stock = yf.Ticker(ticker, session=session)
         info = stock.info
+        
+        # 若 info 為空或抓取失敗，回傳結構化的錯誤資訊
         if not info or ("regularMarketPrice" not in info and "currentPrice" not in info):
-             return {"error": "伺服器繁忙，請稍後再試。"}
+             return {"error": "伺服器繁忙或無此代號，請稍後再試。"}
+             
         return {"price": info.get("currentPrice") or info.get("regularMarketPrice", 0), "info": info}
     except Exception as e:
         return {"error": str(e)}
