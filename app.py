@@ -12,11 +12,8 @@ st.title("📈 專業股市分析系統")
 ticker_input = st.sidebar.text_input("輸入股票代號 (例如: 2330.TW)", value="2330.TW").strip()
 
 def safe_float(val):
-    """確保數值轉換安全"""
-    try:
-        return float(val)
-    except (ValueError, TypeError):
-        return 0.0
+    try: return float(val)
+    except: return 0.0
 
 if st.sidebar.button("查詢股價數據"):
     try:
@@ -24,8 +21,19 @@ if st.sidebar.button("查詢股價數據"):
         stock = yf.Ticker(ticker_input)
         info = stock.info
         
-        # 2. 財務指標
-        st.subheader("📊 財務基本指標")
+        # 獲取價格與漲跌幅
+        curr_price = safe_float(info.get('currentPrice') or info.get('regularMarketPrice'))
+        prev_close = safe_float(info.get('previousClose'))
+        change_val = curr_price - prev_close
+        change_pct = safe_float(info.get('regularMarketChangePercent', 0))
+        
+        # 決定顏色 (漲紅跌綠)
+        price_color = "red" if change_val > 0 else ("green" if change_val < 0 else "black")
+        
+        # 2. 顯示股價與漲跌 (使用 HTML 渲染顏色)
+        st.subheader("📊 股價與基本指標")
+        st.markdown(f"### 即時股價: <span style='color:{price_color}'>{curr_price:.2f} ({change_val:+.2f} / {change_pct:+.2f}%)</span>", unsafe_allow_html=True)
+        
         c1, c2, c3 = st.columns(3)
         c1.metric("每股淨值 (NAV)", f"{safe_float(info.get('bookValue')):,.2f}")
         c2.metric("本益比 (PE)", f"{safe_float(info.get('trailingPE')):,.2f}")
@@ -35,28 +43,18 @@ if st.sidebar.button("查詢股價數據"):
         st.subheader("📅 財務季報表")
         st.dataframe(stock.quarterly_financials)
         
-        # 4. 三大法人十日買賣超 (修正型態錯誤)
+        # 4. 三大法人十日買賣超
         st.subheader("🏦 三大法人十日買賣超")
         inst_data = fetch_institutional_data(ticker_input)
         df_inst = pd.DataFrame(inst_data)
-        
-        def color_rule(val):
-            """強制轉換為 float 再比對"""
-            num = safe_float(val)
-            if num > 0: return 'color: red'
-            if num < 0: return 'color: green'
-            return 'color: black'
-
-        # 只對數值欄位應用樣式
-        cols_to_style = ['外資', '投信', '自營商']
-        st.dataframe(df_inst.style.map(color_rule, subset=cols_to_style))
+        st.dataframe(df_inst.style.map(lambda x: 'color: red' if safe_float(x) > 0 else ('color: green' if safe_float(x) < 0 else 'color: black'), subset=['外資', '投信', '自營商']))
         
         # 5. 資券比與主力券商
         st.subheader("📉 十日資券比與主力券商買賣")
         df_brokers = fetch_top_brokers_data(ticker_input)
         st.table(df_brokers)
         
-        # 8. 即時新聞 (先佔位)
+        # 8. 即時新聞
         st.subheader("📰 即時新聞")
         st.write("資訊載入中...")
         
