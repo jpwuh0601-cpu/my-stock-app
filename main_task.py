@@ -5,13 +5,19 @@ import yfinance as yf
 from worker import fetch_stock_data, fetch_institutional_data
 from analyzer import generate_ai_analysis
 
+def get_tickers_from_file():
+    """從 tickers.txt 讀取股票代號清單"""
+    if os.path.exists("tickers.txt"):
+        with open("tickers.txt", "r", encoding="utf-8") as f:
+            return [line.strip() for line in f if line.strip()]
+    return []
+
 def run_main(target_tickers=None):
     """
     執行股市數據抓取與 AI 分析
-    若未傳入 tickers，則預設執行空清單或由外部觸發
+    若未傳入 tickers，則自動讀取 tickers.txt
     """
-    # 若沒有外部傳入，則設為空，等待手動指定
-    tickers = target_tickers if target_tickers else []
+    tickers = target_tickers if target_tickers else get_tickers_from_file()
     final_results = {}
 
     for ticker in tickers:
