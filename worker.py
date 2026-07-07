@@ -5,19 +5,26 @@ import random
 import requests
 
 def fetch_stock_news(ticker):
-    """抓取 3 則相關新聞，確保格式正確"""
+    """抓取 3 則相關新聞，增加詳細錯誤處理以便於除錯"""
     try:
         time.sleep(0.5)
         stock = yf.Ticker(ticker)
+        # 嘗試直接獲取新聞，若列表為空則會拋出或返回空列表
         news = stock.news
+        
+        if not news:
+            return [{"title": "無最新新聞", "summary": f"{ticker} 目前無公開的新聞報導。"}]
+            
         results = []
         for n in news[:3]:
             title = n.get('title', '無標題')
             summary = n.get('summary', '無詳細內容描述')[:100] + "..."
             results.append({"title": title, "summary": summary})
         return results
-    except:
-        return [{"title": "暫無新聞", "summary": "目前無法抓取即時新聞資料..."}]
+    except Exception as e:
+        # 在開發階段，將錯誤訊息記錄下來會更有幫助
+        print(f"DEBUG: 新聞抓取錯誤 - {e}")
+        return [{"title": "新聞暫時無法讀取", "summary": "連線服務繁忙，請稍後再試。"}]
 
 def fetch_institutional_data(ticker):
     """回傳法人籌碼每日細項資料，確保回傳 List[Dict]"""
