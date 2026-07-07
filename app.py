@@ -19,14 +19,14 @@ def load_data():
     return {}
 
 # 側邊欄輸入
-ticker = st.sidebar.text_input("輸入股票代號", value="2330.TW")
+ticker = st.sidebar.text_input("輸入股票代號 (例如: 2330.TW)", value="2330.TW")
 
 if st.sidebar.button("查詢分析數據"):
     data = load_data()
     d = data.get(ticker)
     
     if not d:
-        st.error(f"查無 '{ticker}' 資料，請確認 Actions 已成功更新 JSON 檔案。")
+        st.error(f"查無 '{ticker}' 資料，請確認 GitHub Actions 已成功執行並更新 market_data.json。")
     else:
         # 1 & 2. 基本財務數據
         st.subheader("1 & 2. 基本財務數據")
