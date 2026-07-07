@@ -68,7 +68,7 @@ def fetch_stock_data(ticker):
 def check_black_swan(info, ticker=None):
     """
     黑天鵝危機警示：整合財務指標與總體地緣政治風險
-    議題包含：俄烏戰爭、美伊衝突、聯準會利率政策
+    議題包含：俄烏戰爭升級、中東衝突擴散、聯準會降息路徑
     """
     score = 0
     reasons = []
@@ -78,16 +78,23 @@ def check_black_swan(info, ticker=None):
     debt = float(info.get('debtToEquity', 0) or 0)
     profit = float(info.get('profitMargins', 0) or 0)
     
-    if debt > 200: score += 20; reasons.append("財務：負債比過高")
-    if profit < 0: score += 20; reasons.append("財務：營收虧損中")
+    if debt > 200: score += 20; reasons.append("財務：負債比過高，對利率敏感")
+    if profit < 0: score += 20; reasons.append("財務：營收虧損中，抗風險能力弱")
     
-    # 2. 地緣政治與總體經濟風險 (黑天鵝議題)
-    score += 10 # 俄烏戰爭影響能源穩定
-    score += 10 # 美伊戰爭風險原油波動
-    score += 15 # 聯準會 (FED) 貨幣政策不確定性
+    # 2. 地緣政治與總體經濟風險評估 (近期發展)
+    # 俄烏戰事導致能源與糧食供應鏈不確定性
+    score += 15 
+    reasons.append("總體：俄烏戰事膠著，能源市場震盪風險")
     
-    reasons.append("總體：受俄烏/美伊局勢及聯準會政策變動影響")
+    # 中東美伊地緣衝突影響航運與原油價格
+    score += 15
+    reasons.append("總體：中東衝突擴散，全球航運物流受阻風險")
+    
+    # 聯準會 (FED) 貨幣政策調整：利率維持高檔或降息路徑反覆
+    score += 15
+    reasons.append("總體：聯準會利率政策路徑不確定性，市場資金波動")
     
     # 綜合評估
-    status = "安全" if score < 40 else "⚠️ 警示中"
+    # 若分數總和超過 50 分，將警示等級提升
+    status = "安全" if score < 50 else "⚠️ 警示中 (市場高風險)"
     return status, reasons
