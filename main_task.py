@@ -1,5 +1,5 @@
 import json
-import time
+import os
 from worker import fetch_stock_data, fetch_institutional_data
 
 def run_main():
@@ -8,20 +8,18 @@ def run_main():
 
     for ticker in tickers:
         stock_info = fetch_stock_data(ticker)
-        
-        # 建立平鋪結構，避免 JSON 層級過深
+        # 直接儲存為平鋪結構，或者對齊您之前的 raw_info 結構
         final_results[ticker] = {
             "price": stock_info.get("price", 0),
-            "eps": stock_info.get("eps", 0),
-            "nav": stock_info.get("info", {}).get("bookValue", 0),
-            "pe": stock_info.get("info", {}).get("trailingPE", 0),
-            "ai_report": "AI 分析分析中...", 
-            "institutional_data": fetch_institutional_data(ticker)
+            "ai_report": "AI 正在分析中...",
+            "raw_info": stock_info # 包含完整 info 資料
         }
-        time.sleep(5) # 遵守 API 速率限制
 
-    with open("market_data.json", "w", encoding="utf-8") as f:
+    # 確保寫入根目錄
+    output_path = os.path.join(os.getcwd(), "market_data.json")
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(final_results, f, ensure_ascii=False, indent=4)
+    print(f"資料已寫入至: {output_path}")
 
 if __name__ == "__main__":
     run_main()
