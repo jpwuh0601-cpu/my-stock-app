@@ -38,7 +38,47 @@ def get_data(ticker):
             "price": info.get("currentPrice", 0.0),
             "nav": info.get("bookValue", 0.0),
             "pe": info.get("trailingPE", 0.0),
-            "eps": info.get("trailingEps", 0.0)
+            "eps": info.get("trailingEps", 0.0),
+            "change": info.get("regularMarketChange", 0.0) # 新增：取得漲跌價
+        }, False
+    except:
+        return {"error": "資料讀取失敗"}, True
+
+# 主 UI
+ticker = st.text_input("輸入股票代號 (例如: 2330)", "2330")
+
+if st.button("查詢分析數據"):
+    with st.spinner("正在執行 AI 分析與數據校對..."):
+        data, is_error = get_data(ticker)
+        
+        if not is_error:
+            # 修正：即時股價與漲跌顏色顯示
+            price = data.get("price", 0)
+            change = data.get("change", 0)
+            
+            # 設定漲紅跌綠邏輯
+            color = "red" if change >= 0 else "green"
+            symbol = "▲" if change >= 0 else "▼"
+            
+            # 使用 Markdown 渲染帶顏色的結果
+            st.markdown(f"""
+            ### 即時數據概況
+            <div style="font-size: 24px; font-weight: bold;">
+                現價: {price:.2f} 
+                <span style="color: {color}; margin-left: 20px;">
+                    {symbol} {abs(change):.2f}
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.write("---")
+            
+            # 基本面概況
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("每股淨值", f"{data['nav']:.2f}")
+            c2.metric("本益比", f"{data['pe']:.2f}")
+            c3.metric("EPS", f"{data['eps']:.2f}")
+
         }, False
     except:
         return {"error": "資料讀取失敗"}, True
