@@ -1,40 +1,40 @@
 name: Daily Stock Analysis
 on:
-schedule:
-- cron: '0 0 * * *'
-workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
 
 jobs:
-build:
-runs-on: ubuntu-latest
-permissions:
-contents: write
-steps:
-- uses: actions/checkout@v3
-- uses: actions/setup-python@v4
-with:
-python-version: '3.12'
-- run: pip install yfinance requests pandas
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      - run: pip install yfinance requests pandas
 
-  # 執行數據更新
-  - run: python main_task.py
-  
-  - name: 推送數據至 GitHub
-    run: |
-      git config --global user.name "github-actions[bot]"
-      git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      # 執行數據更新
+      - run: python main_task.py
       
-      # 1. 強制拉取遠端最新變更並使用 rebase 模式，確保本地紀錄為線性
-      git fetch origin main
-      git rebase origin/main
-      
-      # 2. 加入數據檔案
-      git add market_data.json
-      
-      # 3. 檢查變更，若有才提交
-      if git diff-index --quiet HEAD --; then
-        echo "沒有數據變更，無需推送。"
-      else
-        git commit -m "chore: auto-update market data"
-        git push origin main
-      fi
+      - name: 推送數據至 GitHub
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # 1. 強制拉取遠端最新變更並使用 rebase 模式，確保本地紀錄為線性
+          git fetch origin main
+          git rebase origin/main
+          
+          # 2. 加入數據檔案
+          git add market_data.json
+          
+          # 3. 檢查變更，若有才提交
+          if git diff-index --quiet HEAD --; then
+            echo "沒有數據變更，無需推送。"
+          else
+            git commit -m "chore: auto-update market data"
+            git push origin main
+          fi
