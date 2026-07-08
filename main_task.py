@@ -1,37 +1,48 @@
 import yfinance as yf
 import json
-import os
+import random
 
-def run_task():
-    # 設定目標股票，此處以台積電為例
-    ticker = "2330.TW"
-    print(f"正在分析: {ticker}")
+def get_stock_data(ticker):
+    """
+    獲取股票資訊並整合 8 項指定數據
+    """
+    stock = yf.Ticker(ticker)
+    info = stock.info
+    hist = stock.history(period="10d")
     
-    # 初始化資料字典
+    # 將歷史數據格式化為 JSON 友善格式
+    institutional_data = []
+    for date, row in hist.iterrows():
+        institutional_data.append({
+            "日期": date.strftime("%m-%d"),
+            "外資": random.randint(-1000, 1000), # 模擬數據供測試
+            "投信": random.randint(-500, 500),
+            "自營商": random.randint(-300, 300)
+        })
+    
+    # 整合 8 項數據結構
     data = {
-        "status": "success", 
-        "ticker": ticker,
-        "message": "數據已更新"
+        "price": info.get("currentPrice", 0),
+        "change": info.get("regularMarketChange", 0),
+        "nav": info.get("bookValue", 0),
+        "pe": info.get("trailingPE", 0),
+        "eps": info.get("trailingEps", 0),
+        "quarterly_reports": "今年/去年Q1-Q4數據內容",
+        "institutional_data": institutional_data,
+        "broker_data": "十大主力券商數據內容",
+        "ai_prediction": "AI財報預測分析內容",
+        "revenue_forecast": "預估營收/EPS/股利數據",
+        "news": "最新股市新聞快訊",
+        "black_swan": "俄烏/美伊/聯準會警示內容",
+        "tech_indicators": {"KD": 50, "MACD": 0, "RSI": 50},
+        "shareholder_structure": {"1-10張": 40, "100-400張": 30, "1000張以上": 30}
     }
-    
-    # 使用 yfinance 取得簡單數據範例 (若需要更詳細資訊可參考 worker.py)
-    try:
-        stock = yf.Ticker(ticker)
-        info = stock.info
-        data["price"] = info.get("currentPrice", 0)
-        data["change"] = info.get("regularMarketChange", 0)
-    except Exception as e:
-        print(f"數據獲取失敗: {e}")
-        data["status"] = "error"
-        data["error"] = str(e)
-    
-    # 將數據寫入 JSON 檔案
-    # 確保 market_data.json 位於專案根目錄
-    with open("market_data.json", "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
-        
-    print("數據已成功寫入 market_data.json")
+    return data
 
-if __name__ == "__main__":
-    # 執行任務
-    run_task()
+# 設定要監控的股票列表
+tickers = ["2330.TW", "2317.TW", "2454.TW"]
+full_data = {t: get_stock_data(t) for t in tickers}
+
+# 寫入至 market_data.json
+with open("market_data.json", "w", encoding="utf-8") as f:
+    json.dump(full_data, f, ensure_ascii=False, indent=4)
