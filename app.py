@@ -2,11 +2,11 @@ import streamlit as st
 import json
 import os
 import pandas as pd
-from worker import fetch_stock_data
+import plotly.express as px
 
 st.set_page_config(page_title="專業股市決策儀表板", layout="centered")
 
-def load_local_data():
+def load_data():
     if os.path.exists("market_data.json"):
         with open("market_data.json", "r", encoding="utf-8") as f:
             return json.load(f)
@@ -14,39 +14,45 @@ def load_local_data():
 
 def main():
     st.title("📈 專業股市決策儀表板")
+    data = load_data()
+    ticker = st.text_input("輸入股票代號", "2330.TW")
     
-    # 1. 輸入代號
-    ticker_input = st.text_input("輸入股票代號 (例如: 2330.TW)", "2330.TW")
-    
-    if st.button("即時查詢"):
-        # 先檢查本地 JSON
-        local_data = load_local_data()
+    if ticker in data:
+        s = data[ticker]
         
-        if ticker_input in local_data:
-            s = local_data[ticker_input]
-            st.success("已載入本地分析數據")
-        else:
-            # 若本地無資料，直接即時呼叫 worker.py 的 fetch_stock_data
-            with st.spinner(f"正在即時從網路擷取 {ticker_input} 資訊..."):
-                realtime_data = fetch_stock_data(ticker_input)
-                if "error" in realtime_data:
-                    st.error(f"查詢失敗: {realtime_data['error']}")
-                    return
-                # 構建一個臨時的資料結構
-                info = realtime_data.get("info", {})
-                s = {
-                    "price": realtime_data.get("price", 0),
-                    "nav": info.get("bookValue", "N/A"),
-                    "pe": info.get("trailingPE", "N/A"),
-                    "eps": info.get("trailingEps", "N/A"),
-                    "change": 0, "kd": "N/A", "macd": "N/A", "rsi": "N/A"
-                }
-                st.info("即時資料已載入 (未包含完整分析報告)")
-
-        # 顯示資料 (後續顯示邏輯與原先一致)
+        # 1 & 2. 股價與基本面
         st.metric("即時股價", s.get('price', 0))
-        # ... (其餘 10 大版面顯示邏輯)
-        st.write("詳細籌碼面與AI分析需等待每日自動任務更新")
+        c1, c2, c3 = st.columns(3)
+        c1.metric("每股淨值", s.get('nav', 0))
+        c2.metric("本益比", s.get('pe', 0))
+        c3.metric("EPS", s.get('eps', 0))
+
+        # 10 & 3. 技術指標圖表化
+        st.subheader("📉 技術指標趨勢")
+        tech_df = pd.DataFrame({
+            "指標": ["KD", "MACD", "RSI"],
+            "數值": [s.get('kd', 50), s.get('macd', 0), s.get('rsi', 50)]
+        })
+        fig = px.bar(tech_df, x="指標", y="數值", color="指標", title="技術指標現況")
+        st.plotly_chart(fig)
+
+        # 4. 法人籌碼趨勢圖
+        st.subheader("🏛️ 三大法人籌碼趨勢")
+        inst_data = s.get('institutional_data', [])
+        if inst_data:
+            df_inst = pd.DataFrame(inst_data)
+            fig_inst = px.line(df_inst, x="日期", y=["外資", "投信", "自營商"], title="近十日法人買賣超走勢")
+            st.plotly_chart(fig_inst)
+
+        # 5~9. 其餘欄位 (保持原邏輯)
+        st.subheader("🔮 AI 財報預測")
+        st.success(s.get('ai_prediction', '數據分析中...'))
+        
+        st.subheader("🦢 黑天鵝警示")
+        st.info(s.get('black_swan', '安全'))
+
+    else:
+        st.warning("請先執行 main_task.py 更新數據，或檢查代號是否正確。")
 
 if __name__ == "__main__":
     main()
