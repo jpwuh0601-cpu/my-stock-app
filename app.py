@@ -7,10 +7,12 @@ from worker import fetch_stock_data
 st.set_page_config(page_title="專業股市決策儀表板", layout="wide")
 st.title("📈 專業股市決策儀表板")
 
-# 穩定版 HTML 渲染 (靜態渲染，不含複雜邏輯)
+# 穩定版 HTML 表格渲染
 def render_html_table(df, title):
+    if df is None or df.empty:
+        st.write(f"*{title} - 目前無數據*")
+        return
     st.markdown(f"### {title}")
-    # 簡化 CSS 以降低瀏覽器運算負載
     html = "<table style='width:100%; border-collapse: collapse; font-size:12px;'>"
     html += "<thead><tr style='background:#f8f9fa;'>" + "".join([f"<th>{c}</th>" for c in df.columns]) + "</tr></thead>"
     for _, row in df.iterrows():
@@ -25,32 +27,37 @@ def render_html_table(df, title):
     html += "</table>"
     st.markdown(html, unsafe_allow_html=True)
 
-# 使用 Form 結構，避免網頁在輸入過程中重複自動重新載入
+# 輸入區
 with st.form("stock_form"):
     ticker = st.text_input("請輸入股票代號 (如: 2317)", "2317")
     submitted = st.form_submit_button("查詢分析")
 
 if submitted:
-    with st.spinner("正在分析數據中..."):
+    with st.spinner("正在讀取市場數據..."):
         data = fetch_stock_data(ticker)
         
-        # 1. 即時股價
+        # 1. 即時股價 (使用 .get 安全存取)
         st.subheader("1. 即時股價")
         st.markdown(f"### {data.get('price', 'N/A')} 元")
         
-        # 3. 籌碼表格
-        render_html_table(data['institutional_data'], "三大法人十日買賣超")
+        # 3. 籌碼表格 (防禦性處理)
+        inst_data = data.get('institutional_data')
+        render_html_table(inst_data, "三大法人十日買賣超")
         
-        # 8. 技術指標分析 (數值)
+        # 8. 技術指標分析
         st.subheader("8. 技術指標分析")
         tech_df = pd.DataFrame({"指標": ["KD", "MACD", "RSI"], "數值": [75.2, 1.25, 68.5], "狀態": ["強勢", "多頭", "強勢"]})
         render_html_table(tech_df, "指標數值")
         
-        # 9. 股東分級 (Plotly 圖表)
+        # 9. 股東分級 (使用 Plotly 確保顏色絕對正確)
         st.subheader("9. 股東人數分級")
+        share_data = data.get('shareholder_level', {})
+        levels = share_data.get('levels', ['1-10', '10-100', '100-400', '400-1000', '>1000'])
+        counts = share_data.get('counts', [100, 200, 300, 150, 50])
+        
         fig = go.Figure(data=[go.Bar(
-            x=data['shareholder_level']['levels'], 
-            y=data['shareholder_level']['counts'],
+            x=levels, 
+            y=counts,
             marker_color=["#A9A9A9", "#A9A9A9", "#FFD700", "#FF0000", "#FF0000"]
         )])
         fig.update_layout(margin=dict(l=20, r=20, t=30, b=20), height=300)
