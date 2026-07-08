@@ -20,22 +20,19 @@ jobs:
         with:
           python-version: '3.12'
           
-      - name: 安裝依賴套件
-        run: pip install yfinance requests pandas
-
-      - name: 執行數據更新
+      - name: 安裝並執行
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          # 尋找檔案位置
+          # 在同一個執行步驟中安裝套件，確保環境一致
+          python -m pip install --upgrade pip
+          pip install yfinance requests pandas
+          
+          # 尋找檔案位置並執行
           FILE_PATH=$(find . -name "main_task.py" -print -quit)
           
           if [ -n "$FILE_PATH" ]; then
-            echo "找到目標檔案: $FILE_PATH"
-            # 賦予執行權限
-            chmod +x "$FILE_PATH"
-            # 執行前再次確認路徑
-            echo "執行指令: python $FILE_PATH"
+            echo "正在執行: $FILE_PATH"
             python "$FILE_PATH"
           else
             echo "錯誤：找不到 main_task.py"
