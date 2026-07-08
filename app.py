@@ -18,7 +18,8 @@ def render_html_table(df, title):
         for col in df.columns:
             val = row[col]
             style = "padding:6px; border:1px solid #ddd;"
-            if col not in ["日期", "券商名稱"] and isinstance(val, (int, float)):
+            # 針對數據欄位標註顏色 (過濾掉非數字欄位)
+            if col not in ["日期", "券商名稱", "狀態"] and isinstance(val, (int, float)):
                 style += " color:" + ("red" if val > 0 else "green") + "; font-weight:bold;"
             html += f"<td style='{style}'>{val}</td>"
         html += "</tr>"
@@ -68,8 +69,15 @@ if st.button("查詢分析"):
         for k, v in data['black_swan'].items():
             st.warning(f"【{k}】{v}")
             
-        # 8. 技術指標 (KD, MACD, RSI)
-        st.subheader("8. 技術指標分析")
+        # 8. 技術指標分析 (數位與圖形化)
+        st.subheader("8. 技術指標分析 (數值與圖形)")
+        tech_df = pd.DataFrame({
+            "指標": ["KD (K值)", "KD (D值)", "MACD (柱狀)", "RSI (6日)", "RSI (12日)"],
+            "數值": [75.2, 70.1, 1.25, 68.5, 62.3],
+            "狀態": ["過熱", "強勢", "多頭擴張", "強勢", "強勢"]
+        })
+        render_html_table(tech_df, "技術指標數據分析")
+        
         fig = go.Figure()
         fig.add_trace(go.Scatter(y=[20, 45, 35, 70], name="KD指標"))
         fig.add_trace(go.Bar(y=[15, -10, 25, -15], name="MACD"))
