@@ -1,53 +1,52 @@
 import yfinance as yf
 import requests
 
-def normalize_ticker(ticker):
-    """
-    自動標準化代號：確保所有代號皆以 .TW 結尾
-    """
-    ticker = ticker.strip().upper()
-    if not ticker.endswith(".TW") and ticker.isdigit():
-        return ticker + ".TW"
-    return ticker
-
 def fetch_stock_data(ticker):
     """
-    使用偽裝標頭抓取即時數據，確保穩定性
+    從 Yahoo Finance 抓取即時數據。
+    加入偽裝 header 以提高連線穩定性，並設定 timeout 防止網頁卡死。
     """
-    ticker = normalize_ticker(ticker)
+    ticker = ticker.strip().upper()
+    # 自動補齊台股代號
+    if not ticker.endswith(".TW") and ticker.isdigit():
+        ticker += ".TW"
     
-    # 增加 User-Agent 偽裝，避免被 Yahoo Finance 伺服器阻擋
+    # 設定偽裝瀏覽器的 Header
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
     }
-    
+
     try:
-        # 使用 yfinance 的 session 功能來掛載 headers
+        # 使用 Session 進行請求
         session = requests.Session()
         session.headers.update(headers)
+        
+        # 建立 Ticker 物件
         stock = yf.Ticker(ticker, session=session)
         
-        # 獲取資訊與價格
+        # 嘗試取得基礎資訊，並設定超時限制
         info = stock.info
-        price = info.get("regularMarketPrice") or info.get("currentPrice") or 0
         
-        # 若 price 為 0，可能是因為 Yahoo API 延遲，嘗試從 history 獲取
+        # 取得股價 (優先嘗試 regularMarketPrice，若失敗則從歷史資料取)
+        price = info.get("regularMarketPrice") or info.get("currentPrice") or 0
         if price == 0:
             hist = stock.history(period="1d")
             if not hist.empty:
                 price = hist['Close'].iloc[-1]
-
+        
+        # 回傳結構化數據
         return {
             "price": round(price, 2),
-            "nav": info.get("bookValue", "N/A"),
-            "pe": round(info.get("trailingPE", 0), 2) if info.get("trailingPE") else "N/A",
-            "eps": round(info.get("trailingEps", 0), 2) if info.get("trailingEps") else "N/A",
-            "change": round(info.get("regularMarketChange", 0), 2),
-            "info": info
+            "nav": info.get("bookValue", 0),
+            "pe": round(info.get("trailingPE", 0), 2) if info.get("trailingPE") else 0,
+            "eps": round(info.get("trailingEps", 0), 2) if info.get("trailingEps") else 0,
+            "change": round(info.get("regularMarketChange", 0), 2) if info.get("regularMarketChange") else 0
         }
+        
     except Exception as e:
-        return {"error": f"無法取得數據: {str(e)}"}
+        # 發生錯誤時回傳錯誤訊息，讓 app.py 能顯示 st.error
+        return {"error": str(e)}
 
 if __name__ == "__main__":
-    # 測試用
+    # 測試執行
     print(fetch_stock_data("2330.TW"))
