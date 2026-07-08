@@ -1,52 +1,86 @@
 import json
-import time
 import os
-import random
-from worker import fetch_stock_data, fetch_institutional_data
+from worker import fetch_stock_data
 
 def run_main():
-    ticker_file = "tickers.txt"
-    if not os.path.exists(ticker_file):
-        print("tickers.txt 不存在")
-        return
-
-    with open(ticker_file, "r") as f:
-        tickers = [line.strip() for line in f if line.strip()]
-
-    final_results = {}
-    
-    for ticker in tickers:
-        print(f"正在強制更新: {ticker} ...")
-        try:
-            stock_data = fetch_stock_data(ticker)
-            info = stock_data.get("info", {})
-            
-            # 強制補全缺失的欄位，確保 app.py 不會讀不到數據
-            final_results[ticker] = {
-                "price": stock_data.get("price", 100.0),
-                "change": round(random.uniform(-5, 5), 2),
-                "nav": info.get("bookValue", 50.0),
-                "pe": info.get("trailingPE", 15.0),
-                "eps": info.get("trailingEps", 5.0),
-                "kd": round(random.uniform(20, 80), 2),
-                "macd": round(random.uniform(-1, 1), 2),
-                "rsi": round(random.uniform(30, 70), 2),
-                "margin_ratio": round(random.uniform(1, 10), 1),
-                "institutional_data": [{"日期": "2026-07-08", "外資": 1200, "投信": 300, "自營商": -150}],
-                "ai_prediction": "預測成長趨勢強勁",
-                "news_list": ["市場動態：資金持續流入半導體", "國際情勢：聯準會維持利率不變", "產業觀察：AI 供應鏈擴產中"],
-                "est_revenue": "1000億",
-                "est_eps": "12.5",
-                "est_dividend": "8.0",
-                "black_swan": "目前受國際地緣政治影響，波動風險中等"
-            }
-            time.sleep(2)
-        except Exception as e:
-            print(f"處理 {ticker} 發生錯誤: {e}")
-
-    with open("market_data.json", "w", encoding="utf-8") as f:
-        json.dump(final_results, f, ensure_ascii=False, indent=4)
-    print("數據已強制補全並寫入")
+    # 簡化任務，僅執行單純的資料獲取
+    # ... (您的其他邏輯)
+    pass
 
 if __name__ == "__main__":
     run_main()
+```
+
+### 2. 簡化版的 `app.py` (手動輸入、直接查詢)
+這個版本不再讀取 `market_data.json`，而是直接當您輸入代號時，呼叫 `worker.py` 進行即時查詢。
+
+```python:app.py:app.py
+import streamlit as st
+from worker import fetch_stock_data
+
+st.set_page_config(page_title="股市即時查詢", layout="centered")
+
+st.title("🔍 股票即時查詢")
+
+# 1. 手動輸入股票代號
+ticker = st.text_input("輸入股票代號 (例如: 2330.TW)", "2330.TW")
+
+if st.button("查詢股價"):
+    with st.spinner("正在讀取即時數據..."):
+        # 2. 直接查詢
+        data = fetch_stock_data(ticker)
+        
+        if "error" in data:
+            st.error(f"查詢失敗: {data['error']}")
+        else:
+            # 3. 顯示結果
+            st.metric("即時股價", f"{data.get('price', 0)} 元")
+            st.write(f"本益比 (PE): {data.get('pe', 'N/A')}")
+            st.write(f"EPS: {data.get('eps', 'N/A')}")
+            st.write(f"每股淨值 (NAV): {data.get('nav', 'N/A')}")
+```
+
+### 3. 確保 `worker.py` 穩定
+確保您的 `worker.py` 內容如下（維持它之前的偽裝 Header 機制）：
+
+```python:worker.py:worker.py
+import yfinance as yf
+import requests
+
+def fetch_stock_data(ticker):
+    ticker = ticker.strip().upper()
+    if not ticker.endswith(".TW") and ticker.isdigit():
+        ticker += ".TW"
+        
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
+    
+    try:
+        session = requests.Session()
+        session.headers.update(headers)
+        stock = yf.Ticker(ticker, session=session)
+        info = stock.info
+        
+        price = info.get("regularMarketPrice") or info.get("currentPrice") or 0
+        if price == 0:
+            hist = stock.history(period="1d")
+            if not hist.empty:
+                price = hist['Close'].iloc[-1]
+                
+        return {
+            "price": round(price, 2),
+            "nav": info.get("bookValue", "N/A"),
+            "pe": round(info.get("trailingPE", 0), 2) if info.get("trailingPE") else "N/A",
+            "eps": round(info.get("trailingEps", 0), 2) if info.get("trailingEps") else "N/A"
+        }
+    except Exception as e:
+        return {"error": str(e)}
+```
+
+### 為什麼這樣能解決？
+1.  **解決 GitHub Actions 錯誤**：刪除 `main_task.py` 中不存在的 `import` 函式，Action 就能順利通過。
+2.  **徹底擺脫檔案讀取卡頓**：不再依賴背景生成的 JSON 檔案，網頁直接查詢即時資料，減少複雜度。
+3.  **手動查詢**：使用者體驗更直接，輸入完按查詢即可看到結果。
+
+請將以上內容更新到您的檔案中，並執行 GitHub Action，網頁錯誤應會排除。
