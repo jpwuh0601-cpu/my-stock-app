@@ -1,46 +1,45 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import time
 
-# 頁面配置 (必須在最上方)
+# 1. 頁面設定 (必須最優先)
 st.set_page_config(page_title="股市儀表板", layout="wide")
 
+# 2. 核心 UI 區塊函數 (分拆函數以利懶加載)
+def show_price_section(ticker):
+    st.subheader(f"1. 即時股價: {ticker}")
+    # 模擬數據：改用 st.metric 並使用顏色參數
+    st.metric(label="股價", value="250.5", delta="2.5 (紅漲)")
+
+def show_fundamental_section():
+    st.subheader("2. 基本面數據")
+    cols = st.columns(3)
+    cols[0].metric("每股淨額", "45.2")
+    cols[1].metric("本益比", "18.5")
+    cols[2].metric("EPS", "8.2")
+
+# 3. 主架構
 st.title("📈 專業股市決策儀表板")
 
-# 模擬數據生成函數
-def get_mock_data(ticker):
-    # 這裡未來可改為 worker.fetch_stock_data(ticker)
-    return {
-        "price": 100.0,
-        "change": 2.5,
-        "nav": 50.0,
-        "pe": 15.0,
-        "eps": 5.0
-    }
+# 側邊欄控制
+ticker = st.sidebar.text_input("輸入股票代號 (如: 2330.TW)", "2330.TW")
 
-# 側邊欄與主要輸入
-ticker = st.sidebar.text_input("輸入股票代號", "2330")
+# 使用標籤頁機制 (這是防止轉圈的關鍵)
+tab1, tab2, tab3 = st.tabs(["即時股價與基本面", "籌碼與新聞", "技術指標與警示"])
 
-if st.sidebar.button("查詢分析"):
-    with st.spinner("載入資料中..."):
-        data = get_mock_data(ticker)
-        
-        # 1. 即時股價 (紅漲綠跌)
-        st.subheader(f"即時數據: {ticker}")
-        color = "red" if data['change'] >= 0 else "green"
-        st.markdown(f"### 股價: {data['price']} | 漲跌: :{color}[{data['change']}]")
-        
-        # 2. 基本面資訊
-        c1, c2, c3 = st.columns(3)
-        c1.metric("每股淨額", data['nav'])
-        c2.metric("本益比", data['pe'])
-        c3.metric("EPS", data['eps'])
+with tab1:
+    if st.button("查詢分析"):
+        with st.spinner("正在讀取資料..."):
+            show_price_section(ticker)
+            show_fundamental_section()
+    else:
+        st.info("請在側邊欄輸入代號並點擊「查詢分析」")
 
-        # 3. 法人籌碼 (簡化版，避免過大記憶體消耗)
-        st.markdown("### 三大法人買賣超")
-        df = pd.DataFrame(np.random.randint(-100, 100, (5, 3)), columns=["外資", "投信", "自營商"])
-        st.dataframe(df.style.map(lambda x: 'color: red' if x > 0 else 'color: green'))
+with tab2:
+    st.markdown("### 三大法人與券商買賣超")
+    st.write("點擊查詢後，數據將顯示在此...")
 
-        st.success("數據載入完成。")
-else:
-    st.info("請在左側輸入代號並點擊查詢。")
+with tab3:
+    st.markdown("### 黑天鵝警示與技術分析")
+    st.write("點擊查詢後，數據將顯示在此...")
