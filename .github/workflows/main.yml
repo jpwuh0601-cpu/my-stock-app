@@ -11,20 +11,30 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v3
+      
       - uses: actions/setup-python@v4
         with:
           python-version: '3.12'
-      - run: pip install yfinance requests pandas
+          
+      - name: 安裝依賴套件
+        run: pip install yfinance requests pandas
 
-      # 執行數據更新
-      - run: python main_task.py
+      # 增加執行前檢查，確保 main_task.py 存在且可執行
+      - name: 執行數據更新
+        run: |
+          if [ -f "main_task.py" ]; then
+            python main_task.py
+          else
+            echo "錯誤：找不到 main_task.py，請檢查檔案路徑。"
+            exit 1
+          fi
       
       - name: 推送數據至 GitHub
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 1. 強制拉取遠端最新變更並使用 rebase 模式，確保本地紀錄為線性
+          # 1. 強制拉取遠端最新變更並使用 rebase 模式
           git fetch origin main
           git rebase origin/main
           
