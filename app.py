@@ -1,56 +1,42 @@
 import streamlit as st
-import json
-import os
-import pandas as pd
+from worker import fetch_stock_data
 
+# 頁面配置
 st.set_page_config(page_title="專業股市決策儀表板", layout="centered")
 
-def load_data():
-    """只讀取本地檔案，絕不觸發網路請求"""
-    if os.path.exists("market_data.json"):
-        try:
-            with open("market_data.json", "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception as e:
-            st.error(f"檔案讀取錯誤: {e}")
-            return {}
-    return {}
+st.title("📈 專業股市決策儀表板")
 
-def main():
-    st.title("📈 專業股市決策儀表板")
-    
-    # 讀取本地資料
-    data = load_data()
-    
-    # 取得代號列表
-    tickers = list(data.keys()) if data else []
-    
-    st.subheader("🛠️ 決策標的選擇")
-    ticker = st.selectbox("請選擇您的自選股", tickers if tickers else ["無數據"])
-    
-    if st.button("確定選股查詢"):
-        st.session_state.current_ticker = ticker
-    
-    target = st.session_state.get("current_ticker", ticker if tickers else None)
-    
-    if target and target in data:
-        s = data[target]
-        st.subheader(f"📊 決策報告：{target}")
-        
-        # 顯示各項數據
-        st.metric("即時股價", s.get('price', 0))
-        c1, c2, c3 = st.columns(3)
-        c1.metric("每股淨值", s.get('nav', 0))
-        c2.metric("本益比", s.get('pe', 0))
-        c3.metric("EPS", s.get('eps', 0))
-        
-        # 顯示警示與新聞
-        st.subheader("📰 市場動態與警示")
-        st.info(f"地緣政治警示: {s.get('black_swan', '目前安全')}")
-        st.success(f"AI 財報預測: {s.get('ai_prediction', '分析中...')}")
-        
-    else:
-        st.warning("目前沒有數據。請檢查 market_data.json 是否已存在，或執行 main_task.py 更新數據。")
+# 決策標的輸入區：提供預設值
+ticker_input = st.text_input("輸入股票代號 (例如: 2330.TW)", "2330.TW")
 
-if __name__ == "__main__":
-    main()
+# 快取機制：點擊查詢時才觸發，避免頁面重新整理時重複呼叫
+@st.cache_data(ttl=600)
+def get_data(ticker):
+    return fetch_stock_data(ticker)
+
+if st.button("查詢分析數據"):
+    with st.spinner("正在連線 Yahoo Finance 獲取即時數據..."):
+        # 直接呼叫 worker.py 中的 fetch_stock_data
+        data = get_data(ticker_input)
+        
+        # 顯示狀態與數據
+        if "error" in data:
+            st.error(f"查詢失敗: {data['error']}")
+        else:
+            st.subheader(f"決策報告：{ticker_input.upper()}")
+            
+            # 儀表板指標區塊
+            col1, col2, col3 = st.columns(3)
+            col1.metric("即時股價", data.get('price', 0))
+            col2.metric("每股淨值", data.get('nav', 0))
+            col3.metric("本益比", data.get('pe', 0))
+            
+            st.write(f"每股盈餘 (EPS): {data.get('eps', 0)}")
+            st.write(f"今日漲跌幅: {data.get('change', 0)}")
+            
+            st.success("數據已即時更新。")
+            st.info("註：本系統現已轉為手動即時查詢模式，完全不再依賴背景檔案，運作將非常穩定。")
+
+# 底部頁腳說明
+st.markdown("---")
+st.caption("本儀表板專為台灣股市設計，數據源為 Yahoo Finance 即時行情。")
