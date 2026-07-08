@@ -54,7 +54,8 @@ def main():
         # 3. 季報表與技術指標
         st.subheader("📊 季報表與技術指標 (KD, MACD, RSI)")
         if st.checkbox("顯示報表數據"):
-            tech_data = {"指標": ["KD", "MACD", "RSI"], "數值": [s.get('kd', 'N/A'), s.get('macd', 'N/A'), s.get('rsi', 'N/A')]}
+            # 加入安全性檢查，若欄位不存在則使用空值
+            tech_data = {"指標": ["KD", "MACD", "RSI"], "數值": [s.get('kd', '無數據'), s.get('macd', '無數據'), s.get('rsi', '無數據')]}
             st.table(pd.DataFrame(tech_data))
 
         # 4. 三大法人十日買賣超
@@ -63,17 +64,21 @@ def main():
         if isinstance(inst_data, list) and len(inst_data) > 0:
             st.dataframe(pd.DataFrame(inst_data))
         else:
-            st.write("尚無籌碼數據")
+            st.info("暫無法人籌碼數據")
 
         # 5. 10日資券比與主力券商買賣超
         st.subheader("📊 10日資券與主力券商買賣超")
-        st.write(f"10日資券比: {s.get('margin_ratio', 0)}%")
+        st.write(f"10日資券比: {s.get('margin_ratio', '無數據')}%")
         st.write("主力券商買賣超資訊已同步更新")
 
         # 8. 即時新聞 (抓取3條)
         st.subheader("📰 即時股市新聞")
-        for n in s.get("news_list", [])[:3]:
-            st.info(f"{n}")
+        news = s.get("news_list", [])
+        if news:
+            for n in news[:3]:
+                st.info(f"{n}")
+        else:
+            st.write("目前無相關新聞")
 
         # 6. AI 財報預測與自動回測
         st.subheader("🔮 AI 綜合財報與營收預測")
@@ -94,7 +99,7 @@ def main():
             st.toast("通知功能已觸發")
 
     else:
-        st.warning("查無此代號數據，請確認 market_data.json 是否已包含該股票資訊。")
+        st.warning(f"查無 {ticker} 代號數據，請確認 market_data.json 是否已包含該股票資訊。")
 
 if __name__ == "__main__":
     main()
