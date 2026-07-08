@@ -1,41 +1,10 @@
 name: Daily Stock Analysis
-
 on:
-workflow_dispatch:
-schedule:
-- cron: '0 0 * * *'
+  workflow_dispatch:
 
 jobs:
-build:
-runs-on: ubuntu-latest
-permissions:
-contents: write
-steps:
-- name: 檢出儲存庫
-uses: actions/checkout@v3
-
-  - name: 設定 Python 環境
-    uses: actions/setup-python@v4
-    with:
-      python-version: '3.12'
-      
-  - name: 安裝依賴套件
-    run: pip install yfinance requests pandas
-
-  - name: 執行數據更新任務
-    run: |
-      python main_task.py
-
-  - name: 推送數據更新
-    run: |
-      git config --global user.name "github-actions[bot]"
-      git config --global user.email "github-actions[bot]@users.noreply.github.com"
-      
-      # 檢查是否有檔案變更
-      if [ -n "$(git status --porcelain)" ]; then
-        git add market_data.json
-        git commit -m "chore: auto-update market_data.json"
-        git push
-      else
-        echo "沒有數據變更，無需推送。"
-      fi
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 測試偵測
+        run: echo "Workflow 偵測成功"
