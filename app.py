@@ -1,43 +1,56 @@
 import streamlit as st
-import random
-from worker import fetch_stock_data
+import json
+import os
+import pandas as pd
 
-# 智慧型參考價格表 (當網路抓取失敗時使用)
-REALISTIC_BASE_PRICES = {
-    "2330.TW": 750, "2317.TW": 200, "2454.TW": 950,
-    "1301.TW": 60,  "6770.TW": 150, "1504.TW": 40
-}
+st.set_page_config(page_title="專業股市決策儀表板", layout="centered")
 
-def get_fallback_data(ticker):
-    price = REALISTIC_BASE_PRICES.get(ticker, 100) # 預設給 100 元
-    return {
-        "price": price, 
-        "change": round(random.uniform(-1, 1), 2),
-        "nav": round(price * 0.8), 
-        "pe": round(random.uniform(10, 25), 1), 
-        "eps": round(price * 0.05, 1),
-        "status": "simulated"
-    }
+def load_data():
+    """只讀取本地檔案，絕不觸發網路請求"""
+    if os.path.exists("market_data.json"):
+        try:
+            with open("market_data.json", "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            st.error(f"檔案讀取錯誤: {e}")
+            return {}
+    return {}
 
-st.title("📈 專業股市決策儀表板")
-
-# 選擇器
-ticker_input = st.text_input("輸入股票代號 (例: 1301):", "1301")
-if st.button("查詢"):
-    ticker = f"{ticker_input}.TW" if "." not in ticker_input else ticker_input
+def main():
+    st.title("📈 專業股市決策儀表板")
     
-    with st.spinner("載入中..."):
-        data = fetch_stock_data(ticker)
+    # 讀取本地資料
+    data = load_data()
+    
+    # 取得代號列表
+    tickers = list(data.keys()) if data else []
+    
+    st.subheader("🛠️ 決策標的選擇")
+    ticker = st.selectbox("請選擇您的自選股", tickers if tickers else ["無數據"])
+    
+    if st.button("確定選股查詢"):
+        st.session_state.current_ticker = ticker
+    
+    target = st.session_state.get("current_ticker", ticker if tickers else None)
+    
+    if target and target in data:
+        s = data[target]
+        st.subheader(f"📊 決策報告：{target}")
         
-        if "error" in data:
-            st.warning(f"目前無法即時連線 (使用模擬數據模式): {data['error']}")
-            s = get_fallback_data(ticker)
-        else:
-            s = data
-            st.success("✅ 已載入即時市場行情")
+        # 顯示各項數據
+        st.metric("即時股價", s.get('price', 0))
+        c1, c2, c3 = st.columns(3)
+        c1.metric("每股淨值", s.get('nav', 0))
+        c2.metric("本益比", s.get('pe', 0))
+        c3.metric("EPS", s.get('eps', 0))
+        
+        # 顯示警示與新聞
+        st.subheader("📰 市場動態與警示")
+        st.info(f"地緣政治警示: {s.get('black_swan', '目前安全')}")
+        st.success(f"AI 財報預測: {s.get('ai_prediction', '分析中...')}")
+        
+    else:
+        st.warning("目前沒有數據。請檢查 market_data.json 是否已存在，或執行 main_task.py 更新數據。")
 
-    # 顯示數據
-    st.metric("即時股價", f"{s['price']} 元")
-    st.write(f"數據來源: {'即時行情' if s.get('status') == 'live' else '行情參考值'}")
-    
-    # ... 其餘顯示代碼保持原樣 ...
+if __name__ == "__main__":
+    main()
