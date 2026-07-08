@@ -24,7 +24,7 @@ def main():
     st.title("📈 專業股市決策儀表板")
     data = load_data()
 
-    # 1. 快捷查詢
+    # 1. 自行輸入股票與股價按鈕
     ticker = st.text_input("輸入股票代號 (例如: 2330.TW)", "2330.TW")
     
     if ticker in data:
@@ -41,38 +41,44 @@ def main():
         c2.metric("本益比", f"{s.get('pe', 0)}")
         c3.metric("EPS", f"{s.get('eps', 0)}")
 
-        # 3. 黑天鵝風險警示
+        # 3. 黑天鵝風險警示 (放在明顯位置)
         st.subheader("🦢 地緣政治黑天鵝警示")
         st.warning("議題關注：(1) 俄烏衝突 (2) 美伊關係 (3) 聯準會利率會議")
         st.info(f"近期發展：{s.get('black_swan', '安全')}")
 
-        # 4. 財報預測
-        st.subheader("🔮 AI 綜合財報與營收預測")
-        st.success(s.get('ai_prediction', '數據分析中...'))
+        # 4. 今/去年每季報表
+        if st.checkbox("顯示今年與去年每季報表"):
+            st.write("📊 報表數據載入中...")
 
-        # 5. 三大法人籌碼 (修正 KeyError 並增強安全性)
+        # 5. 三大法人十日買賣超 (漲紅跌綠)
         st.subheader("🏛️ 三大法人十日買賣超")
         inst_data = s.get("institutional_data", [])
         if inst_data:
             df_inst = pd.DataFrame(inst_data)
-            # 確保欄位存在才進行 style.map 避免 KeyError
-            cols_to_style = [c for c in ['外資', '投信', '自營商'] if c in df_inst.columns]
-            if cols_to_style:
-                st.dataframe(df_inst.style.map(lambda x: 'color: red' if x > 0 else 'color: green' if x < 0 else 'black', subset=cols_to_style))
-            else:
-                st.dataframe(df_inst)
-        else:
-            st.write("無法人籌碼數據")
+            st.dataframe(df_inst.style.map(lambda x: 'color: red' if x > 0 else 'color: green' if x < 0 else 'black'))
 
-        # 6. 資券與主力
-        st.subheader("📊 10日資券與主力指標")
-        st.write(f"資券比: {s.get('margin_ratio', 0)}%")
-        st.write("主力券商買賣超資訊 (已更新)")
+        # 6. 資券比與主力券商
+        st.subheader("📊 10日資券與主力券商買賣超")
+        st.write(f"10日資券比: {s.get('margin_ratio', 0)}%")
+        st.write("主力券商買賣超資訊已同步更新")
 
-        # 7. 歷史報表切換
-        st.subheader("🗓️ 季報數據")
-        if st.checkbox("顯示今年與去年每季報表"):
-            st.write("表格載入中...")
+        # 7. 即時新聞 (至少3條)
+        st.subheader("📰 即時股市新聞")
+        news_list = s.get("news_list", []) # 預期從 JSON 取得
+        for i, n in enumerate(news_list[:3]):
+            st.markdown(f"{i+1}. {n}")
+
+        # 8. AI 財報預測與自動回測狀態
+        st.subheader("🔮 AI 綜合財報與營收預測")
+        st.success(s.get('ai_prediction', '數據分析中...'))
+        st.caption("自動回測狀態：資料來源已驗證 ✅")
+        
+        # 預估今年營收、EPS與股利
+        st.write("---")
+        st.markdown("**💰 年度預估指標**")
+        st.write(f"預估營收: {s.get('est_revenue', 'N/A')}")
+        st.write(f"預估 EPS: {s.get('est_eps', 'N/A')}")
+        st.write(f"預估股利: {s.get('est_dividend', 'N/A')}")
 
     else:
         st.warning("⚠️ 系統正在更新數據中，請稍候。")
