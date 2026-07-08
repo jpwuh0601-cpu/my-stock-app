@@ -18,7 +18,7 @@ if st.button("查詢分析數據"):
         if "error" in data:
             st.error(f"資料獲取失敗: {data['error']}")
         else:
-            # 即時股價漲跌邏輯
+            # 即時股價漲跌邏輯 (漲紅跌綠)
             price = data.get('price', 0)
             change = data.get('change', 0)
             color = "red" if change >= 0 else "green"
@@ -26,7 +26,7 @@ if st.button("查詢分析數據"):
             
             st.subheader(f"決策報告：{ticker_input.upper()}")
             
-            # 顯示即時股價 (使用 HTML 確保漲紅跌綠穩定顯示)
+            # 即時股價顯示
             st.markdown(f"""
             ### 即時股價: {price} 
             <div style="font-size: 24px; font-weight: bold; color: {color};">
@@ -48,14 +48,18 @@ if st.button("查詢分析數據"):
             st.markdown("### 4. 三大法人十日買賣超")
             st.table(pd.DataFrame({"外資": [1000]*10, "投信": [200]*10, "自營商": [-50]*10}))
 
-            # 5. 十大主力券商 (修正後的穩定版寫法)
+            # 5. 十大主力券商 (HTML 穩定版)
             st.markdown("### 5. 十大主力券商近十日買賣超明細")
             brokers = ["元大", "凱基", "富邦", "永豐金", "國泰", "群益", "元富", "華南永昌", "兆豐", "統一"]
             values = [500, -200, 300, -100, 150, -300, 200, -50, 400, -100]
             
-            # 將數值轉換為帶顏色的 HTML 標籤顯示，完全避免 TypeError
-            broker_df = pd.DataFrame({'券商名稱': brokers, '買賣超(張)': [f"<span style='color:{'red' if v > 0 else 'green'}'>{v}</span>" for v in values]})
-            st.write(broker_df.to_html(escape=False, index=False), unsafe_allow_html=True)
+            html_table = "<table style='width:100%; border-collapse: collapse;'>"
+            html_table += "<tr><th style='text-align:left;'>券商名稱</th><th style='text-align:left;'>買賣超(張)</th></tr>"
+            for b, v in zip(brokers, values):
+                color = "red" if v > 0 else "green"
+                html_table += f"<tr><td>{b}</td><td style='color:{color}; font-weight:bold;'>{v}</td></tr>"
+            html_table += "</table>"
+            st.markdown(html_table, unsafe_allow_html=True)
 
             # 6 & 7. AI 預測與自動回測
             st.markdown("### 6 & 7. AI 預測與營收預估")
