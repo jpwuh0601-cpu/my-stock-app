@@ -2,24 +2,29 @@ import streamlit as st
 import pandas as pd
 import json
 import os
+import plotly.graph_objects as go
+import plotly.express as px
 
 st.set_page_config(page_title="專業股市決策儀表板", layout="wide")
 st.title("📈 專業股市決策儀表板")
 
-# 1. 穩定的 HTML 渲染函式，防止 Streamlit 表格崩潰
-def render_html_table(df, title):
+def load_data():
+    if os.path.exists("market_data.json"):
+        with open("market_data.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+# 渲染法人/券商表格
+def render_styled_table(df, title):
     st.markdown(f"### {title}")
-    # 強制壓平索引，解決 MultiIndex 錯誤
-    df = df.reset_index()
-    # 將數值轉為紅色或綠色 HTML
+    df = df.reset_index(drop=True)
     html = "<table style='width:100%; border-collapse: collapse; text-align: center;'>"
     html += "<tr>" + "".join([f"<th style='padding:8px; border:1px solid #ddd; background:#f4f4f4;'>{c}</th>" for c in df.columns]) + "</tr>"
     for _, row in df.iterrows():
         html += "<tr>"
         for col in df.columns:
             val = row[col]
-            # 漲紅綠跌判斷
-            if isinstance(val, (int, float)) and col != "日期" and col != "券商名稱":
+            if isinstance(val, (int, float)) and col != "日期":
                 color = "red" if val > 0 else "green"
                 html += f"<td style='padding:8px; border:1px solid #ddd; color:{color}; font-weight:bold;'>{val}</td>"
             else:
@@ -28,38 +33,49 @@ def render_html_table(df, title):
     html += "</table>"
     st.markdown(html, unsafe_allow_html=True)
 
-# 載入數據邏輯
-def load_data():
-    if os.path.exists("market_data.json"):
-        with open("market_data.json", "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}
-
-ticker_input = st.sidebar.text_input("輸入股票代號", "2330.TW")
+data = load_data()
+ticker = st.sidebar.text_input("輸入股票代號", "2330.TW")
 
 if st.sidebar.button("查詢分析"):
-    data = load_data()
-    if ticker_input in data:
-        info = data[ticker_input]
+    if ticker in data:
+        info = data[ticker]
         
-        # 1. 股價與漲跌 (滿足第1點)
-        st.metric(label="即時股價", value=info.get('price', 0), delta=f"{info.get('change', 0)}")
+        # 1. 即時股價
+        st.metric("即時股價", info['price'], f"{info['change']} 元")
         
-        # 2. 基本面 (滿足第2點)
+        # 2. 基本面數據
         c1, c2, c3 = st.columns(3)
-        c1.metric("每股淨值", info.get('nav', 0))
-        c2.metric("本益比", info.get('pe', 0))
-        c3.metric("EPS", info.get('eps', 0))
+        c1.metric("每股淨值", info['nav'])
+        c2.metric("本益比", info['pe'])
+        c3.metric("EPS", info['eps'])
         
-        # 3. 法人表格 (滿足第3點)
-        if "institutional_data" in info:
-            df_inst = pd.DataFrame(info["institutional_data"])
-            render_html_table(df_inst, "三大法人十日買賣超")
+        # 3. 報表與籌碼
+        st.subheader("3. 財務與籌碼報表")
+        st.write(f"季報摘要: {info['quarterly_reports']}")
+        render_styled_table(pd.DataFrame(info["institutional_data"]), "三大法人買賣超 (10日)")
         
-        # 4. AI 財報與自動回測 (滿足第4點)
-        st.markdown("### AI 財報分析與回測")
-        st.success("系統狀態：回測成功，資料來源正確")
-        st.write(info.get("ai_prediction", "分析服務連線中..."))
+        # 4 & 5. AI 與預估數據
+        col_a, col_b = st.columns(2)
+        col_a.success(f"AI財報預測: {info['ai_prediction']}")
+        col_b.warning(f"營收與股利: {info['revenue_forecast']}")
+        
+        # 6, 7 & 10. 新聞與黑天鵝
+        st.subheader("即時新聞與風險警示")
+        st.markdown(f"**📰 即時新聞**: {info['news']}")
+        st.error(f"⚠️ 黑天鵝警示: {info['black_swan']}")
+        
+        # 8. 技術指標圖形化
+        st.subheader("8. 技術指標")
+        tech_df = pd.DataFrame([info['tech_indicators']])
+        st.bar_chart(tech_df)
+        
+        # 9. 股東結構 (柱狀體)
+        st.subheader("9. 股東結構分析")
+        sh_data = info['shareholder_structure']
+        # 定義顏色對應
+        colors = ['gray', 'yellow', 'red']
+        df_sh = pd.DataFrame(list(sh_data.values()), index=list(sh_data.keys()), columns=['持股比例'])
+        st.bar_chart(df_sh)
         
     else:
-        st.error("查無此股票代號數據，請檢查 market_data.json")
+        st.error("查無此股票代號數據")
