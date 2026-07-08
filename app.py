@@ -1,43 +1,58 @@
 import streamlit as st
 import json
 import os
+import pandas as pd
 
-# 診斷：設定頁面配置並確保錯誤能顯示在螢幕上
+# 設置頁面
 st.set_page_config(page_title="股市系統", layout="centered")
+
+def load_data():
+    """ 安全載入 JSON，若失敗則回傳空字典 """
+    if not os.path.exists("market_data.json"):
+        return {"error": "檔案不存在"}
+    try:
+        with open("market_data.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        return {"error": f"讀取失敗: {str(e)}"}
 
 def main():
     st.title("📈 股市決策儀表板")
     
-    # Debug: 檢查檔案是否存在
-    data_file = "market_data.json"
-    if not os.path.exists(data_file):
-        st.error(f"錯誤: {data_file} 找不到。請確保該檔案在專案根目錄。")
+    # 載入資料
+    data = load_data()
+    
+    if isinstance(data, dict) and "error" in data:
+        st.error(data["error"])
         return
 
-    # Debug: 嘗試載入資料
-    try:
-        with open(data_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except Exception as e:
-        st.error(f"JSON 解析錯誤: {e}")
-        return
+    # 簡單的搜尋 UI
+    ticker_input = st.text_input("輸入股票代號 (例如: 2330.TW)", "2330.TW")
+    
+    if st.button("確認查詢"):
+        st.session_state.current_ticker = ticker_input
 
-    # 介面顯示
-    ticker_input = st.text_input("輸入股票代號", "2330.TW")
-    if st.button("查詢股價"):
-        if ticker_input in data:
-            st.session_state.current_ticker = ticker_input
-        else:
-            st.warning(f"找不到代號: {ticker_input}")
+    target = st.session_state.get("current_ticker", ticker_input)
 
-    # 顯示內容
-    ticker = st.session_state.get("current_ticker", ticker_input)
-    if ticker in data:
-        st.success(f"已載入 {ticker}")
-        s = data[ticker]
-        st.metric("即時股價", s.get('price', 0), delta=s.get('change', 0))
+    if target in data:
+        st.success(f"正在顯示: {target}")
+        s = data[target]
+        
+        # 1. 即時股價 (漲紅跌綠)
+        change = s.get('change', 0)
+        color = "red" if change >= 0 else "green"
+        st.markdown(f"### 即時股價: <span style='color:{color}'>{s.get('price', 'N/A')}</span>", unsafe_allow_html=True)
+        
+        # 2. 基本資訊
+        cols = st.columns(3)
+        cols[0].metric("每股淨值", s.get('nav', 0))
+        cols[1].metric("本益比", s.get('pe', 0))
+        cols[2].metric("EPS", s.get('eps', 0))
+        
+        st.write("---")
+        st.write("資料已成功載入，更多詳細指標請參考後續頁面。")
     else:
-        st.info("請輸入代號並點擊查詢。")
+        st.info("請輸入代號並點擊確認查詢。")
 
 if __name__ == "__main__":
     main()
