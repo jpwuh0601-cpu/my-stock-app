@@ -1,54 +1,45 @@
 import yfinance as yf
 import requests
+import pandas as pd
+from datetime import datetime, timedelta
 
 def fetch_stock_data(ticker):
     """
-    獲取股市資料的穩定版函式：
-    1. 自動標準化股票代號格式 (確保 .TW 結尾)
-    2. 加入 Header 模擬瀏覽器，防止 Yahoo 封鎖請求
-    3. 完整的錯誤處理機制，避免網頁崩潰
+    擴充後的資料獲取：包含股價基本面與模擬法人籌碼數據
     """
-    # 1. 代號標準化：確保代號符合 Yahoo Finance 規範
     ticker = ticker.strip().upper()
-    if not ticker.endswith(".TW") and not ticker.endswith(".TWO"):
-        if ticker.isdigit():
-            ticker += ".TW"
+    if not ticker.endswith(".TW") and not ticker.endswith(".TWO") and ticker.isdigit():
+        ticker += ".TW"
     
-    # 2. 模擬真實請求 Header
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
-
+    headers = {"User-Agent": "Mozilla/5.0"}
     try:
-        # 使用 Session 管理請求，提高連線穩定度
         session = requests.Session()
         session.headers.update(headers)
-        
-        # 建立 Ticker 物件
         stock = yf.Ticker(ticker, session=session)
-        
-        # 獲取資訊 (info 可能會觸發網路請求)
         info = stock.info
         
-        # 3. 檢查資料有效性
-        if not info or ("regularMarketPrice" not in info and "currentPrice" not in info):
-            return {"error": f"無法找到代號 {ticker} 的數據，請檢查代號是否正確。"}
-            
-        # 提取資料並進行型別安全轉換
-        price = info.get("regularMarketPrice") or info.get("currentPrice") or 0
-        
-        return {
-            "price": round(float(price), 2),
+        # 基本面數據
+        data = {
+            "price": round(float(info.get("currentPrice") or info.get("regularMarketPrice") or 0), 2),
             "nav": round(float(info.get("bookValue", 0)), 2),
             "pe": round(float(info.get("trailingPE", 0)), 2) if info.get("trailingPE") else 0,
             "eps": round(float(info.get("trailingEps", 0)), 2) if info.get("trailingEps") else 0,
             "change": round(float(info.get("regularMarketChange", 0)), 2) if info.get("regularMarketChange") else 0
         }
-        
-    except Exception as e:
-        # 將錯誤回傳，讓前端可以顯示錯誤訊息，而不是中斷程式
-        return {"error": f"資料獲取失敗: {str(e)}"}
 
-if __name__ == "__main__":
-    # 單元測試用
-    print(fetch_stock_data("2330.TW"))
+        # 模擬法人與資券數據 (真實來源串接點)
+        # 後續可將此處替換為向公開財經網站爬取的真實 HTML 表格解析
+        dates = [(datetime.now() - timedelta(days=i)).strftime('%m-%d') for i in range(10)][::-1]
+        data["institutional_data"] = pd.DataFrame({
+            "日期": dates,
+            "外資": np.random.randint(-1000, 1000, 10),
+            "投信": np.random.randint(-500, 500, 10)
+        })
+        data["margin_data"] = pd.DataFrame({
+            "日期": dates,
+            "資券比": [round(np.random.uniform(5, 20), 2) for _ in range(10)]
+        })
+        
+        return data
+    except Exception as e:
+        return {"error": f"資料獲取失敗: {str(e)}"}
