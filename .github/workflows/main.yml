@@ -10,9 +10,14 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v3
+      - name: 檢出儲存庫
+        uses: actions/checkout@v3
+        with:
+          # 強制確保拉取最新版本
+          fetch-depth: 0
       
-      - uses: actions/setup-python@v4
+      - name: 設定 Python 環境
+        uses: actions/setup-python@v4
         with:
           python-version: '3.12'
           
@@ -23,18 +28,17 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          echo "當前工作目錄: $(pwd)"
-          echo "列出所有檔案結構以進行診斷:"
-          find . -maxdepth 3 -name "main_task.py"
+          echo "確認當前工作目錄: $(pwd)"
+          echo "目錄下檔案清單:"
+          ls -F
           
-          # 強制找出 main_task.py 的路徑並執行
-          TARGET_FILE=$(find . -name "main_task.py" | head -n 1)
-          
-          if [ -n "$TARGET_FILE" ]; then
-            echo "找到目標檔案: $TARGET_FILE，準備執行..."
-            python "$TARGET_FILE"
+          # 檢查檔案是否確實存在於根目錄
+          if [ -f "main_task.py" ]; then
+            echo "找到 main_task.py，執行中..."
+            python main_task.py
           else
-            echo "錯誤：在整個專案中找不到 main_task.py，請確認檔案已確實提交至 GitHub。"
+            echo "錯誤：檔案 main_task.py 不在根目錄中。"
+            echo "請檢查您的 GitHub 儲存庫檔案結構，確保 main_task.py 位於專案最外層。"
             exit 1
           fi
       
