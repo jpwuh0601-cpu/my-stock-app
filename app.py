@@ -24,12 +24,23 @@ def main():
     st.title("📈 專業股市決策儀表板")
     data = load_data()
 
-    # 1. 自行輸入股票與股價顯示 (漲紅跌綠)
-    ticker = st.text_input("輸入股票代號 (例如: 2330.TW)", "2330.TW")
+    # 1. 自行輸入股票與「查詢股價」按鈕
+    ticker_input = st.text_input("輸入股票代號 (例如: 2330.TW)", "2330.TW")
+    
+    # 增加查詢按鈕，點擊後才觸發顯示邏輯
+    if st.button("查詢股價"):
+        if ticker_input in data:
+            st.session_state.current_ticker = ticker_input
+        else:
+            st.error("查無此股票代號，請檢查輸入或確認資料是否已更新。")
+
+    # 若已查詢並有記錄，顯示內容
+    ticker = st.session_state.get("current_ticker", ticker_input)
     
     if ticker in data:
         s = data[ticker]
         
+        # 即時股價顯示 (漲紅跌綠)
         change = s.get('change', 0)
         color_class = "price-up" if change >= 0 else "price-down"
         st.markdown(f"### 即時股價: <span class='{color_class}'>{s.get('price', 0)} ({change:+.2f})</span>", unsafe_allow_html=True)
@@ -64,7 +75,7 @@ def main():
 
         # 6. 即時新聞 (至少3條)
         st.subheader("📰 即時股市新聞")
-        news_list = s.get("news_list", [])
+        news_list = s.get("news_list", ["無最新新聞數據"])
         for i, n in enumerate(news_list[:3]):
             st.markdown(f"{i+1}. {n}")
 
@@ -85,7 +96,7 @@ def main():
         st.info(f"近期發展：{s.get('black_swan', '安全')}")
 
     else:
-        st.warning("⚠️ 系統正在更新數據中，請稍候。")
+        st.info("請輸入代號並點擊查詢股價按鈕。")
 
 if __name__ == "__main__":
     main()
