@@ -21,18 +21,17 @@ if st.button("查詢分析數據"):
             # 即時股價漲跌邏輯
             price = data.get('price', 0)
             change = data.get('change', 0)
-            # 判斷顏色：漲為紅，跌為綠
             color = "red" if change >= 0 else "green"
             symbol = "▲" if change >= 0 else "▼"
             
             st.subheader(f"決策報告：{ticker_input.upper()}")
             
-            # 顯示即時股價 (漲紅跌綠)
+            # 顯示即時股價 (使用 HTML 確保漲紅跌綠穩定顯示)
             st.markdown(f"""
             ### 即時股價: {price} 
-            <span style="color:{color}; font-size: 20px; font-weight: bold;">
+            <div style="font-size: 24px; font-weight: bold; color: {color};">
             {symbol} {abs(change)} 元
-            </span>
+            </div>
             """, unsafe_allow_html=True)
             
             # 2. 基本面資訊
@@ -43,19 +42,20 @@ if st.button("查詢分析數據"):
 
             # 3. 年度季報表
             st.markdown("### 3. 年度每季財報預覽")
-            st.dataframe(pd.DataFrame({"Q1": [1.5, 1.2], "Q2": [1.6, 1.3], "Q3": [1.8, 1.4], "Q4": [2.0, 1.5]}, index=["去年", "今年"]))
+            st.table(pd.DataFrame({"Q1": [1.2, 1.5], "Q2": [1.3, 1.6], "Q3": [1.5, 1.8], "Q4": [1.4, 1.9]}, index=["去年", "今年"]))
 
-            # 4 & 5. 法人與主力券商明細
+            # 4. 三大法人
             st.markdown("### 4. 三大法人十日買賣超")
             st.table(pd.DataFrame({"外資": [1000]*10, "投信": [200]*10, "自營商": [-50]*10}))
 
+            # 5. 十大主力券商 (修正後的穩定版寫法)
             st.markdown("### 5. 十大主力券商近十日買賣超明細")
-            # 模擬券商數據
             brokers = ["元大", "凱基", "富邦", "永豐金", "國泰", "群益", "元富", "華南永昌", "兆豐", "統一"]
-            broker_data = pd.DataFrame({'券商名稱': brokers, '十日買賣超(張)': [500, -200, 300, -100, 150, -300, 200, -50, 400, -100]})
+            values = [500, -200, 300, -100, 150, -300, 200, -50, 400, -100]
             
-            # 使用條件樣式，漲紅跌綠
-            st.dataframe(broker_data.style.map(lambda x: f'color: {"red" if x > 0 else "green"}'), use_container_width=True)
+            # 將數值轉換為帶顏色的 HTML 標籤顯示，完全避免 TypeError
+            broker_df = pd.DataFrame({'券商名稱': brokers, '買賣超(張)': [f"<span style='color:{'red' if v > 0 else 'green'}'>{v}</span>" for v in values]})
+            st.write(broker_df.to_html(escape=False, index=False), unsafe_allow_html=True)
 
             # 6 & 7. AI 預測與自動回測
             st.markdown("### 6 & 7. AI 預測與營收預估")
