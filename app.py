@@ -1,58 +1,44 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
 import yfinance as yf
+import pandas as pd
 
-st.set_page_config(page_title="專業股市決策儀表板", layout="wide")
-st.title("📈 專業股市決策儀表板")
+# 頁面配置
+st.set_page_config(page_title="股市診斷儀表板", layout="wide")
 
-# 穩定版數據獲取
-def get_stock_data(ticker):
-    symbol = ticker if ticker.endswith(".TW") else f"{ticker}.TW"
-    try:
-        stock = yf.Ticker(symbol)
-        info = stock.info
-        return {
-            "price": info.get("currentPrice", 0),
-            "change": info.get("regularMarketChange", 0),
-            "nav": info.get("bookValue", 0),
-            "pe": info.get("trailingPE", 0),
-            "eps": info.get("trailingEps", 0)
-        }, None
-    except Exception as e:
-        return None, str(e)
+st.title("📈 專業股市決策儀表板 - 診斷模式")
 
-# 輸入區
-ticker = st.sidebar.text_input("輸入股票代號", "2330")
+# 側邊欄輸入
+ticker_input = st.sidebar.text_input("輸入股票代號 (例如: 2330)", "2330")
 
-if st.sidebar.button("查詢分析"):
-    data, error = get_stock_data(ticker)
-    if error:
-        st.error(f"錯誤: {error}")
-    else:
-        # 1. 即時股價
-        st.subheader("1. 即時股價與基本面")
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("股價", f"{data['price']}", f"{data['change']}")
-        c2.metric("每股淨值", f"{data['nav']:.2f}")
-        c3.metric("本益比", f"{data['pe']:.2f}")
-        c4.metric("EPS", f"{data['eps']:.2f}")
-
-        # 2. 法人買賣超 (簡化為穩定版 DataFrame)
-        st.subheader("3. 三大法人買賣超 (近十日)")
-        dates = pd.date_range(end=pd.Timestamp.today(), periods=10).strftime('%m-%d')
-        df = pd.DataFrame(np.random.randint(-1000, 1000, (10, 3)), index=dates, columns=["外資", "投信", "自營商"])
-        
-        # 顏色處理：直接回傳樣式物件，避免 st.table() 衝突
-        def color_neg_red(val):
-            color = 'red' if val > 0 else 'green'
-            return f'color: {color}'
-        
-        st.dataframe(df.style.applymap(color_neg_red), use_container_width=True)
-
-        # 3. 技術指標
-        st.subheader("8. 技術指標數據")
-        tech = pd.DataFrame({"指標": ["KD", "MACD", "RSI"], "數值": [68.5, 1.45, 62.3]})
-        st.table(tech)
-        
-        st.success("數據載入完畢，已排除渲染衝突。")
+if st.sidebar.button("查詢測試"):
+    with st.spinner("正在讀取資料..."):
+        try:
+            # 處理代號
+            symbol = ticker_input if ticker_input.endswith(".TW") else f"{ticker_input}.TW"
+            
+            # 建立物件
+            stock = yf.Ticker(symbol)
+            info = stock.info
+            
+            # 顯示資訊 (純文字顯示，避免渲染衝突)
+            st.success(f"成功連線至: {symbol}")
+            
+            st.subheader("核心數據")
+            st.write(f"目前股價: {info.get('currentPrice', '未取得')}")
+            st.write(f"每股淨值: {info.get('bookValue', '未取得')}")
+            st.write(f"本益比: {info.get('trailingPE', '未取得')}")
+            st.write(f"EPS: {info.get('trailingEps', '未取得')}")
+            
+            # 顯示簡單表格檢查是否正常
+            st.subheader("除錯數據清單")
+            data_sample = {
+                "項目": ["股價", "淨值", "本益比", "EPS"],
+                "數值": [info.get('currentPrice', 0), info.get('bookValue', 0), info.get('trailingPE', 0), info.get('trailingEps', 0)]
+            }
+            st.table(pd.DataFrame(data_sample))
+            
+        except Exception as e:
+            st.error(f"系統錯誤: {str(e)}")
+            st.info("提示：如果出現錯誤，請確認網路連線或代號是否正確。")
+else:
+    st.info("請在左側輸入代號並點擊「查詢測試」，若畫面顯示成功，代表您的部署環境完全正常。")
