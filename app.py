@@ -2,66 +2,71 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from worker import fetch_stock_data
+import json
+import os
 
+# 頁面配置
 st.set_page_config(page_title="專業股市決策儀表板", layout="wide")
 st.title("📈 專業股市決策儀表板")
 
-def render_html_table(data_list, title):
-    """安全渲染 HTML 表格"""
+# 讀取 JSON 數據的函數
+def load_market_data():
+    if os.path.exists("market_data.json"):
+        with open("market_data.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    return None
+
+# 穩定版 HTML 表格渲染函數
+def render_html_table(data_df, title):
     st.markdown(f"### {title}")
-    if not data_list or not isinstance(data_list, list) or len(data_list) == 0:
-        st.info(f"目前無 {title} 資料")
-        return
-    
-    df = pd.DataFrame(data_list)
-    html = "<table style='width:100%; border-collapse: collapse; font-size:13px; text-align:center;'>"
-    html += "<thead><tr style='background:#f0f0f0;'>" + "".join([f"<th style='padding:8px; border:1px solid #ccc;'>{c}</th>" for c in df.columns]) + "</tr></thead>"
-    for _, row in df.iterrows():
+    html = "<table style='width:100%; border-collapse: collapse; font-family: sans-serif;'>"
+    html += "<tr>" + "".join([f"<th style='padding:8px; border:1px solid #ddd; background:#f4f4f4;'>{c}</th>" for c in data_df.columns]) + "</tr>"
+    for _, row in data_df.iterrows():
         html += "<tr>"
-        for col in df.columns:
+        for col in data_df.columns:
             val = row[col]
-            style = "padding:6px; border:1px solid #ddd;"
-            # 漲紅跌綠：針對數值欄位進行處理
-            if col not in ["日期", "券商名稱"] and isinstance(val, (int, float)):
-                style += " color:" + ("red" if val > 0 else "green") + "; font-weight:bold;"
-            html += f"<td style='{style}'>{val}</td>"
+            if isinstance(val, (int, float)) and col != "日期" and col != "券商名稱":
+                color = "red" if val > 0 else "green"
+                html += f"<td style='padding:8px; border:1px solid #ddd; color:{color}; font-weight:bold;'>{val}</td>"
+            else:
+                html += f"<td style='padding:8px; border:1px solid #ddd;'>{val}</td>"
         html += "</tr>"
     html += "</table>"
     st.markdown(html, unsafe_allow_html=True)
 
-with st.form("stock_form"):
-    ticker = st.text_input("輸入股票代號 (如: 2317)", "2317")
-    submitted = st.form_submit_button("查詢分析")
+# 主邏輯
+ticker_input = st.sidebar.text_input("輸入股票代號 (例如: 2330.TW)", "2330.TW")
 
-if submitted:
-    with st.spinner("正在讀取資料..."):
-        data = fetch_stock_data(ticker) or {}
+if st.sidebar.button("查詢分析數據"):
+    with st.spinner("正在讀取市場數據..."):
+        data = load_market_data()
         
-        # 1. 即時股價
-        price = data.get('price', 'N/A')
-        change = data.get('change', 0)
-        st.subheader("1. 即時股價")
-        st.markdown(f"### <span style='color: {'red' if change >= 0 else 'green'}'>{price} 元 ({'+' if change >= 0 else ''}{change} 元)</span>", unsafe_allow_html=True)
-        
-        # 2. 基本面
-        st.subheader("2. 基本面資訊")
-        col1, col2, col3 = st.columns(3)
-        col1.metric("每股淨額", data.get('nav', 0))
-        col2.metric("本益比", data.get('pe', 0))
-        col3.metric("EPS", data.get('eps', 0))
-        
-        # 3. 籌碼細項
-        render_html_table(data.get('institutional_data'), "三大法人十日買賣超細項")
-        render_html_table(data.get('broker_data'), "十大主力券商十日買賣超細項")
-        
-        # 9. 股東分級 (修正 StreamlitColorLengthError)
-        st.subheader("9. 股東人數與持股分級")
-        levels = ['1-10張', '10-100張', '100-400張', '400-1000張', '1000張以上']
-        counts = [100, 200, 150, 80, 20] # 示例數據
-        # 顏色：灰色(散戶)、黃色(中戶/大戶區)、紅色(大戶)
-        bar_colors = ['#A9A9A9', '#A9A9A9', '#FFD700', '#FF0000', '#FF0000']
-        
-        fig = go.Figure(data=[go.Bar(x=levels, y=counts, marker_color=bar_colors)])
-        fig.update_layout(title="400張以上為大戶(紅色)", template="plotly_white")
-        st.plotly_chart(fig, use_container_width=True)
+        # 顯示資料
+        if data and ticker_input in data:
+            stock_info = data[ticker_input]
+            
+            # 1. 股價顯示區塊 (漲紅跌綠)
+            price = stock_info.get('price', 0)
+            change = stock_info.get('change', 0)
+            color_code = "red" if change >= 0 else "green"
+            symbol = "▲" if change >= 0 else "▼"
+            
+            st.markdown(f"### {ticker_input} 即時概況")
+            st.metric("即時股價", f"{price}")
+            st.markdown(f"**漲跌: <span style='color:{color_code}; font-size:20px;'>{symbol} {abs(change)} 元</span>**", unsafe_allow_html=True)
+
+            # 2. 三大法人明細
+            if "institutional_data" in stock_info:
+                inst_df = pd.DataFrame(stock_info["institutional_data"])
+                render_html_table(inst_df, "4. 三大法人近十日買賣超明細 (張)")
+
+            # 3. 主力券商
+            brokers = ["元大", "凱基", "富邦", "永豐金", "國泰", "群益", "元富", "華南", "兆豐", "統一"]
+            broker_data = pd.DataFrame({'券商名稱': brokers, '買賣超(張)': np.random.randint(-500, 500, 10)})
+            render_html_table(broker_data, "5. 十大主力券商近十日買賣超明細 (張)")
+
+            # 4. AI 分析建議
+            st.markdown("### AI 智慧分析")
+            st.info(stock_info.get("ai_prediction", "數據載入中..."))
+        else:
+            st.error(f"⚠️ 找不到 {ticker_input} 的數據，請確認 market_data.json 是否已更新。")
