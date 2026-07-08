@@ -23,11 +23,20 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          echo "執行路徑: $GITHUB_WORKSPACE"
-          ls -la
-          # 強制進入工作目錄並執行
-          cd $GITHUB_WORKSPACE
-          python main_task.py
+          echo "當前工作目錄: $(pwd)"
+          echo "列出所有檔案結構以進行診斷:"
+          find . -maxdepth 3 -name "main_task.py"
+          
+          # 強制找出 main_task.py 的路徑並執行
+          TARGET_FILE=$(find . -name "main_task.py" | head -n 1)
+          
+          if [ -n "$TARGET_FILE" ]; then
+            echo "找到目標檔案: $TARGET_FILE，準備執行..."
+            python "$TARGET_FILE"
+          else
+            echo "錯誤：在整個專案中找不到 main_task.py，請確認檔案已確實提交至 GitHub。"
+            exit 1
+          fi
       
       - name: 推送數據至 GitHub
         run: |
