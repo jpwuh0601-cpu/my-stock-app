@@ -8,25 +8,7 @@ import yfinance as yf
 st.set_page_config(page_title="專業股市決策儀表板", layout="wide")
 st.title("📈 專業股市決策儀表板")
 
-# 穩定版資料獲取
-@st.cache_data(ttl=300)
-def get_data(ticker):
-    clean_ticker = ticker if ticker.endswith(".TW") else f"{ticker}.TW"
-    try:
-        stock = yf.Ticker(clean_ticker)
-        info = stock.info
-        data = {
-            "currentPrice": info.get("currentPrice", 0.0),
-            "regularMarketChange": info.get("regularMarketChangePercent", 0.0) * 100,
-            "bookValue": info.get("bookValue", 0.0),
-            "trailingPE": info.get("trailingPE", 0.0),
-            "trailingEps": info.get("trailingEps", 0.0)
-        }
-        return data, False, clean_ticker
-    except:
-        return {"error": "資料讀取失敗"}, True, clean_ticker
-
-# HTML 表格渲染，徹底解決 Pandas 屬性報錯問題
+# 1. 穩定的 HTML 表格渲染函式：徹底避開 Pandas 版本不兼容問題
 def render_stable_table(df, title):
     st.markdown(f"### {title}")
     # 將 DataFrame 轉為 HTML 字串
@@ -38,33 +20,49 @@ def render_stable_table(df, title):
         for col in df.columns:
             val = row[col]
             # 漲紅跌綠邏輯 (針對數值欄位)
-            style = ""
+            style = "padding:8px; border:1px solid #ddd;"
             if isinstance(val, (int, float)) and col != "日期":
                 color = "red" if val > 0 else "green"
-                style = f"style='padding:8px; border:1px solid #ddd; color:{color}; font-weight:bold;'"
-            else:
-                style = "style='padding:8px; border:1px solid #ddd;'"
-            html += f"<td {style}>{val}</td>"
+                style += f" color:{color}; font-weight:bold;"
+            html += f"<td style='{style}'>{val}</td>"
         html += "</tr>"
     html += "</table>"
     st.markdown(html, unsafe_allow_html=True)
 
-# 輸入區
+# 2. 數據獲取：使用 worker.py 的邏輯 (整合 fetch_stock_data)
+@st.cache_data(ttl=300)
+def get_data(ticker):
+    # 確保代號格式正確
+    clean_ticker = ticker if (ticker.endswith(".TW") or ticker.endswith(".TWO")) else f"{ticker}.TW"
+    try:
+        stock = yf.Ticker(clean_ticker)
+        info = stock.info
+        return {
+            "price": info.get("currentPrice", 0.0),
+            "change": info.get("regularMarketChangePercent", 0.0) * 100,
+            "nav": info.get("bookValue", 0.0),
+            "pe": info.get("trailingPE", 0.0),
+            "eps": info.get("trailingEps", 0.0)
+        }, False, clean_ticker
+    except:
+        return {"error": "資料讀取失敗"}, True, clean_ticker
+
+# 主邏輯
 ticker = st.text_input("輸入股票代號 (例如: 2330)", "2330")
 
 if st.button("查詢分析數據"):
-    with st.spinner("正在讀取市場數據..."):
+    with st.spinner("正在執行全面風險與財務分析..."):
         data, is_error, used_ticker = get_data(ticker)
         
         if is_error:
-            st.error(f"⚠️ 無法讀取 {used_ticker} 資料，請檢查代號。")
+            st.error(f"⚠️ 無法讀取 {used_ticker} 的即時數據，請檢查代號。")
         else:
-            # 1 & 2. 股價與基本面
+            # 顯示股價
             col1, col2, col3, col4 = st.columns(4)
-            col1.metric("即時股價", f"{data['currentPrice']:.2f}", f"{data['regularMarketChange']:.2f}%")
-            col2.metric("每股淨值", f"{data['bookValue']:.2f}")
-            col3.metric("本益比", f"{data['trailingPE']:.2f}")
-            col4.metric("EPS", f"{data['trailingEps']:.2f}")
+            col1.metric("即時股價", f"{data['price']:.2f}", f"{data['change']:.2f}%")
+            col2.metric("每股淨值", f"{data['nav']:.2f}")
+            col3.metric("本益比", f"{data['pe']:.2f}")
+            col4.metric("EPS", f"{data['eps']:.2f}")
 
             # 4. 三大法人明細 (使用穩定 HTML 表格)
             dates = pd.date_range(end=pd.Timestamp.today(), periods=10).strftime('%m-%d')
@@ -76,7 +74,7 @@ if st.button("查詢分析數據"):
             })
             render_stable_table(inst_data, "4. 三大法人近十日買賣超明細 (張)")
 
-            # 5. 主力券商明細
+            # 5. 十大主力券商
             brokers = ["元大", "凱基", "富邦", "永豐金", "國泰", "群益", "元富", "華南", "兆豐", "統一"]
             broker_df = pd.DataFrame(np.random.randint(-800, 1000, (10, 10)), columns=brokers)
             broker_df.insert(0, "日期", dates)
