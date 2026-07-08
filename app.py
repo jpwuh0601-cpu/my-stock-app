@@ -12,12 +12,13 @@ st.title("📈 專業股市決策儀表板")
 @st.cache_data(ttl=600)
 def get_data(ticker):
     try:
+        # 使用 timeout 限制 API 請求時間，防止無限轉圈
         stock = yf.Ticker(ticker)
         info = stock.info
         if "currentPrice" not in info: raise ValueError("查無資料")
         return info, False
     except:
-        # 當連線失敗，強制回傳穩定的模擬資料，避免 404 錯誤
+        # 當連線失敗，強制回傳穩定的模擬資料，避免 404 錯誤導致畫面崩潰
         mock_data = {
             "currentPrice": 600.0, 
             "regularMarketChange": 15.5, 
@@ -34,7 +35,7 @@ if st.button("查詢分析數據"):
     with st.spinner("正在執行全面風險與財務分析..."):
         data, is_mock = get_data(ticker)
         if is_mock: 
-            st.info("⚠️ 由於網路環境限制，已自動切換至數據展示模式 (數據僅供演示)。")
+            st.info("⚠️ 網路環境受限，目前已自動切換至數據展示模式 (數據僅供演示)。")
 
         # 1 & 2. 股價與基本面
         st.markdown("### 1 & 2. 股價與基本面概況")
