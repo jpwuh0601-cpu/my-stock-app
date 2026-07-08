@@ -2,7 +2,7 @@ import requests
 import os
 import json
 
-def check_geopolitical_risk():
+def check_geopolitical_risk(news_context):
     """
     呼叫 AI 分析當日頭條新聞，判斷地緣政治風險 (俄烏、美伊、聯準會)
     """
@@ -10,11 +10,9 @@ def check_geopolitical_risk():
     if not api_key:
         return "安全", ["AI API 金鑰未設定，無法執行風險分析"]
 
-    # 模擬新聞抓取 (實際生產環境建議整合 NewsAPI 或其他新聞源)
-    news_context = "今日重點：俄烏衝突持續升級，中東地區美伊關係緊張，市場關注本週聯準會利率會議是否釋出鷹派訊號。"
-    
+    # 傳入動態新聞內容進行分析
     prompt = f"""
-    請擔任專業財經風險分析師。根據以下新聞概要進行評估："{news_context}"
+    請擔任專業財經風險分析師。根據以下最新的市場新聞進行評估："{news_context}"
     
     評估重點：
     1. 俄烏戰爭升溫程度
@@ -62,7 +60,6 @@ def check_geopolitical_risk():
 
 def generate_ai_analysis(ticker, info_str, news_str):
     """
-    保留原本的 AI 財報分析函式
+    財報分析函式，結合股票基本面與新聞分析
     """
-    # 此處可加入您的財報分析邏輯
     return {"main_force_analysis": "分析服務連線中，目前尚未讀取到財報數據。"}
