@@ -48,11 +48,12 @@ if st.button("查詢分析數據"):
             st.markdown("### 4. 三大法人十日買賣超")
             st.table(pd.DataFrame({"外資": [1000]*10, "投信": [200]*10, "自營商": [-50]*10}))
 
-            # 5. 十大主力券商 (HTML 穩定版)
+            # 5. 十大主力券商 (穩定版區塊)
             st.markdown("### 5. 十大主力券商近十日買賣超明細")
             brokers = ["元大", "凱基", "富邦", "永豐金", "國泰", "群益", "元富", "華南永昌", "兆豐", "統一"]
             values = [500, -200, 300, -100, 150, -300, 200, -50, 400, -100]
             
+            # 使用 HTML 直接生成表格，不使用 Pandas Styler
             html_table = "<table style='width:100%; border-collapse: collapse;'>"
             html_table += "<tr><th style='text-align:left;'>券商名稱</th><th style='text-align:left;'>買賣超(張)</th></tr>"
             for b, v in zip(brokers, values):
