@@ -1,57 +1,29 @@
 name: Daily Stock Analysis
 on:
-  schedule:
-    - cron: '0 0 * * *'
-  workflow_dispatch:
+schedule:
+- cron: '0 0 * * *'
+workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: 檢出儲存庫
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      
-      - name: 設定 Python 環境
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
-          
-      - name: 安裝並執行
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-        run: |
-          # 在同一個執行步驟中安裝套件，確保環境一致
-          python -m pip install --upgrade pip
-          pip install yfinance requests pandas
-          
-          # 尋找檔案位置並執行
-          FILE_PATH=$(find . -name "main_task.py" -print -quit)
-          
-          if [ -n "$FILE_PATH" ]; then
-            echo "正在執行: $FILE_PATH"
-            python "$FILE_PATH"
-          else
-            echo "錯誤：找不到 main_task.py"
-            exit 1
-          fi
-      
-      - name: 推送數據至 GitHub
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          git fetch origin main
-          git rebase origin/main
-          
-          git add market_data.json
-          
-          if git diff-index --quiet HEAD --; then
-            echo "沒有數據變更，無需推送。"
-          else
-            git commit -m "chore: auto-update market data"
-            git push origin main
-          fi
+build:
+runs-on: ubuntu-latest
+permissions:
+contents: write
+steps:
+- uses: actions/checkout@v3
+- uses: actions/setup-python@v4
+with:
+python-version: '3.12'
+
+  - name: 安裝套件並執行
+    run: |
+      pip install yfinance requests pandas
+      python main_task.py
+  
+  - name: 推送數據
+    run: |
+      git config --global user.name "github-actions[bot]"
+      git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      git add market_data.json
+      git commit -m "chore: auto-update" || echo "無變更"
+      git push origin main
