@@ -27,14 +27,12 @@ def main():
     # 1. 自行輸入股票與「查詢股價」按鈕
     ticker_input = st.text_input("輸入股票代號 (例如: 2330.TW)", "2330.TW")
     
-    # 增加查詢按鈕，點擊後才觸發顯示邏輯
     if st.button("查詢股價"):
         if ticker_input in data:
             st.session_state.current_ticker = ticker_input
         else:
             st.error("查無此股票代號，請檢查輸入或確認資料是否已更新。")
 
-    # 若已查詢並有記錄，顯示內容
     ticker = st.session_state.get("current_ticker", ticker_input)
     
     if ticker in data:
@@ -61,25 +59,29 @@ def main():
             st.table(pd.DataFrame(tech_data))
             st.write("📊 歷史季度報表數據載入中...")
 
-        # 4. 三大法人十日買賣超 (漲紅跌綠)
+        # 4. 三大法人十日買賣超
         st.subheader("🏛️ 三大法人十日買賣超")
         inst_data = s.get("institutional_data", [])
         if inst_data:
             df_inst = pd.DataFrame(inst_data)
-            st.dataframe(df_inst.style.map(lambda x: 'color: red' if x > 0 else 'color: green' if x < 0 else 'black'))
+            # 確保欄位名稱正確並防範 KeyError
+            style_cols = [c for c in ['外資', '投信', '自營商'] if c in df_inst.columns]
+            st.dataframe(df_inst.style.map(lambda x: 'color: red' if x > 0 else 'color: green' if x < 0 else 'black', subset=style_cols))
+        else:
+            st.write("目前無法人籌碼統計數據")
 
-        # 5. 10日資券比與主力券商買賣超
+        # 5. 10日資券比與主力券商
         st.subheader("📊 10日資券與主力券商買賣超")
         st.write(f"10日資券比: {s.get('margin_ratio', 0)}%")
         st.write("主力券商近十日買賣超資訊已同步更新")
 
-        # 6. 即時新聞 (至少3條)
+        # 6. 即時新聞 (順序調整)
         st.subheader("📰 即時股市新聞")
         news_list = s.get("news_list", ["無最新新聞數據"])
         for i, n in enumerate(news_list[:3]):
             st.markdown(f"{i+1}. {n}")
 
-        # 7. AI 財報預測與自動回測狀態
+        # 7. AI 財報預測 (放置於新聞後)
         st.subheader("🔮 AI 綜合財報與營收預測")
         st.success(s.get('ai_prediction', '數據分析中...'))
         st.caption("自動回測狀態：資料來源已驗證 ✅")
