@@ -41,21 +41,30 @@ def main():
         c2.metric("本益比", f"{s.get('pe', 0)}")
         c3.metric("EPS", f"{s.get('eps', 0)}")
 
-        # 3. 黑天鵝風險警示 (最優先呈現)
+        # 3. 黑天鵝風險警示
         st.subheader("🦢 地緣政治黑天鵝警示")
         st.warning("議題關注：(1) 俄烏衝突 (2) 美伊關係 (3) 聯準會利率會議")
         st.info(f"近期發展：{s.get('black_swan', '安全')}")
 
-        # 4. 財報預測 (調整至新聞後)
+        # 4. 財報預測
         st.subheader("🔮 AI 綜合財報與營收預測")
         st.success(s.get('ai_prediction', '數據分析中...'))
 
-        # 5. 三大法人籌碼 (漲紅跌綠)
+        # 5. 三大法人籌碼 (修正 KeyError 並增強安全性)
         st.subheader("🏛️ 三大法人十日買賣超")
-        df_inst = pd.DataFrame(s.get("institutional_data", []))
-        st.dataframe(df_inst.style.map(lambda x: 'color: red' if x > 0 else 'color: green' if x < 0 else 'black', subset=['外資', '投信', '自營商']))
+        inst_data = s.get("institutional_data", [])
+        if inst_data:
+            df_inst = pd.DataFrame(inst_data)
+            # 確保欄位存在才進行 style.map 避免 KeyError
+            cols_to_style = [c for c in ['外資', '投信', '自營商'] if c in df_inst.columns]
+            if cols_to_style:
+                st.dataframe(df_inst.style.map(lambda x: 'color: red' if x > 0 else 'color: green' if x < 0 else 'black', subset=cols_to_style))
+            else:
+                st.dataframe(df_inst)
+        else:
+            st.write("無法人籌碼數據")
 
-        # 6. 資券與主力 (10日)
+        # 6. 資券與主力
         st.subheader("📊 10日資券與主力指標")
         st.write(f"資券比: {s.get('margin_ratio', 0)}%")
         st.write("主力券商買賣超資訊 (已更新)")
