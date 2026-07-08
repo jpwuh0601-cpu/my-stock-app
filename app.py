@@ -60,17 +60,28 @@ if st.button("查詢分析數據"):
             }, index=["去年", "今年"])
             st.table(report_df)
 
-            # 4 & 5. 法人籌碼與券商分析
-            st.markdown("### 4 & 5. 法人籌碼與主力券商分析")
-            c1, c2 = st.columns(2)
-            with c1:
-                inst_df = pd.DataFrame({"外資": [1000]*5, "投信": [200]*5, "自營商": [-50]*5})
-                st.write("三大法人買賣超 (近10日):")
-                st.dataframe(inst_df, use_container_width=True)
-            with c2:
-                broker_df = pd.DataFrame({"券商": ["元大", "凱基", "富邦"], "買賣超(張)": [500, -200, 300]})
-                st.write("主力券商買賣超 (近10日):")
-                st.table(broker_df)
+            # 4. 三大法人每日明細
+            st.markdown("### 4. 三大法人近十日買賣超明細 (張)")
+            dates = [f"07-{i:02d}" for i in range(1, 11)]
+            inst_data = pd.DataFrame({
+                "日期": dates,
+                "外資": np.random.randint(-1000, 1000, 10),
+                "投信": np.random.randint(-500, 500, 10),
+                "自營商": np.random.randint(-300, 300, 10)
+            })
+            
+            def color_format(val):
+                color = 'red' if val > 0 else 'green'
+                return f'color: {color}'
+            
+            st.dataframe(inst_data.style.applymap(color_format, subset=['外資', '投信', '自營商']), use_container_width=True)
+
+            # 5. 主力券商每日明細
+            st.markdown("### 5. 十大主力券商近十日總買賣超明細 (張)")
+            brokers = ["元大", "凱基", "富邦", "永豐金", "國泰", "群益", "元富", "華南永昌", "兆豐", "統一"]
+            broker_data = pd.DataFrame(np.random.randint(-500, 800, (10, 10)), columns=brokers, index=dates)
+            
+            st.dataframe(broker_data.style.applymap(color_format), use_container_width=True)
 
             # 6-9. AI 分析與風險預警
             st.markdown("### 6-9. AI 財報預測與黑天鵝警示")
