@@ -1,40 +1,11 @@
 name: Daily Stock Analysis
 on:
-  schedule:
-    - cron: '0 0 * * *'
+  # 僅允許手動觸發，關閉所有自動排程
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - name: 檢出程式碼
-        uses: actions/checkout@v3
-
-      - name: 設定 Python 環境
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
-
-      - name: 安裝套件
-        run: pip install -r requirements.txt
-
-      - name: 執行分析任務
-        env:
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-        run: python main_task.py
-
-      - name: 推送更新至 GitHub
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # 強制清理與同步，避免 rebase 衝突
-          git fetch origin main
-          git reset --hard origin/main
-          
-          git add market_data.json
-          git commit -m "chore: auto-update market data" || echo "No changes"
-          git push origin main
+      - name: 系統說明
+        run: echo "目前已改為 Web 手動查詢模式，背景自動化已停用以避免錯誤。"
