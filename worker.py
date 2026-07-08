@@ -3,25 +3,25 @@ import requests
 
 def fetch_stock_data(ticker):
     """
-    從 Yahoo Finance 抓取即時數據 (修正版)。
+    從 Yahoo Finance 抓取即時數據。
     採用偽裝瀏覽器 Header 與異常處理，確保連線穩定不卡死。
     """
+    # 確保代號格式正確
     ticker = ticker.strip().upper()
-    # 自動補齊台股代號格式
     if not ticker.endswith(".TW") and ticker.isdigit():
         ticker += ".TW"
     
-    # 偽裝成瀏覽器請求，避免 Yahoo 伺服器因過頻請求而封鎖
+    # 偽裝成桌機瀏覽器請求，降低被 Yahoo 封鎖的機率
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
     }
 
     try:
-        # 建立 Session 並掛載 Header
+        # 使用 Session 管理請求，提高連線穩定性
         session = requests.Session()
         session.headers.update(headers)
         
-        # 初始化 Ticker 物件
+        # 建立 Ticker 物件
         stock = yf.Ticker(ticker, session=session)
         
         # 抓取基礎資訊 (info)
@@ -34,7 +34,7 @@ def fetch_stock_data(ticker):
             if not hist.empty:
                 price = hist['Close'].iloc[-1]
         
-        # 回傳結構化數據，確保各欄位有預設值，避免網頁崩潰
+        # 回傳結構化數據，確保各欄位有預設值，避免前端網頁崩潰
         return {
             "price": round(price, 2),
             "nav": info.get("bookValue", 0),
@@ -44,9 +44,9 @@ def fetch_stock_data(ticker):
         }
         
     except Exception as e:
-        # 若發生錯誤，回傳結構化的錯誤訊息，讓前端顯示友好提示
+        # 若發生錯誤，回傳結構化的錯誤訊息，讓 app.py 能顯示 st.error
         return {"error": f"連線失敗，請稍後再試: {str(e)}"}
 
 if __name__ == "__main__":
-    # 測試用：直接執行可驗證該代號是否能抓到資料
+    # 測試執行
     print(fetch_stock_data("2330.TW"))
