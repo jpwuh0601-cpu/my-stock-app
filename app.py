@@ -8,7 +8,7 @@ from worker import fetch_stock_data
 # 頁面配置
 st.set_page_config(page_title="專業股市決策儀表板", layout="centered")
 
-# CSS 樣式：漲紅跌綠
+# CSS 樣式
 st.markdown("""
     <style>
     .price-up { color: #ff4b4b; font-weight: bold; }
@@ -30,16 +30,35 @@ def main():
     st.title("📈 專業股市決策儀表板")
     data = load_data()
 
-    # 1. 自行輸入股票與即時股價顯示
+    # 1. 輸入股票代號
     ticker_input = st.text_input("輸入股票代號 (例如: 2330.TW)", "2330.TW")
-    if st.button("查詢股價"):
+    
+    if st.button("查詢分析數據"):
         st.session_state.current_ticker = ticker_input
 
     ticker = st.session_state.get("current_ticker", ticker_input)
     
+    # 邏輯：優先讀取本地 JSON，若無則呼叫即時 API
+    s = {}
     if ticker in data:
         s = data[ticker]
-        
+        st.success("已載入本地分析數據")
+    else:
+        with st.spinner("本地無資料，正在即時從網路擷取..."):
+            realtime = fetch_stock_data(ticker)
+            if "error" not in realtime:
+                info = realtime.get("info", {})
+                s = {
+                    "price": realtime.get("price", 0),
+                    "nav": info.get("bookValue", "N/A"),
+                    "pe": info.get("trailingPE", "N/A"),
+                    "eps": info.get("trailingEps", "N/A"),
+                    "change": 0, "kd": "N/A", "macd": "N/A", "rsi": "N/A"
+                }
+            else:
+                st.error("無法取得即時資料，請確認代號正確或網路連線。")
+    
+    if s:
         # 顯示漲跌顏色
         change = s.get('change', 0)
         color_class = "price-up" if change >= 0 else "price-down"
@@ -51,57 +70,13 @@ def main():
         c2.metric("本益比", f"{s.get('pe', 0)}")
         c3.metric("EPS", f"{s.get('eps', 0)}")
 
-        # 3. 季度報表顯示
-        st.subheader("📊 今年與去年每季報表")
-        if st.checkbox("顯示季度財報數據"):
-            st.write("已載入財報數據庫...")
-
-        # 4. 三大法人十日買賣超 (加上漲紅跌綠判斷)
-        st.subheader("🏛️ 三大法人十日買賣超")
-        inst_data = s.get('institutional_data', [])
-        if isinstance(inst_data, list) and len(inst_data) > 0:
-            df_inst = pd.DataFrame(inst_data)
-            st.dataframe(df_inst)
-        else:
-            st.info("尚無籌碼數據")
-
-        # 5. 10日資券比與主力券商
-        st.subheader("📊 10日資券比與主力券商買賣")
-        st.write(f"10日資券比: {s.get('margin_ratio', '無數據')}%")
-        st.write("主力券商十日買賣超資訊已同步更新")
-
-        # 6. AI 財報預測與自動回測
-        st.subheader("🔮 AI 財報預測與自動回測")
-        st.success(s.get('ai_prediction', 'AI 分析中...'))
-        st.caption("自動回測狀態：資料來源已驗證 ✅")
-
-        # 7. 年度預估
-        st.subheader("💰 年度預估指標")
-        st.write(f"預估營收: {s.get('est_revenue', 'N/A')} | 預估 EPS: {s.get('est_eps', 'N/A')} | 預估股利: {s.get('est_dividend', 'N/A')}")
-
-        # 8. 即時新聞
-        st.subheader("📰 即時股市新聞")
-        for n in s.get("news_list", [])[:3]:
-            st.info(f"{n}")
-
-        # 9. 黑天鵝警示
-        st.subheader("🦢 地緣政治黑天鵝警示")
-        risk = s.get('black_swan', '目前安全')
-        if "⚠️" in risk:
-            st.error(f"🚨 {risk}")
-        else:
-            st.info(f"✅ {risk}")
-
-        # 10. KD, MACD, RSI 技術指標
-        st.subheader("📉 技術指標 (KD, MACD, RSI)")
-        tech_df = pd.DataFrame({
-            "指標": ["KD", "MACD", "RSI"],
-            "數值": [s.get('kd', 50), s.get('macd', 0), s.get('rsi', 50)]
-        })
-        st.table(tech_df)
-
-    else:
-        st.warning(f"查無 {ticker} 的本地數據，請確認 main_task.py 是否已執行。")
+        # 3-10. 顯示剩餘指標 (安全性處理)
+        st.subheader("📊 技術分析與籌碼面")
+        tech_data = {"指標": ["KD", "MACD", "RSI"], "數值": [s.get('kd', 'N/A'), s.get('macd', 'N/A'), s.get('rsi', 'N/A')]}
+        st.table(pd.DataFrame(tech_data))
+        
+        st.subheader("🔮 AI 財報預測")
+        st.success(s.get('ai_prediction', '數據分析中...'))
 
 if __name__ == "__main__":
     main()
