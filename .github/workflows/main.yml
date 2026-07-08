@@ -29,16 +29,18 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
         run: |
           echo "確認當前工作目錄: $(pwd)"
-          echo "目錄下檔案清單:"
-          ls -F
           
-          # 檢查檔案是否確實存在於根目錄
-          if [ -f "main_task.py" ]; then
-            echo "找到 main_task.py，執行中..."
-            python main_task.py
+          # 遞迴搜尋檔案位置，避免路徑不對稱問題
+          echo "正在搜尋 main_task.py..."
+          FILE_PATH=$(find . -name "main_task.py" -print -quit)
+          
+          if [ -n "$FILE_PATH" ]; then
+            echo "找到目標檔案: $FILE_PATH，執行中..."
+            python "$FILE_PATH"
           else
-            echo "錯誤：檔案 main_task.py 不在根目錄中。"
-            echo "請檢查您的 GitHub 儲存庫檔案結構，確保 main_task.py 位於專案最外層。"
+            echo "錯誤：在整個專案中找不到 main_task.py。"
+            echo "請確認您的 GitHub 儲存庫中是否確實存在此檔案。"
+            ls -R
             exit 1
           fi
       
