@@ -8,39 +8,35 @@ st.title("📈 專業股市決策儀表板")
 
 def load_market_data():
     if os.path.exists("market_data.json"):
-        try:
-            with open("market_data.json", "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception as e:
-            st.error(f"讀取檔案失敗: {e}")
-            return None
+        with open("market_data.json", "r", encoding="utf-8") as f:
+            return json.load(f)
     return None
 
 ticker_input = st.sidebar.text_input("輸入股票代號 (例如: 2330.TW)", "2330.TW")
 
 if st.sidebar.button("查詢分析數據"):
-    with st.spinner("正在解析市場數據..."):
-        data = load_market_data()
+    data = load_market_data()
+    
+    if data and ticker_input in data:
+        stock_info = data[ticker_input]
         
-        # 防禦邏輯：確保 data 不為空，且包含該代號
-        if data is None:
-            st.error("⚠️ 無法讀取數據檔 market_data.json")
-        elif ticker_input not in data:
-            st.error(f"⚠️ 數據檔中找不到代號 {ticker_input}，請確認自動化任務是否已執行")
-        else:
-            stock_info = data[ticker_input]
+        # 1. 股價顯示
+        price = stock_info.get('price', 0)
+        st.metric("即時股價", f"{price}")
+        
+        # 2. 深度清理表格數據 (關鍵修正！)
+        if "institutional_data" in stock_info and isinstance(stock_info["institutional_data"], list):
+            inst_df = pd.DataFrame(stock_info["institutional_data"])
             
-            # 確保 stock_info 不為 None
-            if not isinstance(stock_info, dict):
-                st.error("⚠️ 資料格式異常")
-            else:
-                # 顯示數據
-                st.markdown(f"### {ticker_input} 即時分析")
-                price = stock_info.get('price', 0)
-                change = stock_info.get('change', 0)
-                
-                col1, col2 = st.columns(2)
-                col1.metric("即時股價", f"{price}")
-                col2.metric("今日漲跌", f"{change}")
-                
-                st.success("數據載入成功！")
+            # 強制轉換所有數據為字串，避免 Pandas 渲染出錯
+            st.markdown("### 4. 三大法人買賣超")
+            st.table(inst_df.astype(str))
+        else:
+            st.warning("目前無法人數據資訊")
+            
+        # 3. AI 分析建議 (使用 st.write 替代 st.markdown 防止格式錯誤)
+        st.markdown("### AI 智慧分析")
+        st.write(stock_info.get("ai_prediction", "尚無 AI 分析內容"))
+        
+    else:
+        st.error(f"⚠️ 找不到 {ticker_input} 的數據，請確認 market_data.json 結構是否正確。")
