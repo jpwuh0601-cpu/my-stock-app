@@ -14,6 +14,7 @@ def render_html_table(df, title):
         st.write(f"*{title} - 目前無數據*")
         return
     st.markdown(f"### {title}")
+    # 確保表格內容 HTML 渲染
     html = "<table style='width:100%; border-collapse: collapse; font-size:13px; text-align:center;'>"
     html += "<thead><tr style='background:#f0f0f0;'>" + "".join([f"<th style='padding:8px; border:1px solid #ccc;'>{c}</th>" for c in df.columns]) + "</tr></thead>"
     for _, row in df.iterrows():
@@ -21,7 +22,7 @@ def render_html_table(df, title):
         for col in df.columns:
             val = row[col]
             style = "padding:6px; border:1px solid #ddd;"
-            # 漲紅跌綠處理
+            # 漲紅跌綠處理 (排除日期與券商名稱欄位)
             if col not in ["日期", "券商名稱"] and isinstance(val, (int, float)):
                 style += " color:" + ("red" if val > 0 else "green") + "; font-weight:bold;"
             html += f"<td style='{style}'>{val}</td>"
@@ -36,7 +37,6 @@ with st.form("stock_form"):
 
 if submitted:
     with st.spinner("正在讀取全方位分析數據..."):
-        # 確保 data 是一個字典
         data = fetch_stock_data(ticker)
         if not isinstance(data, dict):
             data = {}
@@ -58,9 +58,9 @@ if submitted:
         st.subheader("3. 報表與籌碼動向")
         render_html_table(pd.DataFrame({"Q1":[1.2,1.5],"Q2":[1.3,1.6],"Q3":[1.5,1.8],"Q4":[1.4,1.9]}, index=["去年EPS", "今年EPS"]), "今年與去年每季財報")
         
-        # 安全存取籌碼數據
-        render_html_table(data.get('institutional_data'), "三大法人十日買賣超")
-        render_html_table(data.get('broker_data'), "十家主力券商十日買賣超")
+        # 籌碼數據呈現 (確保以表格列出每日細項)
+        render_html_table(data.get('institutional_data'), "三大法人近十日買賣超細項")
+        render_html_table(data.get('broker_data'), "十家主力券商近十日買賣超細項")
         
         # 4. AI 財報預測
         st.subheader("4. AI 財報預測與回測")
