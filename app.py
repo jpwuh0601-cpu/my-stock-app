@@ -62,13 +62,15 @@ if st.button("查詢分析數據"):
                 "投信": np.random.randint(-600, 600, 10),
                 "自營商": np.random.randint(-400, 400, 10)
             })
-            st.dataframe(inst_data.set_index("日期").style.applymap(color_format), use_container_width=True)
+            # 修正：將 applymap 改為 map 以符合新版 pandas 規範
+            st.dataframe(inst_data.set_index("日期").style.map(color_format), use_container_width=True)
 
             # 5. 主力券商近十日買賣超明細
             st.markdown("### 5. 十大主力券商近十日每日買賣超明細 (張)")
             brokers = ["元大", "凱基", "富邦", "永豐金", "國泰", "群益", "元富", "華南永昌", "兆豐", "統一"]
             broker_data = pd.DataFrame(np.random.randint(-800, 1000, (10, 10)), columns=brokers, index=dates)
-            st.dataframe(broker_data.style.applymap(color_format), use_container_width=True)
+            # 修正：將 applymap 改為 map
+            st.dataframe(broker_data.style.map(color_format), use_container_width=True)
 
             # 6-9. AI 與風險預警
             st.markdown("### 6-9. AI 財報預測與黑天鵝警示")
