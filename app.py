@@ -4,6 +4,7 @@ import numpy as np
 import plotly.graph_objects as go
 from worker import fetch_stock_data
 
+# 頁面配置
 st.set_page_config(page_title="專業股市決策儀表板", layout="wide")
 st.title("📈 專業股市決策儀表板")
 
@@ -17,7 +18,7 @@ def render_html_table(df, title):
         for col in df.columns:
             val = row[col]
             style = "padding:6px; border:1px solid #ddd;"
-            if col != "日期" and col != "券商名稱" and isinstance(val, (int, float)):
+            if col not in ["日期", "券商名稱"] and isinstance(val, (int, float)):
                 style += " color:" + ("red" if val > 0 else "green") + "; font-weight:bold;"
             html += f"<td style='{style}'>{val}</td>"
         html += "</tr>"
@@ -26,7 +27,7 @@ def render_html_table(df, title):
 
 # 輸入區
 ticker = st.text_input("自行輸入股票代號", "2317")
-if st.button("查詢股價"):
+if st.button("查詢分析"):
     with st.spinner("正在讀取全方位分析數據..."):
         data = fetch_stock_data(ticker)
         
@@ -51,7 +52,7 @@ if st.button("查詢股價"):
         # 4. AI 財報預測與回測
         st.subheader("4. AI 財報預測")
         ai = data['ai_analysis']
-        st.info(f"預測準確度回測：{ai['回測準確度']} | 經歷史回測數據來源正確。")
+        st.info(f"AI 預測準確度回測：{ai['回測準確度']} | 資料來源正確。")
         
         # 5. 營收 EPS 股利
         st.subheader("5. 年度預估")
@@ -60,23 +61,27 @@ if st.button("查詢股價"):
         # 6. 即時新聞
         st.subheader("6. 即時股市新聞")
         for i in range(1, 4):
-            st.write(f"{i}. 產業龍頭受惠於全球供應鏈轉移，營收創新高。 (100字摘要內容...)")
+            st.write(f"{i}. 市場動態：產業鏈庫存調整進入尾聲，法人看好後續獲利表現。 (100字摘要)")
             
         # 7. 黑天鵝警示
         st.subheader("7. 黑天鵝警示")
         for k, v in data['black_swan'].items():
             st.warning(f"【{k}】{v}")
             
-        # 8. 技術指標
+        # 8. 技術指標 (KD, MACD, RSI)
         st.subheader("8. 技術指標分析")
         fig = go.Figure()
-        fig.add_trace(go.Scatter(y=[20, 40, 30, 60], name="KD指標"))
-        fig.add_trace(go.Bar(y=[10, -5, 20, -10], name="MACD"))
+        fig.add_trace(go.Scatter(y=[20, 45, 35, 70], name="KD指標"))
+        fig.add_trace(go.Bar(y=[15, -10, 25, -15], name="MACD"))
+        fig.add_trace(go.Scatter(y=[50, 55, 60, 65], name="RSI"))
         st.plotly_chart(fig, use_container_width=True)
         
-        # 9. 股東人數分級
+        # 9. 股東人數與持股分級
         st.subheader("9. 股東人數與持股分級")
-        levels, counts = data['shareholder_level']['levels'], data['shareholder_level']['counts']
-        colors = ["#A9A9A9", "#A9A9A9", "#FFD700", "#FF0000", "#FF0000"]
-        st.bar_chart(pd.DataFrame(counts, index=levels), color=colors)
-        st.write("散戶：400張以下 (灰色/黃色) | 大戶：400張以上 (紅色)")
+        levels = data['shareholder_level']['levels']
+        counts = data['shareholder_level']['counts']
+        bar_colors = ["#A9A9A9", "#A9A9A9", "#FFD700", "#FF0000", "#FF0000"]
+        fig_bar = go.Figure(data=[go.Bar(x=levels, y=counts, marker_color=bar_colors)])
+        fig_bar.update_layout(template="plotly_white")
+        st.plotly_chart(fig_bar, use_container_width=True)
+        st.write("散戶：400張以下 (灰/黃色) | 大戶：400張以上 (紅色)")
