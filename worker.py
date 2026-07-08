@@ -1,43 +1,53 @@
 import yfinance as yf
-import pandas as pd
-import time
-import random
 import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
-def get_session():
-    session = requests.Session()
-    retry = Retry(connect=5, backoff_factor=2)
-    adapter = HTTPAdapter(max_retries=retry)
-    session.mount('https://', adapter)
-    session.headers.update({"User-Agent": "Mozilla/5.0"})
-    return session
+def normalize_ticker(ticker):
+    """
+    自動標準化代號：確保所有代號皆以 .TW 結尾
+    """
+    ticker = ticker.strip().upper()
+    if not ticker.endswith(".TW") and ticker.isdigit():
+        return ticker + ".TW"
+    return ticker
 
 def fetch_stock_data(ticker):
+    """
+    使用偽裝標頭抓取即時數據，確保穩定性
+    """
+    ticker = normalize_ticker(ticker)
+    
+    # 增加 User-Agent 偽裝，避免被 Yahoo Finance 伺服器阻擋
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
+    
     try:
-        session = get_session()
+        # 使用 yfinance 的 session 功能來掛載 headers
+        session = requests.Session()
+        session.headers.update(headers)
         stock = yf.Ticker(ticker, session=session)
+        
+        # 獲取資訊與價格
         info = stock.info
-        return {"price": info.get("currentPrice") or info.get("regularMarketPrice") or 0, "info": info}
+        price = info.get("regularMarketPrice") or info.get("currentPrice") or 0
+        
+        # 若 price 為 0，可能是因為 Yahoo API 延遲，嘗試從 history 獲取
+        if price == 0:
+            hist = stock.history(period="1d")
+            if not hist.empty:
+                price = hist['Close'].iloc[-1]
+
+        return {
+            "price": round(price, 2),
+            "nav": info.get("bookValue", "N/A"),
+            "pe": round(info.get("trailingPE", 0), 2) if info.get("trailingPE") else "N/A",
+            "eps": round(info.get("trailingEps", 0), 2) if info.get("trailingEps") else "N/A",
+            "change": round(info.get("regularMarketChange", 0), 2),
+            "info": info
+        }
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": f"無法取得數據: {str(e)}"}
 
-def fetch_institutional_data(ticker):
-    time.sleep(0.5)
-    dates = pd.date_range(end=pd.Timestamp.today(), periods=10).strftime('%Y-%m-%d').tolist()
-    return [{"日期": d, "外資": random.randint(-5000, 5000), "投信": random.randint(-1000, 1000), "自營商": random.randint(-500, 500)} for d in reversed(dates)]
-
-def fetch_top_brokers_data(ticker):
-    brokers = ["元大-台北", "凱基-台北", "富邦-總公司"]
-    data = {"券商": brokers}
-    for i in range(1, 11):
-        data[f"D-{i}"] = [random.randint(-1000, 1000) for _ in range(len(brokers))]
-    return pd.DataFrame(data)
-
-def fetch_stock_news(ticker):
-    return [{"title": "市場動態", "summary": f"{ticker} 近期波動觀察。"}]
-
-def check_black_swan(info):
-    if not isinstance(info, dict): return "安全", ["無數據"]
-    return "安全", ["無異常"]
+if __name__ == "__main__":
+    # 測試用
+    print(fetch_stock_data("2330.TW"))
