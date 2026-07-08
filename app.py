@@ -10,7 +10,7 @@ st.title("📈 專業股市決策儀表板")
 
 # 穩定版 HTML 表格渲染 (支援漲紅跌綠)
 def render_html_table(df, title):
-    if df is None or df.empty:
+    if df is None or not isinstance(df, pd.DataFrame) or df.empty:
         st.write(f"*{title} - 目前無數據*")
         return
     st.markdown(f"### {title}")
@@ -36,11 +36,15 @@ with st.form("stock_form"):
 
 if submitted:
     with st.spinner("正在讀取全方位分析數據..."):
+        # 確保 data 是一個字典
         data = fetch_stock_data(ticker)
+        if not isinstance(data, dict):
+            data = {}
         
         # 1. 即時股價
         st.subheader("1. 即時股價")
-        price, change = data.get('price', 0), data.get('change', 0)
+        price = data.get('price', 'N/A')
+        change = data.get('change', 0)
         st.markdown(f"### <span style='color: {'red' if change >= 0 else 'green'}'>{price} ({'+' if change >= 0 else ''}{change} 元)</span>", unsafe_allow_html=True)
         
         # 2. 基本面數據
@@ -53,17 +57,19 @@ if submitted:
         # 3. 報表與籌碼細項
         st.subheader("3. 報表與籌碼動向")
         render_html_table(pd.DataFrame({"Q1":[1.2,1.5],"Q2":[1.3,1.6],"Q3":[1.5,1.8],"Q4":[1.4,1.9]}, index=["去年EPS", "今年EPS"]), "今年與去年每季財報")
+        
+        # 安全存取籌碼數據
         render_html_table(data.get('institutional_data'), "三大法人十日買賣超")
         render_html_table(data.get('broker_data'), "十家主力券商十日買賣超")
         
         # 4. AI 財報預測
         st.subheader("4. AI 財報預測與回測")
-        st.info(f"AI 預測準確度回測：{data.get('ai_analysis', {}).get('回測準確度', 'N/A')} | 資料來源正確。")
+        ai_analysis = data.get('ai_analysis', {})
+        st.info(f"AI 預測準確度回測：{ai_analysis.get('回測準確度', 'N/A')} | 資料來源正確。")
         
         # 5. 年度預估
         st.subheader("5. 年度預估")
-        ai = data.get('ai_analysis', {})
-        st.write(f"預估今年營收：{ai.get('預估營收')} | EPS：{ai.get('預估EPS')} | 股利：{ai.get('預估股利')}")
+        st.write(f"預估今年營收：{ai_analysis.get('預估營收', 'N/A')} | EPS：{ai_analysis.get('預估EPS', 'N/A')} | 股利：{ai_analysis.get('預估股利', 'N/A')}")
         
         # 6. 即時股市新聞
         st.subheader("6. 即時股市新聞")
@@ -78,8 +84,12 @@ if submitted:
             
         # 7. 黑天鵝警示
         st.subheader("7. 黑天鵝警示")
-        for k, v in data.get('black_swan', {}).items():
-            st.warning(f"【{k}】{v} (地緣政治風險分析與最新發展內容...)")
+        black_swan = data.get('black_swan', {})
+        if isinstance(black_swan, dict):
+            for k, v in black_swan.items():
+                st.warning(f"【{k}】{v} (地緣政治風險分析與最新發展內容...)")
+        else:
+            st.info("目前無地緣政治風險警示。")
             
         # 8. 技術指標分析
         st.subheader("8. 技術指標分析")
