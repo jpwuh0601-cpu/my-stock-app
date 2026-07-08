@@ -20,16 +20,14 @@ jobs:
         run: pip install yfinance requests pandas
 
       - name: 執行數據更新
+        env:
+          PYTHONPATH: ${{ github.workspace }}
         run: |
-          echo "當前目錄內容："
-          ls -F
-          # 使用絕對路徑執行，並確保檔案可讀
-          if [ -f "./main_task.py" ]; then
-            python ./main_task.py
-          else
-            echo "錯誤：在當前目錄下找不到 main_task.py"
-            exit 1
-          fi
+          echo "執行路徑: $GITHUB_WORKSPACE"
+          ls -la
+          # 強制進入工作目錄並執行
+          cd $GITHUB_WORKSPACE
+          python main_task.py
       
       - name: 推送數據至 GitHub
         run: |
