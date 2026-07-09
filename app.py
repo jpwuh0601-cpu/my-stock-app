@@ -32,21 +32,24 @@ if st.sidebar.button("查詢分析"):
     with st.spinner("載入中..."):
         try:
             s = ticker if ticker.endswith(".TW") else f"{ticker}.TW"
-            info = yf.Ticker(s).info
+            stock = yf.Ticker(s)
+            info = stock.info
             
-            # 1. 即時股價
+            # 1. 即時股價與漲跌顏色
             st.subheader("1. 即時股價")
-            price, change = info.get("currentPrice", 0), info.get("regularMarketChange", 0)
-            st.markdown(f"### <span style='color:{'red' if change >= 0 else 'green'}'>{price:.2f} ({change:+.2f})</span>", unsafe_allow_html=True)
+            price = info.get("currentPrice", 0)
+            change = info.get("regularMarketChange", 0)
+            color = "red" if change >= 0 else "green"
+            st.markdown(f"### 現價: <span style='color:{color}'>{price:.2f} ({change:+.2f})</span>", unsafe_allow_html=True)
             
-            # 2. 基本面數據
-            st.subheader("2. 基本面數據")
+            # 2. 每股淨額、本益比、EPS
+            st.subheader("2. 財務指標")
             c1, c2, c3 = st.columns(3)
             c1.metric("每股淨額", f"{info.get('bookValue', 0):.2f}")
             c2.metric("本益比", f"{info.get('trailingPE', 0):.2f}")
             c3.metric("EPS", f"{info.get('trailingEps', 0):.2f}")
             
-            # 3. 報表與法人/券商明細
+            # 3. 報表與籌碼分析
             st.subheader("3. 財務報表與籌碼分析")
             q_data = pd.DataFrame({"季度": ["2025Q3", "2025Q4", "2026Q1", "2026Q2"], "EPS": [4.8, 5.0, 5.2, 5.8], "變動": [0, 0.2, 0.2, 0.6]})
             render_html_table(q_data, "去年至今每季財報與 EPS 變動", color_cols=["變動"])
@@ -58,7 +61,7 @@ if st.sidebar.button("查詢分析"):
             broker_df = pd.DataFrame({"日期": dates, "元大": np.random.randint(-500, 500, 10), "凱基": np.random.randint(-500, 500, 10), "富邦": np.random.randint(-500, 500, 10), "永豐": np.random.randint(-500, 500, 10), "國泰": np.random.randint(-500, 500, 10), "群益": np.random.randint(-500, 500, 10), "元富": np.random.randint(-500, 500, 10), "華南": np.random.randint(-500, 500, 10), "兆豐": np.random.randint(-500, 500, 10), "統一": np.random.randint(-500, 500, 10)})
             render_html_table(broker_df, "十家券商十日買賣超細項", color_cols=["元大", "凱基", "富邦", "永豐", "國泰", "群益", "元富", "華南", "兆豐", "統一"])
             
-            # 4 & 5. AI 財報預測與營收預估
+            # 4 & 5. AI 財報預測與營收 EPS 預估
             st.subheader("4 & 5. AI 財報預測與營收 EPS 預估")
             st.info("AI 預測：本年度 EPS 成長 15% | 回測準確度：98.5%")
             st.write("預估今年營收成長：12% | 預估 EPS：22.5 元 | 預估股利：10.5 元")
