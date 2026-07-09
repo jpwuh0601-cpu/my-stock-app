@@ -51,10 +51,12 @@ if st.sidebar.button("查詢分析"):
             q_data = pd.DataFrame({"季度": ["2025Q3", "2025Q4", "2026Q1", "2026Q2"], "EPS": [4.8, 5.0, 5.2, 5.8], "變動": [0, 0.2, 0.2, 0.6]})
             render_html_table(q_data, "去年至今每季財報與 EPS 變動", color_cols=["變動"])
             
-            dates = pd.date_range(end=pd.Timestamp.today(), periods=5).strftime('%m-%d')
-            inst_df = pd.DataFrame({"日期": dates, "外資": np.random.randint(-500, 500, 5), "投信": np.random.randint(-300, 300, 5)})
-            render_html_table(inst_df, "三大法人十日買賣超細項", color_cols=["外資", "投信"])
-            render_html_table(inst_df, "十家券商十日買賣超細項", color_cols=["外資", "投信"])
+            dates = pd.date_range(end=pd.Timestamp.today(), periods=10).strftime('%m-%d')
+            inst_df = pd.DataFrame({"日期": dates, "外資": np.random.randint(-1000, 1000, 10), "投信": np.random.randint(-1000, 1000, 10), "自營商": np.random.randint(-1000, 1000, 10)})
+            render_html_table(inst_df, "三大法人十日買賣超細項", color_cols=["外資", "投信", "自營商"])
+            
+            broker_df = pd.DataFrame({"日期": dates, "元大": np.random.randint(-500, 500, 10), "凱基": np.random.randint(-500, 500, 10), "富邦": np.random.randint(-500, 500, 10), "永豐": np.random.randint(-500, 500, 10), "國泰": np.random.randint(-500, 500, 10), "群益": np.random.randint(-500, 500, 10), "元富": np.random.randint(-500, 500, 10), "華南": np.random.randint(-500, 500, 10), "兆豐": np.random.randint(-500, 500, 10), "統一": np.random.randint(-500, 500, 10)})
+            render_html_table(broker_df, "十家券商十日買賣超細項", color_cols=["元大", "凱基", "富邦", "永豐", "國泰", "群益", "元富", "華南", "兆豐", "統一"])
             
             # 4 & 5. AI 財報預測與營收預估
             st.subheader("4 & 5. AI 財報預測與營收 EPS 預估")
