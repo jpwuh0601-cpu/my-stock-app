@@ -26,24 +26,6 @@ def get_data(ticker):
     except:
         return {"error": "資料讀取失敗"}, True, clean_ticker
 
-# HTML 表格渲染函數
-def render_html_table(data_df, title, color_cols):
-    st.markdown(f"### {title}")
-    html = "<table style='width:100%; border-collapse: collapse; font-family: sans-serif; text-align: center;'>"
-    html += "<tr style='background:#f4f4f4;'>" + "".join([f"<th style='padding:8px; border:1px solid #ddd;'>{c}</th>" for c in data_df.columns]) + "</tr>"
-    for _, row in data_df.iterrows():
-        html += "<tr>"
-        for col in data_df.columns:
-            val = row[col]
-            style = "padding:8px; border:1px solid #ddd;"
-            if col in color_cols and isinstance(val, (int, float)):
-                color = "red" if val > 0 else "green"
-                style += f" color:{color}; font-weight:bold;"
-            html += f"<td style='{style}'>{val}</td>"
-        html += "</tr>"
-    html += "</table>"
-    st.markdown(html, unsafe_allow_html=True)
-
 # 側邊欄輸入
 ticker = st.sidebar.text_input("輸入股票代號 (例如: 2330)", "2330")
 
@@ -66,35 +48,51 @@ if st.sidebar.button("查詢分析"):
             c2.metric("本益比", f"{data['trailingPE']:.2f}")
             c3.metric("EPS", f"{data['trailingEps']:.2f}")
             
-            # 3. 每季報表與籌碼分析
-            st.subheader("3. 每季報表與籌碼分析")
-            # 擴充為 8 季數據
-            q_data = pd.DataFrame({
-                "年度/季度": ["2026 Q2", "2026 Q1", "2025 Q4", "2025 Q3", "2025 Q2", "2025 Q1", "2024 Q4", "2024 Q3"], 
-                "EPS": [5.8, 5.2, 5.0, 4.8, 4.5, 4.2, 4.0, 3.8]
-            })
-            render_html_table(q_data, "今年與去年每季財報表", [])
+            # 3. 每季報表 (兩列四欄)
+            st.subheader("3. 今年度與去年度每季財報表")
+            q_labels = ["2026 Q2", "2026 Q1", "2025 Q4", "2025 Q3", "2025 Q2", "2025 Q1", "2024 Q4", "2024 Q3"]
+            q_values = [5.8, 5.2, 5.0, 4.8, 4.5, 4.2, 4.0, 3.8]
             
-            # 籌碼面細項
-            dates = pd.date_range(end=pd.Timestamp.today(), periods=10).strftime('%m-%d')
-            inst_df = pd.DataFrame({"日期": dates, "外資": np.random.randint(-1000, 1000, 10), "投信": np.random.randint(-500, 500, 10)})
-            render_html_table(inst_df, "三大法人十日買賣超細項", ["外資", "投信"])
-            
-            broker_df = pd.DataFrame(np.random.randint(-500, 500, (10, 5)), columns=["元大", "凱基", "富邦", "國泰", "統一"])
-            broker_df.insert(0, "日期", dates)
-            render_html_table(broker_df, "十大券商十日買賣超細項", ["元大", "凱基", "富邦", "國泰", "統一"])
+            # 分為兩列
+            for row in range(2):
+                cols = st.columns(4)
+                for i in range(4):
+                    idx = row * 4 + i
+                    cols[i].metric(q_labels[idx], f"{q_values[idx]} EPS")
+
+            # 籌碼面分析
+            st.subheader("三大法人與十大券商籌碼分析")
+            dates = pd.date_range(end=pd.Timestamp.today(), periods=5).strftime('%m-%d')
+            inst_df = pd.DataFrame({"日期": dates, "外資": np.random.randint(-1000, 1000, 5), "投信": np.random.randint(-500, 500, 5)})
+            st.table(inst_df)
             
             # 4 & 5. AI 財報預測與預估
             st.subheader("4 & 5. AI 財報預測與預估")
             st.info("AI 分析回測準確率：98.2%")
             st.write("預估今年營收成長：12% | 預估 EPS：22.5 元 | 預估股利：10.5 元")
             
-            # 6. 即時新聞
+            # 6. 即時股市新聞
             st.subheader("6. 即時股市新聞")
-            st.write("時：09:00｜事：科技股反彈｜地：台北證交所｜物：半導體龍頭產能滿載，帶動供應鏈需求大幅提升，股價開高走高。")
-            st.write("時：10:30｜事：聯準會轉鴿｜地：美國聯準會｜物：寬鬆貨幣政策預期引導資金重回高科技成長股，市場流動性顯著增加。")
-            st.write("時：13:00｜事：AI需求爆發｜地：全球雲端中心｜物：高效能運算訂單排程至明年底，供應鏈代工廠營收預期持續樂觀。")
+            news_items = [
+                ("2026年7月10日早晨九點整，台灣證券交易所正式開盤交易，全球市場目光聚焦在半導體產業的最新營收數據，分析師密切監控各類股的開盤表現，以評估市場投資情緒。",
+                 "台積電與供應鏈廠商發布重大營收預警與成長規劃，顯示先進製程需求持續攀升，帶動整體電子零組件產業股價出現大幅度反彈，投資人信心明顯提振，市場成交量大幅增長。",
+                 "台灣證券交易所內部交易大廳與全球雲端數據中心，來自國際機構法人資金持續湧入，電子類股交易熱絡，市場流動性充足，整體交易環境呈現正面且穩定的樂觀成長態勢。",
+                 "高效能運算晶片與人工智慧專用伺服器訂單，由於全球數位轉型需求推升，產能滿載情況預估將延續至明年底，供應鏈代工廠營收獲利預期將持續維持強勁成長動能。"),
+                ("2026年7月10日上午十點半，美國聯準會發布最新利率決策會議摘要，市場密切觀察貨幣政策變動對全球金融資產的影響，交易員正重新調整風險資產組合以應對波動。",
+                 "聯準會官員暗示維持高利率政策的時間可能延長，旨在抑制潛在的通膨壓抑壓力，此言論導致國際債券市場殖利率出現震盪，外匯市場資金流向也發生了顯著調整。",
+                 "全球主要金融中心如紐約華爾街與倫敦金融城，機構投資人紛紛拋售風險資產，改為增加防禦性部位，市場情緒轉趨謹慎保守，各國股市表現呈現回檔修正態勢。",
+                 "基準利率調整預期與核心通膨數據，由於聯準會立場保持鷹派，高利率環境預計將持續增加企業融資成本，資本密集型產業面臨更大營運挑戰，市場流動性正逐漸收緊。"),
+                ("2026年7月10日下午一點，全球雲端供應鏈中心發布最新訂單排程報告，各家代工廠同步公告強勁的預期產能利用率，市場對於人工智慧技術發展前景表現極度樂觀。",
+                 "供應鏈廠商接獲大規模高效能運算需求訂單，產能利用率在短期內將達到滿載水平，帶動上下游產業鏈同步擴張，廠商積極調整營運策略以因應全球對 AI 算力龐大需求。",
+                 "全球各大科技園區如新竹科學園區與矽谷高科技聚落，設備商訂單能見度已拉長至明年底，勞動力招聘與設備擴張需求熱絡，產業鏈展現出強韌的景氣復甦動能與活力。",
+                 "高效能運算與雲端儲存裝置產能，由於全球對數位基礎建設投資力度加大，特別是大型語言模型與數據處理需求急增，供應鏈將面臨長期結構性成長的顯著利多趨勢。")
+            ]
             
+            for i, news in enumerate(news_items):
+                st.markdown(f"**新聞 {i+1}**")
+                st.markdown(f"**何時**：{news[0]}<br>**何事**：{news[1]}<br>**何地**：{news[2]}<br>**何物**：{news[3]}", unsafe_allow_html=True)
+                st.divider()
+
             # 7. 黑天鵝警示
             st.subheader("7. 黑天鵝警示")
             st.warning("**(1) 俄烏戰爭**：戰事膠著已逾兩年，近期針對能源基礎設施的打擊升級。能源價格波動將直接衝擊全球供應鏈物流成本，加上糧食出口不確定性，進一步推升全球通膨預期，對於仰賴進口能源的製造業造成嚴重獲利壓抑，需密切監控停火協商進度。")
