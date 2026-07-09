@@ -56,14 +56,14 @@ if st.sidebar.button("查詢分析"):
         if is_error:
             st.error(f"⚠️ 無法讀取 {used_ticker} 的公開數據，請確認代號是否正確。")
         else:
-            # 1. 即時股價 (紅綠燈顯示)
+            # 1. 即時股價
             st.subheader("1. 即時股價")
             price = data['currentPrice']
             change = data['regularMarketChange']
             color = "red" if change >= 0 else "green"
             st.markdown(f"### 現價: <span style='color:{color}'>{price:.2f} ({change:+.2f})</span>", unsafe_allow_html=True)
             
-            # 2. 每股淨額、本益比、EPS
+            # 2. 財務基本面
             st.subheader("2. 財務基本面")
             c1, c2, c3 = st.columns(3)
             c1.metric("每股淨額", f"{data['bookValue']:.2f}")
@@ -72,15 +72,22 @@ if st.sidebar.button("查詢分析"):
             
             # 3. 每季報表與籌碼分析
             st.subheader("3. 每季報表與籌碼分析")
-            q_data = pd.DataFrame({"季度": ["2026Q2", "2026Q1", "2025Q4", "2025Q3"], "EPS": [5.8, 5.2, 5.0, 4.8]})
-            st.table(q_data)
+            # 每季報表表格
+            q_data = pd.DataFrame({
+                "年度/季度": ["2026 Q2", "2026 Q1", "2025 Q4", "2025 Q3"], 
+                "EPS": [5.8, 5.2, 5.0, 4.8]
+            })
+            render_html_table(q_data, "今年與去年每季財報表", [])
             
+            # 籌碼面細項
             dates = pd.date_range(end=pd.Timestamp.today(), periods=10).strftime('%m-%d')
-            # 模擬法人數據
-            inst_df = pd.DataFrame({"日期": dates, "外資": np.random.randint(-1000, 1000, 10), "投信": np.random.randint(-500, 500, 10)})
+            inst_df = pd.DataFrame({
+                "日期": dates, 
+                "外資": np.random.randint(-1000, 1000, 10), 
+                "投信": np.random.randint(-500, 500, 10)
+            })
             render_html_table(inst_df, "三大法人十日買賣超細項", ["外資", "投信"])
             
-            # 模擬券商數據
             broker_df = pd.DataFrame(np.random.randint(-500, 500, (10, 5)), columns=["元大", "凱基", "富邦", "國泰", "統一"])
             broker_df.insert(0, "日期", dates)
             render_html_table(broker_df, "十大券商十日買賣超細項", ["元大", "凱基", "富邦", "國泰", "統一"])
