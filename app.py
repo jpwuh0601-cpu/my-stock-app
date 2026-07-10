@@ -3,8 +3,12 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import yfinance as yf
+import socket
 import threading
 import time
+
+# 設定全域 Socket 超時時間為 3.0 秒，強制阻斷任何底層網路請求卡死
+socket.setdefaulttimeout(3.0)
 
 # 頁面初始化
 st.set_page_config(page_title="專業股市決策儀表板", layout="wide")
