@@ -10,6 +10,19 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# 建立常見台股中文名稱高速對照表，確保常用股 100% 精確顯示中文名稱
+COMMON_NAMES = {
+    "2002": "中鋼", "2330": "台積電", "2317": "鴻海", "2454": "聯發科", 
+    "2303": "聯電", "3035": "智原", "1504": "東元", "2605": "新興", 
+    "3374": "精材", "2301": "光寶科", "2308": "台達電", "2324": "仁寶", 
+    "2353": "宏碁", "2357": "華碩", "2382": "廣達", "2408": "南亞科", 
+    "2409": "友達", "2412": "中華電", "2498": "宏達電", "2881": "富邦金", 
+    "2882": "國泰金", "2891": "中信金", "3008": "大立光", "3481": "群創", 
+    "2603": "長榮", "2609": "陽明", "2615": "萬海", "2610": "華航", 
+    "2618": "長榮航", "2337": "旺宏", "2344": "華邦電", "3231": "緯創",
+    "2379": "瑞昱", "2327": "國巨", "2886": "兆豐金", "2884": "玉山金"
+}
+
 def force_exact_length(text, target_len=30):
     text_clean = text.strip()
     if len(text_clean) < target_len:
@@ -50,6 +63,9 @@ def fetch_stock_data_realtime(stock_code):
                     price = meta.get("regularMarketPrice")
                     prev_close = meta.get("chartPreviousClose")
                     
+                    # 讀取 API 回傳的名稱
+                    api_name = meta.get("shortName", ticker)
+                    
                     # 若 regularMarketPrice 為空，試圖從 indicators.quote 取得最後收盤價
                     if price is None:
                         quotes = result[0].get("indicators", {}).get("quote", [{}])[0]
@@ -62,7 +78,7 @@ def fetch_stock_data_realtime(stock_code):
                         price_chg = price - prev_close if prev_close is not None else 0.0
                         
                         # 2. 獲取財務基本面資訊 (Yahoo QuoteSummary API)
-                        summary_url = f"https://query1.finance.yahoo.com/v10/finance/quoteSummary/{ticker}?modules=defaultKeyStatistics,summaryDetail"
+                        summary_url = f"https://query1.finance.yahoo.com/v10/finance/quoteSummary/{ticker}?modules=defaultKeyStatistics,summaryDetail,quoteType"
                         r_summary = requests.get(summary_url, headers=headers, timeout=5)
                         
                         # 設定預設基本面 (防止部分欄位缺失造成崩潰)
@@ -78,6 +94,10 @@ def fetch_stock_data_realtime(stock_code):
                                 res = quote_result[0]
                                 stats = res.get("defaultKeyStatistics", {})
                                 detail = res.get("summaryDetail", {})
+                                qtype = res.get("quoteType", {})
+                                
+                                # 更新名稱來源 (若 quoteType 中有更精確的名稱)
+                                api_name = qtype.get("shortName", api_name)
                                 
                                 # 讀取每股淨值 (NAV)
                                 nav_val = stats.get("bookValue", {}).get("raw")
@@ -100,6 +120,9 @@ def fetch_stock_data_realtime(stock_code):
                                 shares_val = stats.get("sharesOutstanding", {}).get("raw")
                                 if shares_val is not None:
                                     shares = float(shares_val) / 10000.0
+                        
+                        # 決定最終顯示名稱：優先採用對照表，其次為 API 回傳名稱，最後為代碼本身
+                        final_name = COMMON_NAMES.get(clean_code, api_name)
                                     
                         return {
                             "price": price,
@@ -109,6 +132,7 @@ def fetch_stock_data_realtime(stock_code):
                             "eps": eps,
                             "shares": shares,
                             "name": ticker,
+                            "disp_name": final_name,
                             "error": None
                         }
         except:
@@ -134,11 +158,12 @@ with st.spinner("正在向即時股市資料庫請求數據..."):
 # ⚠️ 終極防禦：若 API 請求出錯或代碼不存在，立刻拋出錯誤並終止後續渲染，防止出現 Oh No! 崩潰畫面
 if "error" in stock_data and stock_data["error"]:
     st.error(f"❌ 查詢失敗：{stock_data['error']}")
-    st.info("💡 建議重新在側邊欄輸入正確的台灣上市（如 2330）或上櫃（如 3374）股票代號後再點擊查詢。")
+    st.info("💡 建議重新在側邊欄輸入正確的台灣上市（如 2002）或上櫃（如 3374）股票代號後再點擊查詢。")
     st.stop()
 
-st.markdown(f"# 📈 專業股市決策儀表板 — 個股: {stock_data['name']}")
-st.success("✅ 已成功串接最新實時報價與財務基本面數據。")
+# 顯示包含個股中文名稱的精緻標題
+st.markdown(f"# 📈 專業股市決策儀表板 — 個股: {stock_data['disp_name']} ({stock_data['name']})")
+st.success(f"✅ 已成功串接 {stock_data['disp_name']} 最新的實時報價與財務基本面數據。")
 
 st.subheader("1. 即時股價 & 2. 財務基本面")
 
@@ -275,8 +300,9 @@ stock_label = ''.join(filter(str.isdigit, stock_data['name']))
 if not stock_label:
     stock_label = "2330"
 
+# 動態在即時新聞中結合個股中文官方名稱
 news_when  = f"【何時】於２０２６年７月１０日盤後交易時段主管機關與法人正式發布。"
-news_what  = f"【何事】針對個股［{stock_label}］營運活動啟動最新警示公告提醒注意風險。"
+news_what  = f"【何事】針對個股［{stock_data['disp_name']}］營運活動啟動最新警示公告提醒注意風險。"
 news_where = f"【何地】本項重要投資風險公告已同步刊登於臺灣證券交易所公開官網。"
 news_item  = f"【何物】內容指出應審慎評估該股融資餘額與外資籌碼動態流動性風險。"
 
@@ -287,8 +313,8 @@ news4_line = force_exact_length(news_item, 30)
 
 st.markdown(f"""
 <div style="background-color: #f8f9fa; padding: 15px; border-left: 5px solid #007bff; margin-bottom: 15px; border-radius: 4px;">
-    <span style="font-weight:bold; color:#007bff; font-size:15px;">🔥 新聞一：個股 [{stock_label}] 即時營運警示與要素解析 (四要素各精準 30 字，總計 120 字)</span><br>
-    <p style="font-size: 14px; line-height: 1.8; margin-top: 8px; color:#333; font-family: monospace; font-weight: 500;">
+    <span style="font-weight:bold; color:#007bff; font-size:15px;">🔥 新聞一：個股 [{stock_data['disp_name']}] 即時營運警示與要素解析 (四要素各精準 30 字，總計 120 字)</span><br>
+    <p style="font-size: 14px; line-height: 1.8; margin-top: 8px; color:#33; font-family: monospace; font-weight: 500;">
         {news1_line} (共{len(news1_line)}字)<br>
         {news2_line} (共{len(news2_line)}字)<br>
         {news3_line} (共{len(news3_line)}字)<br>
@@ -296,13 +322,13 @@ st.markdown(f"""
     </p>
 </div>
 <div style="background-color: #f8f9fa; padding: 15px; border-left: 5px solid #6c757d; margin-bottom: 15px; border-radius: 4px;">
-    <span style="font-weight:bold; color:#333; font-size:15px;">📰 新聞二：半導體高階供應鏈產能與先進製程外包訂單全面大爆發 (總字數超 115 字)</span><br>
+    <span style="font-weight:bold; color:#33; font-size:15px;">📰 新聞二：半導體高階供應鏈產能與先進製程外包訂單全面大爆發 (總字數超 115 字)</span><br>
     <p style="font-size: 14px; line-height: 1.6; margin-top: 5px; color:#55;">
         【時：2026年7月10日開盤時段】【事：電子股集體強勢領漲大盤，台股加權指數今日再度刷新歷史最高紀錄點位】【地：台北證券交易所大盤中心】【物：先進製程供應鏈營收表現亮眼】。受惠於全球高效能運算晶片與高階人工智慧伺服器訂單全數爆滿，封測及晶圓代工大廠產能利用率逼近滿載。
     </p>
 </div>
 <div style="background-color: #f8f9fa; padding: 15px; border-left: 5px solid #6c757d; margin-bottom: 15px; border-radius: 4px;">
-    <span style="font-weight:bold; color:#333; font-size:15px;">📰 新聞三：全球央行貨幣政策會議與寬鬆資金流向訊號解讀 (總字數超 112 字)</span><br>
+    <span style="font-weight:bold; color:#33; font-size:15px;">📰 新聞三：全球央行貨幣政策會議與寬鬆資金流向訊號解讀 (總字數超 112 字)</span><br>
     <p style="font-size: 14px; line-height: 1.6; margin-top: 5px; color:#55;">
         【時：美東時間昨日下午時分】【事：聯準會利率會議圓滿落幕，並公開向市場釋出明確降息寬鬆之訊號】【地：美國紐約華爾街金融中心】【物：國際熱錢重新配置至亞洲高成長科技股】。隨著各項通膨指標顯著降溫，投資人預期資金成本壓力將大為減輕，促使法人買盤進駐。
     </p>
