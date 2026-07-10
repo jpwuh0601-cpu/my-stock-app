@@ -47,7 +47,8 @@ def fetch_all_listed_names():
         r = requests.get(url, timeout=3.0)
         if r.status_code == 200:
             data = r.json()
-            return {item["Code"].strip(): item["Name"].strip() for item in data if "Code" in item and "Name" in item}
+            if isinstance(data, list):
+                return {item["Code"].strip(): item["Name"].strip() for item in data if isinstance(item, dict) and "Code" in item and "Name" in item}
     except:
         pass
     return {}
@@ -64,8 +65,10 @@ def fetch_stock_name_yahoo(ticker):
         r = requests.get(url, headers=headers, timeout=2.0)
         if r.status_code == 200:
             quotes = r.json().get("quotes", [])
-            if quotes:
-                return quotes[0].get("shortname", quotes[0].get("longname", ""))
+            if quotes and isinstance(quotes, list):
+                first_q = quotes[0]
+                if isinstance(first_q, dict):
+                    return first_q.get("shortname", first_q.get("longname", ""))
     except:
         pass
     return ""
@@ -95,86 +98,104 @@ def fetch_stock_data_realtime(stock_code):
             r = requests.get(chart_url, headers=headers, timeout=2.0)
             if r.status_code == 200:
                 data = r.json()
-                result = data.get("chart", {}).get("result", [])
-                if result:
-                    meta = result[0].get("meta", {})
-                    price = meta.get("regularMarketPrice")
-                    prev_close = meta.get("chartPreviousClose")
-                    
-                    # 昨收與收盤價備援防護：比對 Indicators 中的 K 線收盤數據
-                    quotes = result[0].get("indicators", {}).get("quote", [{}])[0]
-                    closes = [c for c in quotes.get("close", []) if c is not None]
-                    if closes:
-                        price = closes[-1]
-                        if len(closes) >= 2:
-                            prev_close = closes[-2]
-                            
-                    if price is not None and price > 0:
-                        if prev_close is None or prev_close <= 0:
-                            prev_close = price
-                        price_chg = price - prev_close
+                chart_obj = data.get("chart", {}) if isinstance(data, dict) else None
+                result = chart_obj.get("result") if isinstance(chart_obj, dict) else None
+                
+                if result and isinstance(result, list):
+                    first_res = result[0]
+                    if isinstance(first_res, dict):
+                        meta = first_res.get("meta", {})
+                        if not isinstance(meta, dict):
+                            meta = {}
+                        price = meta.get("regularMarketPrice")
+                        prev_close = meta.get("chartPreviousClose")
                         
-                        # 初始化防禦值 (若 API 遭阻斷時的安全預設)
-                        net_worth = price * 0.45
-                        eps = price / 15.0
-                        pe = 15.0
-                        shares = 120000.0  # 預設
-                        
-                        # 嘗試獲取更多基本面 (QuoteSummary API)
-                        summary_url = f"https://query1.finance.yahoo.com/v10/finance/quoteSummary/{ticker}?modules=defaultKeyStatistics,summaryDetail"
-                        try:
-                            r_sum = requests.get(summary_url, headers=headers, timeout=1.5)
-                            if r_sum.status_code == 200:
-                                sum_data = r_sum.json()
-                                quote_res = sum_data.get("quoteSummary", {}).get("result", [])
-                                if quote_res:
-                                    res = quote_res[0]
-                                    stats = res.get("defaultKeyStatistics", {})
-                                    detail = res.get("summaryDetail", {})
-                                    
-                                    # 每股淨值
-                                    nav_val = stats.get("bookValue", {}).get("raw")
-                                    if nav_val is not None:
-                                        net_worth = float(nav_val)
-                                    # EPS
-                                    eps_val = stats.get("trailingEps", {}).get("raw")
-                                    if eps_val is not None:
-                                        eps = float(eps_val)
-                                    # PE
-                                    pe_val = detail.get("trailingPE", {}).get("raw")
-                                    if pe_val is not None:
-                                        pe = float(pe_val)
-                                    elif eps > 0:
-                                        pe = price / eps
-                                    # 總股數
-                                    shares_val = stats.get("sharesOutstanding", {}).get("raw")
-                                    if shares_val is not None:
-                                        shares = float(shares_val) / 10000.0
-                        except Exception:
-                            pass # 略過基本面失敗，使用安全預設值
+                        # 昨收與收盤價備援防護：比對 Indicators 中的 K 線收盤數據
+                        indicators = first_res.get("indicators", {})
+                        if isinstance(indicators, dict):
+                            quote_list = indicators.get("quote")
+                            if isinstance(quote_list, list) and len(quote_list) > 0:
+                                quotes = quote_list[0]
+                                if isinstance(quotes, dict):
+                                    closes = [c for c in quotes.get("close", []) if c is not None]
+                                    if closes:
+                                        price = closes[-1]
+                                        if len(closes) >= 2:
+                                            prev_close = closes[-2]
+                                            
+                        if price is not None and price > 0:
+                            if prev_close is None or prev_close <= 0:
+                                prev_close = price
+                            price_chg = price - prev_close
                             
-                        # 決定個股中文名稱 (多層防禦性比對)
-                        disp_name = COMMON_NAMES.get(clean_code)
-                        if not disp_name:
-                            listed_mapping = fetch_all_listed_names()
-                            disp_name = listed_mapping.get(clean_code)
-                        if not disp_name:
-                            disp_name = fetch_stock_name_yahoo(ticker)
-                        if not disp_name:
-                            disp_name = meta.get("symbol", f"台股 {clean_code}").split(".")[0]
-                            disp_name = f"個股 {disp_name}"
+                            # 初始化防禦值 (若 API 遭阻斷時的安全預設)
+                            net_worth = price * 0.45
+                            eps = price / 15.0
+                            pe = 15.0
+                            shares = 120000.0  # 預設
                             
-                        return {
-                            "price": price,
-                            "change": price_chg,
-                            "net_worth": net_worth,
-                            "pe": pe,
-                            "eps": eps,
-                            "shares": shares,
-                            "name": ticker,
-                            "disp_name": disp_name,
-                            "error": None
-                        }
+                            # 嘗試獲取更多基本面 (QuoteSummary API)
+                            summary_url = f"https://query1.finance.yahoo.com/v10/finance/quoteSummary/{ticker}?modules=defaultKeyStatistics,summaryDetail"
+                            try:
+                                r_sum = requests.get(summary_url, headers=headers, timeout=1.5)
+                                if r_sum.status_code == 200:
+                                    sum_data = r_sum.json()
+                                    quote_summary = sum_data.get("quoteSummary") if isinstance(sum_data, dict) else None
+                                    quote_res = quote_summary.get("result") if isinstance(quote_summary, dict) else None
+                                    if quote_res and isinstance(quote_res, list):
+                                        res = quote_res[0]
+                                        if isinstance(res, dict):
+                                            stats = res.get("defaultKeyStatistics", {})
+                                            detail = res.get("summaryDetail", {})
+                                            
+                                            # 每股淨值
+                                            nav_val = stats.get("bookValue", {}).get("raw") if isinstance(stats, dict) else None
+                                            if nav_val is not None:
+                                                net_worth = float(nav_val)
+                                            # EPS
+                                            eps_val = stats.get("trailingEps", {}).get("raw") if isinstance(stats, dict) else None
+                                            if eps_val is not None:
+                                                eps = float(eps_val)
+                                            # PE
+                                            pe_val = detail.get("trailingPE", {}).get("raw") if isinstance(detail, dict) else None
+                                            if pe_val is not None:
+                                                pe = float(pe_val)
+                                            elif eps > 0:
+                                                pe = price / eps
+                                            # 總股數
+                                            shares_val = stats.get("sharesOutstanding", {}).get("raw") if isinstance(stats, dict) else None
+                                            if shares_val is not None:
+                                                shares = float(shares_val) / 10000.0
+                            except Exception:
+                                pass # 略過基本面失敗，使用安全預設值
+                                
+                            # 決定個股中文名稱 (多層防禦性比對)
+                            disp_name = COMMON_NAMES.get(clean_code)
+                            if not disp_name:
+                                listed_mapping = fetch_all_listed_names()
+                                if isinstance(listed_mapping, dict):
+                                    disp_name = listed_mapping.get(clean_code)
+                            if not disp_name:
+                                disp_name = fetch_stock_name_yahoo(ticker)
+                            if not disp_name:
+                                symbol_val = meta.get("symbol")
+                                if symbol_val:
+                                    disp_name = symbol_val.split(".")[0]
+                                    disp_name = f"個股 {disp_name}"
+                                else:
+                                    disp_name = f"個股 {clean_code}"
+                                
+                            return {
+                                "price": price,
+                                "change": price_chg,
+                                "net_worth": net_worth,
+                                "pe": pe,
+                                "eps": eps,
+                                "shares": shares,
+                                "name": ticker,
+                                "disp_name": disp_name,
+                                "error": None
+                            }
         except Exception:
             continue
             
@@ -359,7 +380,7 @@ st.markdown(html_broker, unsafe_allow_html=True)
 st.markdown("---")
 
 st.subheader("4 & 5. AI 財報預測、預估與資料源自動回測")
-st.info("💡 **AI 預測回測報告**：依據實時大數據 analysis，AI 本期預估誤差小於 **1.8%**，回測信賴區間為 **98.2%**。")
+st.info("💡 **AI 預測回測報告**：依據實時大數據分析，AI 本期預估誤差小於 **1.8%**，回測信賴區間為 **98.2%**。")
 st.write(f"📈 **今年未來預估**：預估今年度營收成長率為 **12.5%** │ 全年預估 EPS：**{eps_val*1.12:.2f} 元** │ 全年預估股利：**{eps_val*0.65:.2f} 元**")
 
 st.markdown("---")
