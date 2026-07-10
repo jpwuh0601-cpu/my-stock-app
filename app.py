@@ -295,6 +295,7 @@ def get_data_safe(ticker_str):
             
     return result_container, False, used_ticker
 
+# HTML 表格渲染函數 (三大法人與十大券商用)
 def render_html_table(data_df, title, color_cols):
     """
     輸出純 HTML 自適應表格，解決 pandas 樣式限制，實現完美漲紅跌綠展示。
@@ -325,6 +326,7 @@ def render_html_table(data_df, title, color_cols):
     html += "</table>"
     st.markdown(html, unsafe_allow_html=True)
 
+# 側邊欄輸入與全域狀態鎖定
 ticker_input = st.sidebar.text_input("輸入股票代號 (例如: 3374)", "3374")
 search_button = st.sidebar.button("查詢分析")
 
@@ -344,6 +346,7 @@ else:
     if data.get("is_fallback", False):
         st.sidebar.warning("⚠️ 已啟動極速備援數據引擎以防頁面卡死。")
 
+    # 1. 即時股價
     st.subheader("1. 即時股價")
     price = data['currentPrice']
     change = data['regularMarketChange']
@@ -351,12 +354,14 @@ else:
     sign = "+" if change >= 0 else ""
     st.markdown(f"### 現價: <span style='color:{color}'>{price:.2f} ({sign}{change:.2f} 元)</span>", unsafe_allow_html=True)
     
+    # 2. 財務基本面
     st.subheader("2. 財務基本面")
     c1, c2, c3 = st.columns(3)
     c1.metric("每股淨額", f"{data['bookValue']:.2f} 元")
     c2.metric("本益比", f"{data['trailingPE']:.2f} 倍")
     c3.metric("EPS", f"{data['trailingEps']:.2f} 元")
     
+    # 3. 今年與去年每季財報表 (營收與 EPS 兩列四欄)
     st.subheader("3. 今年度與去年度每季財報表")
     
     # 從資料庫中讀取基準數值進行動態比率分配 (避免數據死板一致)
@@ -443,8 +448,9 @@ else:
     
     html_fin += "</table>"
     st.markdown(html_fin, unsafe_allow_html=True)
-    st.write("") 
+    st.write("") # 留白
     
+    # 法人十日買賣超細項
     dates = pd.date_range(end=pd.Timestamp.today(), periods=10).strftime('%m-%d')
     inst_df = pd.DataFrame({
         "日期": dates, 
@@ -452,15 +458,17 @@ else:
         "投信 (張)": np.random.randint(-800, 800, 10)
     })
     render_html_table(inst_df, "三大法人十日買賣超細項", ["外資 (張)", "投信 (張)"])
-    st.write("") 
+    st.write("") # 留白
     
+    # 十大本土主力券商十日買賣超細項
     brokers_list = ["元大", "凱基", "富邦", "永豐金", "國泰", "群益", "元富", "華南永昌", "兆豐", "統一"]
     broker_raw = np.random.randint(-800, 800, (10, 10))
     broker_df = pd.DataFrame(broker_raw, columns=brokers_list)
     broker_df.insert(0, "日期", dates)
     render_html_table(broker_df, "十家券商十日買賣超細項 (張)", brokers_list)
-    st.write("") 
+    st.write("") # 留白
     
+    # 4 & 5. AI 財報預測與資料源自動回測
     st.subheader("4 & 5. AI 財報預測、預估與資料源自動回測")
     
     st.markdown("#### 🔍 自動回測所有資料來源狀態")
@@ -472,8 +480,9 @@ else:
     
     st.info("💡 **AI 預測回測報告**：依據營收與籌碼動能，AI 對本股財報預測之平均歷史誤差率小於 **1.8%**，回測信賴區間達 **98.2%**。")
     st.write(f"📈 **今年度未來預估**：預估今年營收成長率 **{revenue_growth_rate*100.1:.1f}%** | 預估全年 EPS **{trailing_eps*1.12:.2f} 元** | 預估股利發放 **{trailing_eps * 0.7:.2f} 元**")
-    st.write("") 
+    st.write("") # 留白
     
+    # 6. 即時股市新聞
     st.subheader("6. 即時股市新聞")
     st.info("📰 **第一條：供應鏈出貨爆發**\n\n"
             "**何時**：2026年7月10日清晨開盤前夕。  \n"
@@ -492,8 +501,9 @@ else:
             "**何事**：新世代人工智慧伺服器訂單超乎預期，硬體代工大廠產能排程滿載。  \n"
             "**何地**：台灣新竹與美西資料中心。  \n"
             "**何物**：高算力顯示晶片、水冷散熱模組與高階網通設備，營運動能極度樂觀。")
-    st.write("") 
+    st.write("") # 留白
     
+    # 7. 黑天鵝警示
     st.subheader("7. 黑天鵝警示")
     st.warning("**(1) 俄烏戰爭近期發展**：  \n"
                "戰事目前陷入高度膠著，雙方持續針對關鍵能源與基礎建設進行無人機空襲。這導致全球天然氣與特殊化學氣體的物流成本居高不下，進一步推升全球製造業面臨隱性通膨壓力，阻礙各大代工廠原料獲利空間，是台股供應鏈的最大外部風險。")
@@ -501,14 +511,16 @@ else:
                "荷姆茲海峽的軍事對峙局勢一再升級，航運保險費與原油價格波動加劇。全球貨櫃航線被迫繞道好望角，造成供應鏈發生二次缺櫃衝擊。貿易成本的上升與能源價格的潛在暴漲，對高度仰賴出口電子製造業造成顯著利潤壓縮。")
     st.warning("**(3) 聯準會利率決策動向**：  \n"
                "近期通膨黏性超出預期，降息路徑依然搖擺不定。高利率環境導致企業融資與資本支出成本沉重，市場風險資金不斷往防禦型美債挪移。若利率維持高檔的時間拉長，將使高本益比科技股面臨劇烈的估值修正挑戰。")
-    st.write("") 
+    st.write("") # 留白
     
+    # 8. 技術指標數據
     st.subheader("8. 技術指標數據")
     st.write("📊 **KD 指標**：`K: 68.5` | `D: 62.1` (**多頭排列**)")
     st.write("📊 **MACD 指標**：`DIF: 1.45` | `MACD: 1.10` | `OSC: +0.35` (**黃金交叉**)")
     st.write("📊 **RSI 指標**：`RSI(6): 62.3` | `RSI(12): 58.6` (**強勢震盪**)")
-    st.write("") 
+    st.write("") # 留白
     
+    # 9. 股東人數與持股分級
     st.subheader("9. 股東人數與持股分級")
     
     categories = ["散戶(1-10張)", "中戶(100-400張)", "大戶(1000張以上)"]
@@ -534,20 +546,22 @@ else:
         height=400
     )
     st.plotly_chart(fig, use_container_width=True)
-    st.write("") 
+    st.write("") # 留白
 
+    # 10. 預估明年股價與估值試算 (8步估值模型)
     st.subheader("10. 預估明年股價與估值試算 (8步估值模型)")
     st.markdown("依據最新財務動態與營運表現，透過以下 8 個關鍵步驟推算明年預估股價、EPS 及合理股息分配：")
     
     # 單位資料轉換
-    default_rev_growth = float(data.get("revenueGrowth", 0.125)) * 100.0 
-    default_last_revenue = float(data.get("totalRevenue", 15000000000)) / 100000000.0 
-    default_shares = float(data.get("sharesOutstanding", 300000000)) / 10000.0 
+    default_rev_growth = float(data.get("revenueGrowth", 0.125)) * 100.0 # 轉為百分比 (例如 12.5%)
+    default_last_revenue = float(data.get("totalRevenue", 15000000000)) / 100000000.0 # 轉為億元 (例如 150億)
+    default_shares = float(data.get("sharesOutstanding", 300000000)) / 10000.0 # 轉為萬股 (例如 30,000 萬股)
 
     st.markdown("##### ⚙️ 調整估值假設參數")
     param_col1, param_col2, param_col3 = st.columns(3)
     
     with param_col1:
+        # Step 1 & 2
         safe_growth = float(np.clip(default_rev_growth, -30.0, 80.0))
         ui_growth_rate = st.slider(
             "Step 1: 最新一期累積營收年增率 (%)", 
@@ -565,6 +579,7 @@ else:
         )
         
     with param_col2:
+        # Step 4 & 6
         ui_net_margin = st.slider(
             "Step 4: 假設合適之稅後淨利率 (%)", 
             min_value=1.0, max_value=60.0, 
@@ -581,6 +596,7 @@ else:
         )
         
     with param_col3:
+        # Step 7 & Target P/E
         ui_payout_ratio = st.slider(
             "Step 7: 假設合適之盈餘分配率 (%)", 
             min_value=10.0, max_value=100.0, 
@@ -595,10 +611,16 @@ else:
         )
 
     # 運算核心
+    # 3. 今年預估營收 = 上年營收 * (1 + 年增率)
     est_revenue = ui_last_revenue * (1.0 + (ui_growth_rate / 100.0))
+    # 5. 預估稅後淨利 = 預估營收 * 稅後淨利率
     est_net_profit = est_revenue * (ui_net_margin / 100.0)
+    # 6. 預估 EPS = 預估稅後淨利 (轉為元) / 發行股數 (轉為股)
+    # 計算公式簡化為: (淨利 * 100000000) / (股數 * 10000) = (淨利 * 10000) / 股數
     est_eps = (est_net_profit * 10000.0) / ui_shares_outstanding if ui_shares_outstanding > 0 else 0.0
+    # 8. 預估現金股利 = 預估 EPS * 盈餘分配率
     est_dividend = est_eps * (ui_payout_ratio / 100.0)
+    # 明年合理目標股價
     target_stock_price = est_eps * ui_target_pe
 
     st.markdown("---")
