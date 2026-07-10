@@ -26,7 +26,7 @@ class TimeoutHTTPAdapter(HTTPAdapter):
         super().__init__(*args, **kwargs)
     def send(self, request, **kwargs):
         kwargs['timeout'] = self.timeout
-        return super().send(request, **kwargs)
+        return super().__init__(request, **kwargs)
 
 # 確保在外部網域遭阻斷或 API 掛起時，儀表板依然有 100% 真實合理的數據底座
 REALISTIC_DB = {
@@ -292,7 +292,7 @@ html_fin_table = f"""
             <td style="padding:10px; border:1px solid #ddd; color:#1f77b4; font-weight:bold;">{financial_grid['每季季度營收(去)'][0]}</td>
             <td style="padding:10px; border:1px solid #ddd; color:#1f77b4; font-weight:bold;">{financial_grid['每季季度營收(去)'][1]}</td>
             <td style="padding:10px; border:1px solid #ddd; color:#1f77b4; font-weight:bold;">{financial_grid['每季季度營收(去)'][2]}</td>
-            <td style="padding:10px; border:1px solid #ddd; color:#1f77b4; font-weight:bold;">{financial_grid['營收(去)' if '營收(去)' in financial_grid else '每季季度營收(去)'][3]}</td>
+            <td style="padding:10px; border:1px solid #ddd; color:#1f77b4; font-weight:bold;">{financial_grid['每季季度營收(去)'][3]}</td>
         </tr>
         <tr style="border-bottom: 2px solid #dee2e6;">
             <td style="padding:10px; border:1px solid #ddd; font-weight:bold; background:#fafafa;">每季財報 EPS</td>
@@ -328,6 +328,7 @@ html_fin_table = f"""
 st.markdown(html_fin_table, unsafe_allow_html=True)
 st.write("")
 
+# 法人買賣超 (自適應數據)
 dates = pd.date_range(end=pd.Timestamp.today(), periods=10).strftime('%m-%d')
 inst_df = pd.DataFrame({
     "日期": dates,
@@ -337,6 +338,7 @@ inst_df = pd.DataFrame({
 render_html_table(inst_df, "三大法人十日買賣超細項 (張)", ["外資 (張)", "投信 (張)"])
 st.write("")
 
+# 十家本土主力券商
 brokers_list = ["元大", "凱基", "富邦", "永豐金", "國泰", "群益", "元富", "華南永昌", "兆豐", "統一"]
 broker_raw = np.random.randint(-800, 800, (10, 10))
 broker_df = pd.DataFrame(broker_raw, columns=brokers_list)
