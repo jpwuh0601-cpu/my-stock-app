@@ -292,23 +292,28 @@ else:
     # 從 data 中取得預設值，並進行格式轉換
     default_rev_growth = float(data.get("revenueGrowth", 0.125)) * 100.0 # 轉為百分比
     default_last_revenue = float(data.get("totalRevenue", 15000000000)) / 100000000.0 # 轉為「億元」
-    default_shares = float(data.get("sharesOutstanding", 300000000)) / 10000000.0 # 轉為「萬股」
+    # 修正轉換邏輯：yfinance 發行股數單位為個股，除以 10,000 得到「萬股」
+    default_shares = float(data.get("sharesOutstanding", 300000000)) / 10000.0 
 
-    # 建立專業控制面板，供用戶自由微調財務假設
+    # 建立專業控制面板，供用戶自由微調財務假設 (加入安全夾擊，防範數值低於最小值或超出最大值)
     st.markdown("##### ⚙️ 調整估值假設參數")
     param_col1, param_col2, param_col3 = st.columns(3)
     
     with param_col1:
+        # 確保預設值在 slider 規定的範圍內，防止觸發 ValueBelowMinError / ValueAboveMaxError
+        safe_growth = float(np.clip(default_rev_growth, -30.0, 80.0))
         ui_growth_rate = st.slider(
             "Step 1: 最新一期累積營收年增率 (%)", 
             min_value=-30.0, max_value=80.0, 
-            value=round(default_rev_growth, 2), 
+            value=safe_growth, 
             step=0.5
         )
+        
+        safe_revenue = float(max(0.1, default_last_revenue))
         ui_last_revenue = st.number_input(
             "Step 2: 上一個年度營收數據 (億元)", 
-            min_value=1.0, max_value=10000.0, 
-            value=round(default_last_revenue, 2),
+            min_value=0.1, max_value=100000.0, 
+            value=safe_revenue,
             step=1.0
         )
         
@@ -319,10 +324,12 @@ else:
             value=15.0, 
             step=0.5
         )
+        
+        safe_shares = float(max(10.0, default_shares))
         ui_shares_outstanding = st.number_input(
             "Step 6: 公司目前發行股數 (萬股)", 
-            min_value=1000.0, max_value=5000000.0, 
-            value=round(default_shares, 2),
+            min_value=10.0, max_value=50000000.0, 
+            value=safe_shares,
             step=100.0
         )
         
@@ -341,19 +348,17 @@ else:
         )
 
     # --- 八步推導計算邏輯 ---
-    # 1. 查詢/設定最新累積營收年增率 (ui_growth_rate)
-    # 2. 查詢/設定上一個年度營收 (ui_last_revenue)
     # 3. 上一個年度營收 × (1 + 最新年增率) = 今年預估營收
     est_revenue = ui_last_revenue * (1.0 + (ui_growth_rate / 100.0))
     
-    # 4. 假設合適之稅後淨利率 (ui_net_margin)
     # 5. 今年預估營收 × 稅後淨利率 = 預估稅後淨利
     est_net_profit = est_revenue * (ui_net_margin / 100.0)
     
-    # 6. 預估稅後淨利 ÷ 發行股數 = 預估 EPS
-    est_eps = (est_net_profit * 100000000.0) / (ui_shares_outstanding * 10000.0)
+    # 6. 預估稅後淨利 ÷ 發行股數 = 預估 EPS (淨利億元與發行萬股單位轉換)
+    # 淨利億元 = 淨利 * 10^8 元；發行萬股 = 股數 * 10^4 股
+    # EPS = (淨利 * 10^8) / (股數 * 10^4) = (淨利 * 10000) / 股數
+    est_eps = (est_net_profit * 10000.0) / ui_shares_outstanding if ui_shares_outstanding > 0 else 0.0
     
-    # 7. 假設合適之盈餘分配率 (ui_payout_ratio)
     # 8. 預估 EPS × 盈餘分配率 = 預估現金股利
     est_dividend = est_eps * (ui_payout_ratio / 100.0)
     
