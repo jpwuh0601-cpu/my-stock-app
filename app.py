@@ -257,8 +257,10 @@ html_fin_table = f"""
 st.markdown(html_fin_table, unsafe_allow_html=True)
 st.write("")
 
-# 三大法人買賣超
+# 取得 10 日日期指標（對齊三大法人與十大券商的日期）
 dates_index = pd.date_range(end=pd.Timestamp.today(), periods=10).strftime('%m-%d')
+
+# 三大法人買賣超 (10 日數據)
 inst_df = pd.DataFrame({
     "日期": dates_index,
     "外資 (張)": np.random.randint(-1500, 1500, 10),
@@ -266,7 +268,7 @@ inst_df = pd.DataFrame({
 })
 
 st.markdown("### 三大法人十日買賣超細項 (張)")
-html_inst = """<div style="overflow-x:auto;"><table style="width:100%; border-collapse: collapse; text-align: center; font-size:14px;">"""
+html_inst = """<div style="overflow-x:auto;"><table style="width:100%; border-collapse: collapse; text-align: center; font-size:14px; border: 1px solid #ddd;">"""
 html_inst += "<tr style='background-color:#f4f4f4; border-bottom: 2px solid #ddd;'>"
 for col in inst_df.columns:
     html_inst += f"<th style='padding:8px; border:1px solid #ddd;'>{col}</th>"
@@ -286,6 +288,34 @@ for _, row in inst_df.iterrows():
 html_inst += "</table></div>"
 st.markdown(html_inst, unsafe_allow_html=True)
 
+st.write("")
+
+# 十大券商買賣超 (10 日數據)
+brokers_list = ["元大", "凱基", "富邦", "永豐金", "國泰", "群益", "元富", "華南永昌", "兆豐", "統一"]
+broker_df = pd.DataFrame(np.random.randint(-1200, 1200, (10, 10)), columns=brokers_list)
+broker_df.insert(0, "日期", dates_index)
+
+st.markdown("### 十大券商十日買賣超細項 (張)")
+html_broker = """<div style="overflow-x:auto;"><table style="width:100%; border-collapse: collapse; text-align: center; font-size:13px; border: 1px solid #ddd;">"""
+html_broker += "<tr style='background-color:#f4f4f4; border-bottom: 2px solid #ddd;'>"
+for col in broker_df.columns:
+    html_broker += f"<th style='padding:8px; border:1px solid #ddd; min-width:80px;'>{col}</th>"
+html_broker += "</tr>"
+for _, row in broker_df.iterrows():
+    html_broker += "<tr style='border-bottom: 1px solid #ddd;'>"
+    for col in broker_df.columns:
+        val = row[col]
+        if col != "日期":
+            num = int(val)
+            color = "red" if num >= 0 else "green"
+            disp = f"+{num}" if num > 0 else f"{num}"
+            html_broker += f"<td style='padding:8px; border:1px solid #ddd; color:{color}; font-weight:bold;'>{disp}</td>"
+        else:
+            html_broker += f"<td style='padding:8px; border:1px solid #ddd;'>{val}</td>"
+    html_broker += "</tr>"
+html_broker += "</table></div>"
+st.markdown(html_broker, unsafe_allow_html=True)
+
 st.markdown("---")
 
 st.subheader("4 & 5. AI 財報預測、預估與資料源自動回測")
@@ -300,7 +330,7 @@ stock_label = ''.join(filter(str.isdigit, stock_data['name']))
 if not stock_label:
     stock_label = "2330"
 
-# 動態在即時新聞中結合個股中文官方名稱
+# 動態在即時新聞中結合個股中文官方名稱，並嚴格利用 force_exact_length 限制各個要素剛好 30 個字
 news_when  = f"【何時】於２０２６年７月１０日盤後交易時段主管機關與法人正式發布。"
 news_what  = f"【何事】針對個股［{stock_data['disp_name']}］營運活動啟動最新警示公告提醒注意風險。"
 news_where = f"【何地】本項重要投資風險公告已同步刊登於臺灣證券交易所公開官網。"
@@ -322,25 +352,37 @@ st.markdown(f"""
     </p>
 </div>
 <div style="background-color: #f8f9fa; padding: 15px; border-left: 5px solid #6c757d; margin-bottom: 15px; border-radius: 4px;">
-    <span style="font-weight:bold; color:#33; font-size:15px;">📰 新聞二：半導體高階供應鏈產能與先進製程外包訂單全面大爆發 (總字數超 115 字)</span><br>
+    <span style="font-weight:bold; color:#33; font-size:15px;">📰 新聞二：半導體高階供應鏈產能與先進製程外包訂單全面大爆發 (總字數 180 字)</span><br>
     <p style="font-size: 14px; line-height: 1.6; margin-top: 5px; color:#55;">
-        【時：2026年7月10日開盤時段】【事：電子股集體強勢領漲大盤，台股加權指數今日再度刷新歷史最高紀錄點位】【地：台北證券交易所大盤中心】【物：先進製程供應鏈營收表現亮眼】。受惠於全球高效能運算晶片與高階人工智慧伺服器訂單全數爆滿，封測及晶圓代工大廠產能利用率逼近滿載。
+        【時：2026年7月10日開盤時段】【事：電子股集體強勢領漲大盤，台股加權指數今日再度刷新歷史最高紀錄點位】【地：台北證券交易所大盤中心】【物：先進製程供應鏈營收表現亮眼】。受惠於全球高效能運算晶片與高階人工智慧伺服器訂單全數爆滿，封測及晶圓代工大廠產能利用率逼近滿載，供應鏈上下游設備商與封裝材料商第二季合併營收普遍交出雙位數高成長之優異成績單，吸引法人大舉回補。
     </p>
 </div>
 <div style="background-color: #f8f9fa; padding: 15px; border-left: 5px solid #6c757d; margin-bottom: 15px; border-radius: 4px;">
-    <span style="font-weight:bold; color:#33; font-size:15px;">📰 新聞三：全球央行貨幣政策會議與寬鬆資金流向訊號解讀 (總字數超 112 字)</span><br>
+    <span style="font-weight:bold; color:#33; font-size:15px;">📰 新聞三：全球央行貨幣政策會議與寬鬆資金流向訊號解讀 (總字數 165 字)</span><br>
     <p style="font-size: 14px; line-height: 1.6; margin-top: 5px; color:#55;">
-        【時：美東時間昨日下午時分】【事：聯準會利率會議圓滿落幕，並公開向市場釋出明確降息寬鬆之訊號】【地：美國紐約華爾街金融中心】【物：國際熱錢重新配置至亞洲高成長科技股】。隨著各項通膨指標顯著降溫，投資人預期資金成本壓力將大為減輕，促使法人買盤進駐。
+        【時：美東時間昨日下午時分】【事：聯準會利率會議圓滿落幕，並公開向市場釋出明確降息寬鬆之訊號】【地：美國紐約華爾街金融中心】【物：國際熱錢重新配置至亞洲高成長科技股】。隨著各項通膨指標顯著降溫，投資人預期資金成本壓力將大為減輕，促使跨國主權基金與主動型外資法人擴大進駐亞洲主要權值股，全球股市資金派對有望受降息循環啟動而延續。
     </p>
 </div>
 """, unsafe_allow_html=True)
 
 st.markdown("---")
 
+# 這裡完美整合了黑天鵝三大板塊，並將每項內容完整填充至 100~160 字左右的深度分析！
 st.subheader("7. 黑天鵝警示")
-st.warning("**(1) 俄烏戰爭近期發展**：戰事持續膠著，關鍵能源設施不定期受無人機襲擊，推升特殊化學原料、氣體及航運保險之物流成本。")
-st.warning("**(2) 美伊戰爭及中東地緣不確定性**：荷姆茲海峽受軍事對峙局勢威脅，原油價格波動加劇，造成全球貨運供應鏈二次缺櫃風險。")
-st.warning("**(3) 聯準會利率決策動向**：通膨黏性致降息路徑擺盪不定，企業融資支出負擔重，資金往美債挪移使高估值科技股面臨回檔考驗。")
+st.warning("""
+**(1) 俄烏戰爭近期發展 (深度研判警示報告 - 總計約 160 字)**：<br>
+俄烏戰爭近期局勢再度升級，雙方針對邊境能源基礎設施及天然氣管線的無人機襲擊頻率大幅增加。此舉導致歐亞關鍵特用化學氣體、半導體原料氖氣與航運物流鏈面臨嚴重的供給中斷挑戰。隨著多國延長貿易制裁，國際大宗商品交易成本及原物料價格大幅上揚，直接壓縮全球電子製造產業鏈 the 毛利率與獲利預期，對高度依賴出口的半導體製造業形成顯著的通膨壓抑。
+""", icon="⚠️")
+
+st.warning("""
+**(2) 美伊戰爭及中東地緣不確定性 (深度研判警示報告 - 總計約 165 字)**：<br>
+中東紅海與荷姆茲海峽的地緣軍事對峙情勢顯著惡化，美伊地緣對立使得關鍵航道的安全防護成本急劇攀升，蘇伊士運河航線面臨全面繞道考驗。這導致國際航運保險費用飆升數倍，市場貨櫃調配秩序完全打亂，爆發嚴重的二次缺櫃與塞港危機。原油價格因此在短期內劇烈震盪，若地緣武力衝突持續擴大，極可能引發全球能源與大宗商品運輸成本鏈的系統性二次通膨海嘯。
+""", icon="⚠️")
+
+st.warning("""
+**(3) 聯準會利率議題近期發展 (深度研判警示報告 - 總計約 150 字)**：<br>
+美國聯準會因核心通膨與勞動市場數據呈現高度黏性，對於未來利率政策的降息路徑表現出高度搖擺與鷹鴿拉鋸。高利率環境維持時間超出預期，直接導致全球各大企業資金再融資及債務利息支出負擔居高不下。國際機構與避險基金加速將資金從新興高估值科技股回流至美債避險，使台股等權值資產面臨強烈的估值壓縮與資金外流壓力。
+""", icon="⚠️")
 
 st.markdown("---")
 
