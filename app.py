@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import datetime
+import urllib.request
+import json
 import plotly.graph_objects as go
 
 # ---------------------------------------------------------
@@ -175,14 +177,14 @@ def get_aligned_news(stock_id, stock_name):
         "3227": f"晶片設計廠{stock_name}因旗下次世代高效能電競滑鼠感測元件及全新車載人機控制晶片順利通過歐美一線大廠認證，",
         "2002": f"鋼鐵龍頭廠{stock_name}因應歐盟碳邊境調整機制正式啟動，積極優化低碳鋼材排程，並上調下一季度精緻鋼材盤價，",
         "6282": f"綠能電源廠{stock_name}積極佈局次世代智慧電網高功率電源模組，近期更成功斬獲海外大型車廠之車載電源長期合約，",
-        "1301": f"石化龍頭廠{stock_name}因應全球原油走高及塑料大宗商品報價止跌回升，策略性調整產線產能並提高特用化學品比重，"
+        "1301": f"石化龍頭廠{stock_name}因應全球原油走走高及塑料大宗商品報價止跌回升，策略性調整產線產能並提高特用化學品比重，"
     }
     
     locations = {
         "3294": "在台北核心研發據點與亞洲各高頻通訊零組件專用製造廠，所有測試部門與精密包裝人員正如火如荼全速趕工中，",
         "2330": "在新竹科學園區總部與南部科學園區超大型晶圓廠區，所有先進製程生產線工程師正維持極高效率的滿載運作，",
         "2317": "在全球核心生產重鎮及先進高階製造研發基地，全自動無人化智慧工廠與物流組裝部門正夜以記日全力衝刺出貨，",
-        "3227": "在新竹科學園區IC設計總部與海外各地市場行銷據點，核心晶片開發团队與系統整合人員正緊密進行規格對接，",
+        "3227": "在新竹科學園區IC設計總部與海外各地市場行銷據點，核心晶片開發團隊與系統整合人員正緊密進行規格對接，",
         "2002": "在高雄臨海工業區超大型一體化高爐煉鋼廠及中鋼總部大樓，生產管制部門正與海內外物流船隊緊密排程調度，",
         "6282": "在台北企業總部與亞洲智慧電源自動化封裝測試基地，多條高頻電源轉換模組新產線正進行高品質量產與出廠，",
         "1301": "在雲林麥寮六輕石化園區與各大基礎材料生產線，環境安全控制中心與製程優化工程師正全力維持極高效低碳運作，"
@@ -268,49 +270,44 @@ def render_html_table(df, title):
     st.markdown(html, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 5. 側邊選股控制器 (支援熱門快速點選與自定義代號輸入，100% 解決無法選股痛點)
+# 5. 【100% 解決無法選股】側邊選股控制器 (輸入框與選擇按鈕合一)
 # ---------------------------------------------------------
 st.sidebar.markdown("### 🔍 實時自主選股系統")
 
-# 提供熱門股票下拉選單與自定義輸入
-hot_stocks = {
+# 初始化 session state 中的股票代碼
+if "active_ticker" not in st.session_state:
+    st.session_state["active_ticker"] = "3294"
+
+# 1. 提供一個極為醒目且隨時可見的手動股票代號輸入框
+custom_input_ticker = st.sidebar.text_input(
+    "請輸入欲查詢股票代號 (例如: 3294, 2330)：",
+    value=st.session_state["active_ticker"],
+    max_chars=6
+).strip()
+
+# 2. 核心確定按鈕 "選擇股價"
+btn_clicked = st.sidebar.button("選擇股價 (手動查詢)", type="primary")
+
+if btn_clicked and custom_input_ticker:
+    st.session_state["active_ticker"] = custom_input_ticker
+    st.rerun()
+
+# 3. 下方提供熱門個股一鍵快速看盤按鈕，無縫同步輸入框
+st.sidebar.markdown("---")
+st.sidebar.markdown("#### 🚀 熱門快速看盤個股")
+quick_access_stocks = {
     "3294": "3294 中山",
     "2330": "2330 台積電",
     "2317": "2317 鴻海",
     "3227": "3227 原相",
     "2002": "2002 中鋼",
     "6282": "6282 康舒",
-    "1301": "1301 台塑",
-    "custom": "👉 手動輸入代號..."
+    "1301": "1301 台塑"
 }
 
-if "active_ticker" not in st.session_state:
-    st.session_state["active_ticker"] = "3294"
-
-current_ticker = st.session_state["active_ticker"]
-default_index_key = current_ticker if current_ticker in hot_stocks else "custom"
-
-selected_option = st.sidebar.selectbox(
-    "請選擇快速看盤個股：",
-    options=list(hot_stocks.keys()),
-    format_func=lambda x: hot_stocks[x],
-    index=list(hot_stocks.keys()).index(default_index_key)
-)
-
-if selected_option == "custom":
-    custom_val = st.sidebar.text_input(
-        "請手動輸入股票代號：",
-        value=current_ticker if current_ticker not in ["3294", "2330", "2317", "3227", "2002", "6282", "1301"] else "2454",
-        max_chars=6
-    ).strip()
-    query_button = st.sidebar.button("選擇股價 (手動查詢)")
-    
-    if query_button and custom_val:
-        st.session_state["active_ticker"] = custom_val
-        st.rerun()
-else:
-    if st.session_state["active_ticker"] != selected_option:
-        st.session_state["active_ticker"] = selected_option
+for q_id, q_name in quick_access_stocks.items():
+    if st.sidebar.button(q_name, key=f"quick_{q_id}", use_container_width=True):
+        st.session_state["active_ticker"] = q_id
         st.rerun()
 
 active_ticker = st.session_state["active_ticker"]
