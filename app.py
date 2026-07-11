@@ -9,13 +9,13 @@ import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime
 
-# 全局 Socket 逾時防護設定
+# 全局 Socket 逾時防護設定，防止任何外部請求卡死 Streamlit 初始化
 socket.setdefaulttimeout(3.0)
 
 # 頁面配置
 st.set_page_config(page_title="專業股市決策儀表板", layout="wide")
 
-# 預先準備本地資料庫，確保 3294, 2330, 2317 等標的能瞬間開網頁，無須任何網路請求
+# 預載離線高仿真資料庫，確保 3294, 2330, 2317 等標的能瞬間開網頁，無須任何網路請求
 LOCAL_OFFLINE_DB = {
     "3294.TW": {
         "price": 37.70,
