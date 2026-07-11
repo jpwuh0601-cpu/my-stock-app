@@ -2,12 +2,10 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import datetime
-import urllib.request
-import json
 import plotly.graph_objects as go
 
 # ---------------------------------------------------------
-# 1. 頁面配置與高階美感 CSS 注入 (完全符合台灣習慣：上漲紅、下跌綠)
+# 1. 頁面基本配置與極致美感 CSS 注入 (完全符合台灣習慣：上漲紅、下跌綠)
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="專業股市決策儀表板",
@@ -16,10 +14,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 注入自定義 CSS 提升視覺美感與排版
+# 注入高階美感自定義 CSS
 st.markdown("""
 <style>
-    /* 全域卡片設計 */
+    /* 全域背景與卡片 */
     .metric-card {
         background-color: #ffffff;
         border: 1px solid #e9ecef;
@@ -154,7 +152,7 @@ STOCK_DATABASE = {
 BROKERS = ["元大", "凱基", "富邦", "永豐金", "國泰", "群益", "元富", "華南永昌", "兆豐", "統一"]
 
 # ---------------------------------------------------------
-# 3. 50字與100字精密字數鉗夾強對齊算法 (100% 嚴格實現)
+# 3. 50字與100字精密字數鉗夾強對齊演算法 (100% 嚴格實現)
 # ---------------------------------------------------------
 def force_align_len(t, target_len):
     """
@@ -177,7 +175,7 @@ def get_aligned_news(stock_id, stock_name):
         "3227": f"晶片設計廠{stock_name}因旗下次世代高效能電競滑鼠感測元件及全新車載人機控制晶片順利通過歐美一線大廠認證，",
         "2002": f"鋼鐵龍頭廠{stock_name}因應歐盟碳邊境調整機制正式啟動，積極優化低碳鋼材排程，並上調下一季度精緻鋼材盤價，",
         "6282": f"綠能電源廠{stock_name}積極佈局次世代智慧電網高功率電源模組，近期更成功斬獲海外大型車廠之車載電源長期合約，",
-        "1301": f"石化龍頭廠{stock_name}因應全球原油走走高及塑料大宗商品報價止跌回升，策略性調整產線產能並提高特用化學品比重，"
+        "1301": f"石化龍頭廠{stock_name}因應全球原油走高及塑料大宗商品報價止跌回升，策略性調整產線產能並提高特用化學品比重，"
     }
     
     locations = {
