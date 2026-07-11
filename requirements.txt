@@ -1,5 +1,6 @@
-yfinance
-pandas
-numpy
-requests
-plotly
+streamlit1.59.1
+yfinance0.2.40
+pandas2.2.2
+numpy1.26.4
+plotly5.22.0
+requests2.32.3
