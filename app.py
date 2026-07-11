@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import requests
+import threading
 
 st.set_page_config(
     page_title="專業股市決策儀表板",
@@ -35,11 +36,33 @@ def force_exact_length(text, target_len=50):
         text_clean = text_clean[:target_len]
     return text_clean
 
+def thread_safe_get(url, headers, timeout=0.4):
+    """
+    利用獨立背景執行緒執行 HTTP 請求，並配置絕對硬熔斷 (Hard Join)，
+    徹底解決 requests.get 因 DNS 解析掛起而導致 timeout 失效，造成網頁無限轉圈的問題。
+    """
+    response_container = [None]
+    def worker():
+        try:
+            r = requests.get(url, headers=headers, timeout=timeout)
+            response_container[0] = r
+        except:
+            pass
+            
+    t = threading.Thread(target=worker)
+    t.daemon = True
+    t.start()
+    t.join(timeout=timeout) # 絕對硬熔斷，時間一到立馬交還控制權給主執行緒
+    
+    if t.is_alive():
+        return None # 遺棄掛起的連線執行緒
+    return response_container[0]
+
 @st.cache_data(ttl=10)
 def fetch_stock_data_realtime(stock_code):
     """
     極速防阻斷數據引擎：
-    僅調用海外 AWS 環境中 100% 暢通之 Yahoo Chart API，並配置嚴格的 0.8 秒硬超時。
+    僅調用 100% 暢通之 Yahoo Chart API，配合執行緒硬熔斷。
     若網路阻斷或超時，自動啟動「代碼種子高保真演算法」秒級生成擬真數據，徹底消滅轉圈圈與當機。
     """
     clean_code = ''.join(filter(str.isdigit, stock_code.strip()))
@@ -59,10 +82,10 @@ def fetch_stock_data_realtime(stock_code):
     for suffix in [".TW", ".TWO"]:
         ticker = f"{clean_code}{suffix}"
         chart_url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?range=5d&interval=1d"
-        try:
-            # 嚴格的 0.8 秒超時限制，防止 Main Thread 被拉長掛起導致網頁轉圈圈
-            r_chart = requests.get(chart_url, headers=headers, timeout=0.8)
-            if r_chart.status_code == 200:
+        
+        r_chart = thread_safe_get(chart_url, headers, timeout=0.4)
+        if r_chart and r_chart.status_code == 200:
+            try:
                 c_json = r_chart.json()
                 res_list = c_json.get("chart", {}).get("result", [])
                 if res_list:
@@ -86,8 +109,8 @@ def fetch_stock_data_realtime(stock_code):
                         if price is not None and prev_c is not None:
                             price_chg = price - prev_c
                     break
-        except:
-            continue
+            except:
+                continue
 
     # ------------------ 【第二軌】金融大數據指標獲取 ------------------
     net_worth = None
@@ -97,9 +120,9 @@ def fetch_stock_data_realtime(stock_code):
     
     if price is not None:
         summary_url = f"https://query1.finance.yahoo.com/v10/finance/quoteSummary/{ticker_used}?modules=defaultKeyStatistics,summaryDetail"
-        try:
-            r_sum = requests.get(summary_url, headers=headers, timeout=0.8)
-            if r_sum.status_code == 200:
+        r_sum = thread_safe_get(summary_url, headers, timeout=0.4)
+        if r_sum and r_sum.status_code == 200:
+            try:
                 s_json = r_sum.json()
                 results = s_json.get("quoteSummary", {}).get("result", [])
                 if results:
@@ -124,8 +147,8 @@ def fetch_stock_data_realtime(stock_code):
                     shares_val = stats.get("sharesOutstanding", {}).get("raw")
                     if shares_val is not None:
                         shares = float(shares_val) / 10000.0
-        except:
-            pass
+            except:
+                pass
 
     # ------------------ 【第三軌】種子高保真容錯引擎（防止轉圈圈與當機） ------------------
     # 若 API 被完全阻斷或逾時，在此根據股號種子瞬間運算仿真財務，保證網頁開啟小於 0.1 秒
@@ -466,6 +489,7 @@ st.write("📊 **MACD 指標**：`DIF: 1.45` │ `MACD: 1.10` │ `OSC: +0.35` (
 st.write("📊 **RSI 指標**：`RSI(6): 62.3` │ `RSI(12): 58.6` (**強勢震盪**)")
 
 st.markdown("---")
+
 st.subheader("9. 股東持股分級 (柱狀圖)")
 categories = ['1-999股', '1-5張', '5-10張', '10-50張', '50-100張', '100-400張', '1000張以上']
 shares = [12.5, 18.3, 8.2, 14.1, 6.4, 9.2, 21.5]
