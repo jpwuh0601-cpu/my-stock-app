@@ -4,8 +4,11 @@ import numpy as np
 from datetime import datetime, timedelta
 
 def fetch_stock_data(ticker):
+    """
+    獲取股票資訊並進行異常處理，確保數據穩定輸出。
+    加入十日法人買賣超與十家主力券商買賣超模擬數據。
+    """
     ticker = ticker.strip().upper()
-    # 確保代號正確 (加上 .TW)
     if not ticker.endswith(".TW") and not ticker.endswith(".TWO") and ticker.isdigit():
         ticker += ".TW"
     
@@ -31,16 +34,29 @@ def fetch_stock_data(ticker):
         hist = stock.history(period="10d")
         if hist.empty:
             data["institutional_data"] = pd.DataFrame(columns=["日期", "外資", "投信", "自營商"])
+            data["broker_data"] = pd.DataFrame(columns=["日期", "元大", "凱基", "富邦", "永豐金", "國泰", "群益", "元富", "華南", "兆豐", "統一"])
         else:
             institutional_data = []
+            broker_data = []
             for date, row in hist.iterrows():
+                date_str = date.strftime('%m-%d')
                 institutional_data.append({
-                    "日期": date.strftime('%m-%d'),
+                    "日期": date_str,
                     "外資": np.random.randint(-1500, 1500),
                     "投信": np.random.randint(-800, 800),
                     "自營商": np.random.randint(-500, 500)
                 })
+                # 模擬十家主力券商數據
+                broker_data.append({
+                    "日期": date_str,
+                    "元大": np.random.randint(-500, 500), "凱基": np.random.randint(-500, 500),
+                    "富邦": np.random.randint(-500, 500), "永豐金": np.random.randint(-500, 500),
+                    "國泰": np.random.randint(-500, 500), "群益": np.random.randint(-500, 500),
+                    "元富": np.random.randint(-500, 500), "華南": np.random.randint(-500, 500),
+                    "兆豐": np.random.randint(-500, 500), "統一": np.random.randint(-500, 500)
+                })
             data["institutional_data"] = pd.DataFrame(institutional_data)
+            data["broker_data"] = pd.DataFrame(broker_data)
         
         return data
         
