@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 def fetch_stock_data(ticker):
     """
     獲取股票資訊並進行異常處理，確保數據穩定輸出。
+    並加入十日法人買賣超數據模擬邏輯。
     """
     ticker = ticker.strip().upper()
     if not ticker.endswith(".TW") and not ticker.endswith(".TWO") and ticker.isdigit():
@@ -28,13 +29,20 @@ def fetch_stock_data(ticker):
             "change": info.get("regularMarketChange", 0.0)
         }
         
-        # 籌碼數據 (保持原邏輯)
-        dates = [(datetime.now() - timedelta(days=i)).strftime('%m-%d') for i in range(10)][::-1]
-        data["institutional_data"] = pd.DataFrame({
-            "日期": dates,
-            "外資": np.random.randint(-1000, 1000, 10),
-            "投信": np.random.randint(-500, 500, 10)
-        })
+        # 獲取最近 10 個交易日的歷史數據，模擬法人買賣超數據
+        hist = stock.history(period="10d")
+        
+        # 產生十日法人買賣超明細
+        institutional_data = []
+        for date, row in hist.iterrows():
+            institutional_data.append({
+                "日期": date.strftime('%m-%d'),
+                "外資": np.random.randint(-1500, 1500),
+                "投信": np.random.randint(-800, 800),
+                "自營商": np.random.randint(-500, 500)
+            })
+        
+        data["institutional_data"] = pd.DataFrame(institutional_data)
         
         return data
         
