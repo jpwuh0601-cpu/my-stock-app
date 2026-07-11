@@ -1,12 +1,11 @@
-import sys
 import os
+import sys
 import json
 import socket
 import threading
 import streamlit as st
 import pandas as pd
 import numpy as np
-import yfinance as yf
 import plotly.graph_objects as go
 from datetime import datetime
 
@@ -67,6 +66,7 @@ cached_data = load_cached_market_data()
 def fetch_yfinance_with_timeout(ticker, result_dict):
     """在獨立背景執行緒中載入，避免阻塞主執行緒"""
     try:
+        import yfinance as yf
         stock = yf.Ticker(ticker)
         info = stock.info
         if info and "currentPrice" in info:
