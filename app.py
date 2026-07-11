@@ -20,7 +20,6 @@ def fetch_stock_data(ticker):
         
         # 檢查是否有資料
         if not info or "currentPrice" not in info:
-            return {"error": f"找不到股票代號: {clean_ticker}，請確認代號是否正確。"}
         
         return {
             "ticker": clean_ticker,
