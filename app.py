@@ -308,9 +308,9 @@ html_fin_table = f"""
         <tr>
             <td style="padding:10px; border:1px solid #ddd; font-weight:bold; background:#fafafa;">每季季度營收</td>
             <td style="padding:10px; border:1px solid #ddd; color:#ff7f0e; font-weight:bold;">{financial_grid['每季季度營收(今)'][0]}</td>
-            <td style="padding:10px; border:1px solid #ddd; color:#ff7f0e; font-weight:bold;">{financial_grid['開營營收'] if '開營營收' in financial_grid else financial_grid['每季季度營收(今)'][1]}</td>
+            <td style="padding:10px; border:1px solid #ddd; color:#ff7f0e; font-weight:bold;">{financial_grid['每季季度營收(今)'][1]}</td>
             <td style="padding:10px; border:1px solid #ddd; color:#ff7f0e; font-weight:bold;">{financial_grid['每季季度營收(今)'][2]}</td>
-            <td style="padding:10px; border:1px solid #ddd; color:#ff7f0e; font-weight:bold;">{financial_grid['開營營收2'] if '開營營收2' in financial_grid else financial_grid['開季季度營收(今)'][3] if '開季季度營收(今)' in financial_grid else financial_grid['每季季度營收(今)'][3]}</td>
+            <td style="padding:10px; border:1px solid #ddd; color:#ff7f0e; font-weight:bold;">{financial_grid['每季季度營收(今)'][3]}</td>
         </tr>
         <tr>
             <td style="padding:10px; border:1px solid #ddd; font-weight:bold; background:#fafafa;">每季財報 EPS</td>
@@ -382,7 +382,7 @@ for _, row in broker_df.iterrows():
     html_broker += "<tr style='border-bottom: 1px solid #ddd;'>"
     for col in broker_df.columns:
         val = row[col]
-        if col != "開市日期" and col != "日期":
+        if col != "日期":
             num = int(val)
             color = "red" if num >= 0 else "green"
             disp = f"+{num}" if num > 0 else f"{num}"
@@ -401,7 +401,7 @@ st.write(f"📈 **今年未來預估**：預估今年度營收成長率為 **12.
 
 st.markdown("---")
 
-st.subheader("6. 即時股市新聞 (深度事实四要素對齊與百字宏觀新聞)")
+st.subheader("6. 即時股市新聞 (深度事實四要素對齊與百字宏觀新聞)")
 
 clean_code_str = ''.join(filter(str.isdigit, stock_data['name']))
 
@@ -443,7 +443,7 @@ elif clean_code_str == "1301":
     fact_where = "此項營運決策與季度產能調配細節已即時上傳至公開資訊觀測站，並公告於公司投資人關係專區供各界投資人審閱。"
     fact_item  = "主要內容涵蓋了麥寮六輕石化園區之環保製程優化時程，以及應對全球低碳供應鏈規範之中長期低碳轉型投資案。"
 else:
-    # 其他个股之具體事實
+    # 其他個股之具體事實
     fact_when  = f"二零二六年七月十一日盤後，該個股之發言團隊於台北企業總部召開例行營運會議，並於會後發布最新財務簡報。"
     fact_what  = f"會中針對最新一季度之財務數據與毛利率波動進行深度分析，並擬定因應全球供應鏈變動之優化製程與銷售策略。"
     fact_where = f"此項重要之經營決策與財務概況已依照證券法規即時上傳至公開資訊觀測站，並同步公告於企業官網之投資人專區。"
@@ -473,7 +473,7 @@ st.markdown(f"""
     </p>
 </div>
 <div style="background-color: #f8f9fa; padding: 15px; border-left: 5px solid #6c757d; margin-bottom: 15px; border-radius: 4px;">
-    <span style="font-weight:bold; color:#333; font-size:15px;">📰 新聞三：全球央行貨幣政策會議與寬鬆資金流向訊號解讀 (總字數 165 字)</span><br>
+    <span style="font-weight:bold; color:#33; font-size:15px;">📰 新聞三：全球央行貨幣政策會議與寬鬆資金流向訊號解讀 (總字數 165 字)</span><br>
     <p style="font-size: 14px; line-height: 1.6; margin-top: 5px; color:#555;">
         【時：美東時間昨日下午時分】【事：聯準會利率會議圓滿落幕，並公開向市場釋出明確降息寬鬆之訊號】【地：美國紐約華爾街金融中心】【物：國際熱錢重新配置至亞洲高成長科技股】。隨著各項通瘋指標顯著降溫，投資人預期資金成本壓力將大為減輕，促使跨國主權基金與主動型外資法人擴大進駐亞洲主要權值股，全球股市資金派對有望受降息循環啟動而延續。
     </p>
