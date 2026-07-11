@@ -1,26 +1,21 @@
-import yfinance as yf
+import streamlit as st
 import pandas as pd
 import numpy as np
+import yfinance as yf
+import plotly.graph_objects as go
 from datetime import datetime, timedelta
 
-def fetch_stock_data(ticker):
-    """
-    獲取股票資訊並進行異常處理，確保數據穩定輸出。
-    優化券商買賣超數據格式，加入趨勢標記以利前端呈現。
-    """
+# --- 合併後的數據獲取邏輯 ---
+def fetch_stock_data_local(ticker):
     ticker = ticker.strip().upper()
     if not ticker.endswith(".TW") and not ticker.endswith(".TWO") and ticker.isdigit():
         ticker += ".TW"
-    
     try:
         stock = yf.Ticker(ticker)
         info = stock.info
+        if not info or "currentPrice" not in info:
+            return {"error": f"無法獲取 {ticker} 資料"}
         
-        # 檢查 info 是否為空
-        if not info or not isinstance(info, dict) or "currentPrice" not in info:
-            return {"error": f"無法獲取代號 {ticker} 的股市資訊，請稍後再試。"}
-        
-        # 整理數據
         data = {
             "price": info.get("currentPrice", 0.0),
             "nav": info.get("bookValue", 0.0),
@@ -28,40 +23,26 @@ def fetch_stock_data(ticker):
             "eps": info.get("trailingEps", 0.0),
             "change": info.get("regularMarketChange", 0.0)
         }
-        
-        # 生成十日法人與券商模擬數據
-        hist = stock.history(period="10d")
-        if hist.empty:
-            data["institutional_data"] = pd.DataFrame(columns=["日期", "外資", "投信", "自營商"])
-            data["broker_data"] = pd.DataFrame(columns=["日期", "元大", "凱基", "富邦", "永豐金", "國泰", "群益", "元富", "華南", "兆豐", "統一"])
-        else:
-            institutional_data = []
-            broker_data = []
-            
-            for date, row in hist.iterrows():
-                date_str = date.strftime('%m-%d')
-                
-                # 法人數據
-                institutional_data.append({
-                    "日期": date_str,
-                    "外資": np.random.randint(-1500, 1500),
-                    "投信": np.random.randint(-800, 800),
-                    "自營商": np.random.randint(-500, 500)
-                })
-                
-                # 券商數據：將值與趨勢標記分開，方便前端處理
-                brokers = ["元大", "凱基", "富邦", "永豐金", "國泰", "群益", "元富", "華南", "兆豐", "統一"]
-                b_vals = {"日期": date_str}
-                for b in brokers:
-                    val = np.random.randint(-500, 500)
-                    # 這裡我們傳遞整數值，前端再根據此數值判斷顏色
-                    b_vals[b] = val
-                broker_data.append(b_vals)
-                
-            data["institutional_data"] = pd.DataFrame(institutional_data)
-            data["broker_data"] = pd.DataFrame(broker_data)
-        
         return data
-        
     except Exception as e:
-        return {"error": f"連線異常，請稍後再查: {str(e)}"}
+        return {"error": str(e)}
+
+# --- UI 顯示 ---
+st.set_page_config(page_title="專業股市儀表板", layout="wide")
+st.title("📈 專業股市決策儀表板")
+
+ticker = st.text_input("輸入股票代號", "2330")
+
+if st.button("查詢分析"):
+    with st.spinner("讀取中..."):
+        data = fetch_stock_data_local(ticker)
+        if "error" in data:
+            st.error(data["error"])
+        else:
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("即時股價", f"{data['price']:.2f}")
+            col2.metric("每股淨值", f"{data['nav']:.2f}")
+            col3.metric("本益比", f"{data['pe']:.2f}")
+            col4.metric("EPS", f"{data['eps']:.2f}")
+            
+            st.success("數據載入成功！")
