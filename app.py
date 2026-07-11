@@ -18,7 +18,7 @@ def fetch_stock_data(ticker):
         stock = yf.Ticker(clean_ticker)
         info = stock.info
         
-        # 檢查是否有資料
+        # 檢查是否有基本資料
         if not info or "currentPrice" not in info:
             return {"error": "無法獲取即時股價資訊，請檢查代號是否正確。"}
         
@@ -29,7 +29,8 @@ def fetch_stock_data(ticker):
             "eps": info.get("trailingEps", 0),
             "pe": info.get("trailingPE", 0),
             "nav": info.get("bookValue", 0),
-            "shares": info.get("sharesOutstanding", 0)
+            # 強制將發行股數轉為數字，若為 None 則設為 1 以防除零錯誤
+            "shares": info.get("sharesOutstanding") if info.get("sharesOutstanding") else 1
         }
     except Exception as e:
         return {"error": f"連線異常，請稍後再試。詳細錯誤: {str(e)}"}
@@ -66,7 +67,9 @@ if st.sidebar.button("查詢並執行分析"):
             # 計算模型
             est_rev = prev_rev * (1 + yoy)
             est_net_profit = est_rev * net_margin
-            shares = data['shares']
+            
+            # 使用已處理的 shares 數值，並確保為 float
+            shares = float(data['shares'])
             est_eps = (est_net_profit * 100000000) / (shares if shares > 0 else 1)
             est_dividend = est_eps * payout_ratio
 
@@ -79,7 +82,7 @@ if st.sidebar.button("查詢並執行分析"):
             res2.metric("預估 EPS", f"{est_eps:.2f}")
             res2.metric("預估現金股利", f"{est_dividend:.2f}")
             
-            st.info(f"發行股數: {shares:,} 股")
+            st.info(f"發行股數: {shares:,.0f} 股")
 
 st.sidebar.markdown("---")
 st.sidebar.caption("提示：若仍無法顯示，請檢查股票代號是否已上市。")
