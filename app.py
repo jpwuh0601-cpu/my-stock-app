@@ -18,8 +18,14 @@ if st.sidebar.button("查詢分析數據"):
             st.error(data["error"])
         else:
             # 2. 顯示股價指標
+            price = data.get('price', 0)
+            change = data.get('change', 0)
+            
+            # 漲紅跌綠邏輯
+            delta_text = f"{change:+.2f}"
+            
             col1, col2, col3, col4 = st.columns(4)
-            col1.metric("即時股價", f"{data['price']:.2f}")
+            col1.metric("即時股價", f"{price:.2f}", delta=delta_text)
             col2.metric("每股淨值", f"{data['nav']:.2f}")
             col3.metric("本益比", f"{data['pe']:.2f}")
             col4.metric("EPS", f"{data['eps']:.2f}")
