@@ -1,54 +1,61 @@
 import streamlit as st
+import yfinance as yf
 import pandas as pd
 import numpy as np
-import datetime
-import urllib.request
-import json
+import plotly.graph_objects as go
+import time
+from concurrent.futures import ThreadPoolExecutor
 
 # 頁面配置
-st.set_page_config(page_title="台股決策看板", layout="wide")
-
-# 強力防抖動數據生成器：使用股號做種子，確保切換或重新計算時數據不跳動
-def get_stable_data(ticker):
-    np.random.seed(int(ticker.replace(".TW", "")))
-    return {
-        "price": round(np.random.uniform(100, 1000), 2),
-        "change": round(np.random.uniform(-10, 10), 2),
-        "pe": round(np.random.uniform(10, 30), 1),
-        "eps": round(np.random.uniform(1, 20), 2)
-    }
-
-# 超時保護的 API 抓取函數
-@st.cache_data(ttl=60)
-def fetch_data_safe(ticker):
-    # 此函數加入 1.0 秒超時阻斷，防止轉圈圈
-    try:
-        # 示範使用證交所即時 API
-        url = f"https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_{ticker.replace('.TW','')}.tw"
-        with urllib.request.urlopen(url, timeout=1.0) as response:
-            data = json.loads(response.read())
-            return data
-    except:
-        return None
-
+st.set_page_config(page_title="專業股市決策儀表板", layout="wide")
 st.title("📈 專業股市決策儀表板")
+
+# 使用 ThreadPoolExecutor 避免主執行緒卡死
+executor = ThreadPoolExecutor(max_workers=2)
+
+@st.cache_data(ttl=300)
+def fetch_stock_data_async(ticker):
+    """帶有超時保護的資料抓取"""
+    def _fetch():
+        clean_ticker = ticker if ticker.endswith(".TW") else f"{ticker}.TW"
+        stock = yf.Ticker(clean_ticker)
+        info = stock.info
+        return {
+            "currentPrice": info.get("currentPrice", 0.0),
+            "regularMarketChange": info.get("regularMarketChangePercent", 0.0) * 100,
+            "bookValue": info.get("bookValue", 0.0),
+            "trailingPE": info.get("trailingPE", 0.0),
+            "trailingEps": info.get("trailingEps", 0.0),
+            "ticker": clean_ticker
+        }
+    
+    future = executor.submit(_fetch)
+    try:
+        # 強制 3 秒超時，避免轉圈圈
+        return future.result(timeout=3)
+    except Exception as e:
+        return {"error": str(e)}
+
+# 輸入區
 ticker = st.text_input("輸入股票代號 (例如: 2330)", "2330")
 
 if st.button("查詢分析數據"):
-    with st.spinner("讀取中..."):
-        # 嘗試連線
-        data = fetch_data_safe(ticker)
+    with st.spinner("正在讀取市場數據 (自動超時保護)..."):
+        data = fetch_stock_data_async(ticker)
         
-        # 若連線失敗 (data 為 None)，直接降級為穩定數據模型，絕不卡死
-        if data is None:
-            st.warning("⚠️ 即時 API 連線逾時，系統已自動降級至穩定數據模式以維持頁面運行。")
-            display_data = get_stable_data(ticker)
-        else:
-            display_data = get_stable_data(ticker) # 簡化示範
+        if "error" in data:
+            st.warning("⚠️ 即時資料讀取逾時或失敗，已為您切換至離線模擬數據模式。")
+            # 離線模式補救：產生穩定數據
+            data = {"currentPrice": 999.0, "regularMarketChange": 1.2, "bookValue": 150.0, "trailingPE": 22.5, "trailingEps": 25.0}
 
         # 顯示區塊
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("即時股價", display_data['price'])
-        col2.metric("漲跌", display_data['change'])
-        col3.metric("本益比", display_data['pe'])
-        col4.metric("EPS", display_data['eps'])
+        col1.metric("即時股價", f"{data['currentPrice']:.2f}", f"{data['regularMarketChange']:.2f}%")
+        col2.metric("每股淨值", f"{data['bookValue']:.2f}")
+        col3.metric("本益比", f"{data['trailingPE']:.2f}")
+        col4.metric("EPS", f"{data['trailingEps']:.2f}")
+
+        # 模擬法人籌碼 (穩定呈現)
+        dates = pd.date_range(end=pd.Timestamp.today(), periods=5).strftime('%m-%d')
+        inst_df = pd.DataFrame({"日期": dates, "外資": np.random.randint(-1000, 1000, 5)})
+        st.table(inst_df)
