@@ -9,13 +9,6 @@ import plotly.graph_objects as go
 # ---------------------------------------------------------
 # 1. 頁面配置與極致美感 CSS 注入
 # ---------------------------------------------------------
-st.set_page_config(
-    page_title="專業股市決策儀表板",
-    page_icon="📈",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
 st.markdown("""
 <style>
     /* 卡片式容器設計 */
@@ -39,7 +32,7 @@ st.markdown("""
     /* 黑天鵝與新聞方塊 */
     .news-box {
         background-color: #f1f3f5;
-        border-left: 5px solid #495057;
+        border-left: 5px solid #0077b6;
         padding: 15px;
         border-radius: 6px;
         font-family: "Courier New", Courier, monospace, "Microsoft JhengHei";
@@ -48,13 +41,14 @@ st.markdown("""
         line-height: 1.6;
     }
     .warning-box {
-        background-color: #fff3cd;
-        border-left: 5px solid #ffc107;
+        background-color: #fff0f0;
+        border-left: 5px solid #d90429;
         padding: 15px;
         border-radius: 8px;
         margin-bottom: 15px;
-        color: #856404;
+        color: #721c24;
         font-size: 0.95rem;
+        line-height: 1.6;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -63,6 +57,18 @@ st.markdown("""
 # 2. 2026年最新精準台灣股市基準資料庫 (離線防護與 fallback 機制)
 # ---------------------------------------------------------
 STOCK_DATABASE = {
+    "3294": {
+        "name": "中山",
+        "base_price": 37.70,
+        "yesterday_close": 38.60,
+        "high": 38.10,
+        "low": 37.30,
+        "volume": 4500,
+        "industry": "通訊零組件、連接器",
+        "eps": 2.51,
+        "bookValue": 16.97,
+        "trailingPE": 15.00
+    },
     "2330": {
         "name": "台積電",
         "base_price": 1025.0,
@@ -98,18 +104,6 @@ STOCK_DATABASE = {
         "eps": 10.8,
         "bookValue": 99.67,
         "trailingPE": 20.74
-    },
-    "3294": {
-        "name": "中山",
-        "base_price": 37.70,
-        "yesterday_close": 37.70,
-        "high": 38.10,
-        "low": 37.30,
-        "volume": 4500,
-        "industry": "通訊零組件、連接器",
-        "eps": 2.51,
-        "bookValue": 16.97,
-        "trailingPE": 15.00
     },
     "2002": {
         "name": "中鋼",
@@ -161,7 +155,7 @@ def fetch_stock_price_safe(stock_id):
     若 API 卡死或網路阻塞，自動降級為高精度 Fallback 模式，杜絕轉圈圈。
     """
     is_live = False
-    db_data = STOCK_DATABASE.get(stock_id, STOCK_DATABASE["2330"])
+    db_data = STOCK_DATABASE.get(stock_id, STOCK_DATABASE["3294"])
     
     try:
         url = f"https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=otc_{stock_id}.tw|tse_{stock_id}.tw"
@@ -228,30 +222,30 @@ def get_aligned_news(stock_id, stock_name):
     base_time = f"於二零二六年七月十一日台北時間上午十一時十二分，台股即時盤中交易與資金流向監控系統顯示，"
     
     events = {
+        "3294": f"通訊元件廠{stock_name}因旗下高頻光纖連接器及高階網通設備專用零組件出貨順利，拉貨動能遠遠超出預期進度，",
         "2330": f"晶圓代工龍頭{stock_name}因高階二奈米及三奈米先進製程產能遭國際各大AI晶片設計客戶全面鎖定包廠，",
         "2317": f"電子製造大廠{stock_name}受惠於全球大型資料中心客戶對最新型高效能液冷AI伺服器機櫃之拉貨需求極其旺盛，",
         "3227": f"晶片設計廠{stock_name}因旗下次世代高效能電競滑鼠感測元件及全新車載人機控制晶片順利通過歐美一線大廠認證，",
-        "3294": f"通訊元件廠{stock_name}因旗下高頻光纖連接器及高階網通設備專用零組件出貨順利，拉貨動能遠遠超出預期進度，",
         "2002": f"鋼鐵龍頭廠{stock_name}因應歐盟碳邊境調整機制正式啟動，積極優化低碳鋼材排程，並上調下一季度精緻鋼材盤價，",
         "6282": f"綠能電源廠{stock_name}積極佈局次世代智慧電網高功率電源模組，近期更成功斬獲海外大型車廠之車載電源長期合約，",
         "1301": f"石化龍頭廠{stock_name}因應全球原油走高及塑料大宗商品報價止跌回升，策略性調整產線產能並提高特用化學品比重，"
     }
     
     locations = {
-        "2330": "在新竹科學園區總部與南部科學園區超大型晶圓廠區，所有先進製程生產線工程師正維持極高效率的滿載運作，",
-        "2317": "在全球核心生產重鎮及先進高階製造研發基地，全自動無人化智慧工廠與物流組裝部門正夜以繼日全力衝刺出貨，",
-        "3227": "在新竹科學園區IC設計總部與海外各地市場行銷據點，核心晶片開發團隊與系統整合人員正緊密進行規格對接，",
         "3294": "在台北核心研發據點與亞洲各高頻通訊零組件專用製造廠，所有測試部門與精密包裝人員正如火如荼全速趕工中，",
+        "2330": "在新竹科學園區總部與南部科學園區超大型晶圓廠區，所有先進製程生產線工程師正維持極高效率的滿載運作，",
+        "2317": "在全球核心生產重鎮及先進高階製造研發基地，全自動無人化智慧工廠與物流組裝部門正夜以記日全力衝刺出貨，",
+        "3227": "在新竹科學園區IC設計總部與海外各地市場行銷據點，核心晶片開發團隊與系統整合人員正緊密進行規格對接，",
         "2002": "在高雄臨海工業區超大型一體化高爐煉鋼廠及中鋼總部大樓，生產管制部門正與海內外物流船隊緊密排程調度，",
         "6282": "在台北企業總部與亞洲智慧電源自動化封裝測試基地，多條高頻電源轉換模組新產線正進行高品質量產與出廠，",
         "1301": "在雲林麥寮六輕石化園區與各大基礎材料生產線，環境安全控制中心與製程優化工程師正全力維持極高效低碳運作，"
     }
     
     objects = {
+        "3294": "帶動大批中長線避險與波段多頭投機資金在開盤後向網通零組件靠攏，強烈的追價力道吸引法人高度關注追隨。",
         "2330": "使得美商高盛等外資主力券商分析師紛紛調高目標股價，全球高階半導體產業鏈對此產能爭奪趨勢極度重視。",
         "2317": "帶動本土投信與自營商資金持續湧入認購權證與現股，多方買盤積極進駐推升相關供應鏈廠商整體估值空間。",
         "3227": "促使市場避險與多頭投機資金在開盤後迅速向IC設計板塊靠攏，高達數千張的追價買單正引發市場高度矚目。",
-        "3294": "帶動大批中長線避險與波段多頭投機資金在開盤後向網通零組件靠攏，強烈的追價力道吸引法人高度關注追隨。",
         "2002": "讓國內大型基礎建設承銷商與法人投資機構全面評估其重置價值，其穩定高配息率特徵再度引發防禦資金關注。",
         "6282": "進一步推升中長線法人法人對綠能概念股的持股信心，市場多方買盤在低檔區塊展現出極為強烈的承接意願。",
         "1301": "進而吸引中長線主權基金與本土防禦型大型金控進行策略性佈局，整體化學材料板塊正醞釀結構性估值修復。"
@@ -325,31 +319,69 @@ def render_html_table(df, title):
     st.markdown(html, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 6. 側邊欄控制區
+# 6. 智慧雙向自選股控制器 (徹底解決「無法自行選股票」問題)
 # ---------------------------------------------------------
 st.sidebar.markdown("### 🔍 實時自主查詢系統")
-user_input = st.sidebar.text_input("輸入您想查詢的股票代號", value="3294", max_chars=6).strip()
-query_button = st.sidebar.button("立即實時查詢")
 
-# 記憶與維護 Session State
+# 提供熱門股票下拉選單與自定義輸入
+hot_stocks = {
+    "3294": "3294 中山",
+    "2330": "2330 台積電",
+    "2317": "2317 鴻海",
+    "3227": "3227 原相",
+    "2002": "2002 中鋼",
+    "6282": "6282 康舒",
+    "1301": "1301 台塑",
+    "custom": "👉 手動輸入代號..."
+}
+
+# 確保 Session State 有預設值
 if "active_ticker" not in st.session_state:
     st.session_state["active_ticker"] = "3294"
 
-if query_button and user_input:
-    st.session_state["active_ticker"] = user_input
+# 判斷當前代號是否在熱門選單中
+current_ticker = st.session_state["active_ticker"]
+default_index_key = current_ticker if current_ticker in hot_stocks else "custom"
+
+selected_option = st.sidebar.selectbox(
+    "請選擇快速看盤個股：",
+    options=list(hot_stocks.keys()),
+    format_func=lambda x: hot_stocks[x],
+    index=list(hot_stocks.keys()).index(default_index_key)
+)
+
+# 手動輸入框邏輯
+if selected_option == "custom":
+    custom_val = st.sidebar.text_input(
+        "請手動輸入股票代號：",
+        value=current_ticker if current_ticker not in ["3294", "2330", "2317", "3227", "2002", "6282", "1301"] else "2454",
+        max_chars=6
+    ).strip()
+    query_button = st.sidebar.button("確認手動查詢")
+    
+    if query_button and custom_val:
+        st.session_state["active_ticker"] = custom_val
+        st.rerun()
+else:
+    # 選擇不同個股時直接快速重載
+    if st.session_state["active_ticker"] != selected_option:
+        st.session_state["active_ticker"] = selected_option
+        st.rerun()
 
 active_ticker = st.session_state["active_ticker"]
+
+# 獲取基礎庫資料或 fallback 自訂代號資料
 stock_info = STOCK_DATABASE.get(active_ticker, {
     "name": f"個股 {active_ticker}",
-    "base_price": 50.0,
-    "yesterday_close": 50.0,
-    "high": 51.0,
-    "low": 49.0,
-    "volume": 2000,
-    "industry": "一般產業",
-    "eps": 2.0,
-    "bookValue": 25.0,
-    "trailingPE": 15.0
+    "base_price": 100.0,
+    "yesterday_close": 98.0,
+    "high": 102.5,
+    "low": 97.0,
+    "volume": 3500,
+    "industry": "一般產業、自訂觀測",
+    "eps": 5.20,
+    "bookValue": 45.0,
+    "trailingPE": 18.5
 })
 
 # ---------------------------------------------------------
@@ -594,7 +626,7 @@ with col_w:
         <strong>(2) 美伊戰爭及中東地緣不確定性 (精確 100 字深度警示)</strong><br>
         <p style="font-size:14px; line-height:1.6; margin-top:5px; font-family: monospace;">
             {swan_2}<br>
-            <span style="font-size:0.8rem; color:#868e96;">(字px; color:#868e96;">(字數統計: {len(swan_2)} 字)</span>
+            <span style="font-size:0.8rem; color:#868e96;">(字數統計: {len(swan_2)} 字)</span>
         </p>
     </div>
     <div class="warning-box" style="background-color: #fff0f0; border-left: 5px solid #d90429; color: #721c24;">
