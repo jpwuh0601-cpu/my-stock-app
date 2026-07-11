@@ -1,32 +1,65 @@
-# ... existing code ...
-    }
-    return data, "智慧程序化模擬引擎 (安全防當護航模式)", ticker
+import streamlit as st
+import pandas as pd
+import requests
 
-# --- 新增：使用快取機制優化數據讀取速度 ---
-@st.cache_data(ttl=600, show_spinner=False)
-def get_cached_data(ticker_input):
-    return fetch_realtime_stock_quote(ticker_input)
-# --------------------------------------
+st.set_page_config(page_title="專業股市決策儀表板", layout="wide")
 
-def render_html_table(data_list, title):
-# ... existing code ...
-st.sidebar.markdown("## 🔍 實時自主查詢系統")
-ticker_input = st.sidebar.text_input("輸入您想查詢的股票代號", "3294")
-query_btn = st.sidebar.button("立即實時查詢")
+def fetch_stock_data(ticker):
+    # 使用 Yahoo Finance 的輕量級 API 接口，速度最快且不會觸發崩潰
+    url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={ticker}"
+    headers = {"User-Agent": "Mozilla/5.0"}
+    try:
+        response = requests.get(url, headers=headers, timeout=5)
+        data = response.json()
+        result = data['quoteResponse']['result'][0]
+        return {
+            "price": result.get("regularMarketPrice", 0),
+            "change": result.get("regularMarketChangePercent", 0),
+            "eps": result.get("trailingEps", 0),
+            "pe": result.get("trailingPE", 0),
+            "nav": result.get("bookValue", 0),
+            "shares": result.get("sharesOutstanding", 0)
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
-# --- 修改：改用快取函式 ---
-with st.spinner("正在讀取金融數據..."):
-    data, source, final_ticker = get_cached_data(ticker_input)
-# -------------------------
+st.title("📈 專業股市決策儀表板")
+ticker = st.sidebar.text_input("輸入股票代號 (例如: 2330.TW)", "2330.TW")
 
-# 系統連線狀態顯示
-status_color = "#E53E3E" if "防當" in source or "模擬" in source else "#319795"
-# ... existing code ...
-```
+if st.sidebar.button("查詢分析數據"):
+    with st.spinner("正在讀取市場數據..."):
+        data = fetch_stock_data(ticker)
+        
+        if "error" in data:
+            st.error("無法取得數據，請確認代號是否正確。")
+        else:
+            # 即時指標顯示
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("即時股價", f"{data['price']:.2f}")
+            col2.metric("漲跌幅", f"{data['change']:.2f}%")
+            col3.metric("EPS", f"{data['eps']:.2f}")
+            col4.metric("本益比", f"{data['pe']:.2f}")
 
-### 修正重點：
-1.  **引入 `st.cache_data`**：將 `fetch_realtime_stock_quote` 的呼叫結果快取 10 分鐘 (600秒)，這樣即便頁面自動重載，也不會重複觸發 API 連線，解決 Spinner 卡死的問題。
-2.  **`show_spinner=False`**：在快取函式中設定為 `False`，避免預設 Spinner 與我們自訂的 `st.spinner` 衝突。
-3.  **UI 體驗優化**：包覆在 `st.spinner("正在讀取金融數據...")` 內，給使用者更明確的載入提示，而不是系統底層不明確的等待。
+            st.divider()
 
-請將上述修改更新至您的 `app.py`，卡頓現象應該會立即改善。
+            st.subheader("💡 AI 財務決策估值模型")
+            
+            # 輸入變數區
+            col_a, col_b = st.columns(2)
+            yoy = col_a.number_input("最新累計營收年增率 (%)", value=10.0) / 100
+            prev_rev = col_b.number_input("上年度營收 (億)", value=1000.0)
+            net_margin = col_a.number_input("合適稅後淨利率 (%)", value=20.0) / 100
+            payout_ratio = col_b.number_input("合適盈餘分配率 (%)", value=60.0) / 100
+            
+            # 計算邏輯
+            est_rev = prev_rev * (1 + yoy)
+            est_net_profit = est_rev * net_margin
+            est_eps = (est_net_profit * 100000000) / (data['shares'] if data['shares'] > 0 else 1)
+            est_dividend = est_eps * payout_ratio
+            
+            # 顯示結果
+            st.success(f"今年預估營收: {est_rev:.2f} 億 | 預估稅後淨利: {est_net_profit:.2f} 億")
+            st.info(f"預估 EPS: {est_eps:.2f} | 預估現金股利: {est_dividend:.2f}")
+
+st.sidebar.markdown("---")
+st.sidebar.info("使用 API 輕量化模式，確保系統穩定。")
