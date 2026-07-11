@@ -169,12 +169,12 @@ def fetch_stock_data_realtime(stock_code):
     }
 
 st.sidebar.markdown("### 🔍 實時自主查詢系統")
-user_input = st.sidebar.text_input("輸入您想查詢的股票代號", value="3227", max_chars=6).strip()
+user_input = st.sidebar.text_input("輸入您想查詢的股票代號", value="2002", max_chars=6).strip()
 query_button = st.sidebar.button("立即實時查詢")
 
 # 記憶與維護 Session State
 if "active_ticker" not in st.session_state:
-    st.session_state["active_ticker"] = "3227"
+    st.session_state["active_ticker"] = "2002"
 
 if query_button and user_input:
     st.session_state["active_ticker"] = user_input
@@ -234,6 +234,7 @@ financial_grid = {
     "每季財報 EPS(今)": [f"{q_eps_base * 0.95:.2f} EPS", f"{q_eps_base * 1.09:.2f} EPS", f"{q_eps_base * 0.98:.2f} EPS", f"{q_eps_base * 1.06:.2f} EPS"]
 }
 
+# ⚠️ 關鍵修正：徹底移除佔位符，完美對齊為正確的 '每季財報 EPS(去)' 索引，解決 KeyError 崩潰問題！
 html_fin_table = f"""
 <div style="overflow-x:auto;">
     <table style="width:100%; border-collapse: collapse; text-align: center; font-family: sans-serif; font-size:14px; border: 1px solid #ddd;">
@@ -255,7 +256,7 @@ html_fin_table = f"""
             <td style="padding:10px; border:1px solid #ddd; font-weight:bold; background:#fafafa;">每季財報 EPS</td>
             <td style="padding:10px; border:1px solid #ddd;">{financial_grid['每季財報 EPS(去)'][0]}</td>
             <td style="padding:10px; border:1px solid #ddd;">{financial_grid['每季財報 EPS(去)'][1]}</td>
-            <td style="padding:10px; border:1px solid #ddd;">{financial_grid['... existing code ...']}</td>
+            <td style="padding:10px; border:1px solid #ddd;">{financial_grid['每季財報 EPS(去)'][2]}</td>
             <td style="padding:10px; border:1px solid #ddd;">{financial_grid['每季財報 EPS(去)'][3]}</td>
         </tr>
         <tr style="background:#f8f9fa; font-weight:bold; border-bottom: 2px solid #dee2e6;">
@@ -445,7 +446,7 @@ st.markdown("---")
 st.subheader("7. 黑天鵝警示")
 st.warning("""
 **(1) 俄烏戰爭近期發展 (深度研判警示報告 - 總計約 160 字)**：<br>
-俄烏戰爭近期局勢再度升級，雙方針對邊境能源基礎設施及天然氣管線的無人機襲擊頻率大幅增加。此舉導致歐亞關鍵特用化學氣體、半導體原料氖氣與航運物流鏈面臨嚴重的供給中斷挑戰。隨著多國延長貿易制裁，國際大宗商品交易成本及原物料價格大幅上揚，直接壓縮全球電子製造產業鏈的毛利率與獲利預期，對高度依賴出口的半導體製造業形成顯著的通膨壓抑。
+俄烏戰爭近期局勢再度升級，雙方針對邊境能源基礎設施及天然氣管線的無人機襲擊頻率大幅增加。此舉導致歐亞關鍵特用化學氣體、半導體原料氖氣與航運物流鏈面臨嚴重的供給中斷挑戰。隨著多國延長貿易制裁，國際大宗商品交易成本及原物料價格大幅上揚，直接壓縮全球電子製造產業鏈 the 毛利率與獲利預期，對高度依賴出口的半導體製造業形成顯著的通膨壓抑。
 """, icon="⚠️")
 
 st.warning("""
