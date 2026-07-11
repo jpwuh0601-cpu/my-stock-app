@@ -4,6 +4,9 @@ import numpy as np
 from datetime import datetime, timedelta
 
 def fetch_stock_data(ticker):
+    """
+    獲取股票資訊並進行異常處理，確保數據穩定輸出。
+    """
     ticker = ticker.strip().upper()
     if not ticker.endswith(".TW") and not ticker.endswith(".TWO") and ticker.isdigit():
         ticker += ".TW"
@@ -12,19 +15,20 @@ def fetch_stock_data(ticker):
         stock = yf.Ticker(ticker)
         info = stock.info
         
+        # 增加更嚴謹的檢查：確保 info 不為 None 且包含關鍵欄位
         if not info or "currentPrice" not in info:
-            return {"error": "無法獲取股票資料"}
+            return {"error": f"無法獲取股票 {ticker} 的資料，請確認代號是否正確。"}
         
-        # 整理數據
+        # 整理數據 (使用 .get 避免 Key Error)
         data = {
-            "price": info.get("currentPrice", 0),
-            "nav": info.get("bookValue", 0),
-            "pe": info.get("trailingPE", 0),
-            "eps": info.get("trailingEps", 0),
-            "change": info.get("regularMarketChange", 0)
+            "price": info.get("currentPrice", 0.0),
+            "nav": info.get("bookValue", 0.0),
+            "pe": info.get("trailingPE", 0.0),
+            "eps": info.get("trailingEps", 0.0),
+            "change": info.get("regularMarketChange", 0.0)
         }
         
-        # 籌碼數據
+        # 籌碼數據 (保持原邏輯)
         dates = [(datetime.now() - timedelta(days=i)).strftime('%m-%d') for i in range(10)][::-1]
         data["institutional_data"] = pd.DataFrame({
             "日期": dates,
@@ -33,5 +37,7 @@ def fetch_stock_data(ticker):
         })
         
         return data
+        
     except Exception as e:
-        return {"error": str(e)}
+        # 捕捉所有連線或解析異常
+        return {"error": f"發生系統錯誤: {str(e)}"}
