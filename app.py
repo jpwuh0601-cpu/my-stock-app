@@ -24,13 +24,13 @@ def fetch_stock_data(ticker):
         
         return {
             "ticker": clean_ticker,
-            "price": info.get("currentPrice", 0),
-            "change": info.get("regularMarketChangePercent", 0) * 100,
-            "eps": info.get("trailingEps", 0),
-            "pe": info.get("trailingPE", 0),
-            "nav": info.get("bookValue", 0),
-            # 強制將發行股數轉為數字，若為 None 則設為 1 以防除零錯誤
-            "shares": info.get("sharesOutstanding") if info.get("sharesOutstanding") else 1
+            "price": float(info.get("currentPrice", 0)),
+            "change": float(info.get("regularMarketChangePercent", 0) * 100),
+            "eps": float(info.get("trailingEps", 0)),
+            "pe": float(info.get("trailingPE", 0)),
+            "nav": float(info.get("bookValue", 0)),
+            # 確保發行股數為數字，若為 None 則設為 1 以防除零錯誤
+            "shares": float(info.get("sharesOutstanding") if info.get("sharesOutstanding") else 1)
         }
     except Exception as e:
         return {"error": f"連線異常，請稍後再試。詳細錯誤: {str(e)}"}
@@ -68,8 +68,8 @@ if st.sidebar.button("查詢並執行分析"):
             est_rev = prev_rev * (1 + yoy)
             est_net_profit = est_rev * net_margin
             
-            # 使用已處理的 shares 數值，並確保為 float
-            shares = float(data['shares'])
+            # 確保參與計算的變數皆為浮點數
+            shares = data['shares']
             est_eps = (est_net_profit * 100000000) / (shares if shares > 0 else 1)
             est_dividend = est_eps * payout_ratio
 
