@@ -8,7 +8,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 
 # ---------------------------------------------------------
-# 1. 頁面配置與台灣股市傳統「漲紅跌綠」CSS 樣式注入
+# 1. 頁面基本配置與台灣股市傳統「漲紅跌綠」CSS 樣式注入
 # ---------------------------------------------------------
 st.set_page_config(page_title="專業股市決策儀表板", layout="wide")
 
@@ -75,7 +75,7 @@ st.title("📈 專業股市決策儀表板")
 # ---------------------------------------------------------
 class TimeoutHTTPAdapter(HTTPAdapter):
     def __init__(self, *args, **kwargs):
-        self.timeout = 1.0  # 強制 1.0 秒連線與讀取逾時限制
+        self.timeout = 1.0  # 強制 1.0 秒連線與讀取逾時限制，避免伺服器轉圈
         super().__init__(*args, **kwargs)
 
     def send(self, request, **kwargs):
