@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import yfinance as yf
+import requests
+from requests.adapters import HTTPAdapter
 
 # ---------------------------------------------------------
 # 1. 頁面配置與極致美感 CSS 注入
@@ -43,7 +45,22 @@ STOCK_DATABASE = {
 }
 
 # ---------------------------------------------------------
-# 2. 強防禦超時 API 數據抓取引擎
+# 2. 強防禦超時適配器 (Timeout Adapter)
+# ---------------------------------------------------------
+class TimeoutHTTPAdapter(HTTPAdapter):
+    """
+    自訂的 HTTP 適配器，強制為所有請求加上嚴格的超時限制，防止 yfinance 無限掛起轉圈
+    """
+    def __init__(self, *args, **kwargs):
+        self.timeout = kwargs.pop("timeout", 1.5) # 預設 1.5 秒硬超時
+        super().__init__(*args, **kwargs)
+
+    def send(self, request, **kwargs):
+        kwargs["timeout"] = self.timeout
+        return super().send(request, **kwargs)
+
+# ---------------------------------------------------------
+# 3. 數據抓取引擎
 # ---------------------------------------------------------
 @st.cache_data(ttl=60, show_spinner=False)
 def fetch_stock_price_safe(ticker):
@@ -55,10 +72,17 @@ def fetch_stock_price_safe(ticker):
     if not api_ticker.endswith(".TW") and not api_ticker.endswith(".TWO") and api_ticker.isdigit():
         api_ticker += ".TW"
         
-    # 第一階段：嘗試從 yfinance 極速通道獲取
+    # 第一階段：嘗試從 yfinance 獲取，配置 1.5 秒硬超時阻斷器
     try:
-        stock = yf.Ticker(api_ticker)
+        # 建立具備 1.5 秒超時限制的連線 Session
+        session = requests.Session()
+        timeout_adapter = TimeoutHTTPAdapter(timeout=1.5)
+        session.mount("https://", timeout_adapter)
+        session.mount("http://", timeout_adapter)
+        
+        stock = yf.Ticker(api_ticker, session=session)
         hist = stock.history(period="2d")
+        
         if not hist.empty:
             current_price = float(hist['Close'].iloc[-1])
             prev_price = float(hist['Close'].iloc[0]) if len(hist) > 1 else current_price
@@ -84,7 +108,7 @@ def fetch_stock_price_safe(ticker):
                 "name": STOCK_DATABASE[db_key]["name"] if db_key in STOCK_DATABASE else f"個股 ({db_key})"
             }
     except Exception:
-        pass # 發生任何錯誤自動滑入第二階段 Fallback 
+        pass # 任何超時、拒絕連線或 404 錯誤，皆在一瞬間跳入 Fallback 機制
         
     # 第二階段：Fallback 離線高精確度模擬引擎
     if db_key in STOCK_DATABASE:
@@ -104,7 +128,7 @@ def fetch_stock_price_safe(ticker):
             "name": db_data["name"]
         }
         
-    # 如果使用者輸入未知代號且 API 失敗，依據 Ticker 哈希值生成穩定的高模擬數據，防止崩潰
+    # 第三階段：若為未知代號且 API 失敗，依據 Ticker 哈希值生成穩定的高模擬數據，防止崩潰
     ticker_seed = sum(ord(c) for c in clean_ticker)
     np.random.seed(ticker_seed)
     mock_price = round(float(np.random.uniform(50.0, 800.0)), 2)
@@ -129,7 +153,7 @@ def get_csv_download_link(df, filename):
     st.download_button(label=f"📥 下載 {filename} CSV", data=csv, file_name=f"{filename}.csv", mime="text/csv")
 
 # ---------------------------------------------------------
-# 3. 側邊欄與 Session State 維護
+# 4. 側邊欄與 Session State 維護
 # ---------------------------------------------------------
 st.sidebar.markdown("### 🔍 實時自主查詢系統")
 ticker_input = st.sidebar.text_input("輸入股票代號 (例如: 2330 或 2454)", "2330")
@@ -146,7 +170,7 @@ data = st.session_state["queried_data"]
 active_ticker = st.session_state["active_ticker"]
 
 # ---------------------------------------------------------
-# 4. 主控板排版與顯示
+# 5. 主控板排版與顯示
 # ---------------------------------------------------------
 status_badge = "🟢 實時 API 連線" if data["is_live"] else "🟡 離線安全資料庫 (模擬/快取)"
 st.caption(f"系統連線狀態：**{status_badge}** │ 產業分類：`{data['industry']}`")
