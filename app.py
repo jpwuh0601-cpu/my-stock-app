@@ -8,6 +8,7 @@ if 'page_config_set' not in st.session_state:
 
 st.title("📈 專業股市決策儀表板")
 
+# 側邊欄或頂部輸入
 ticker_input = st.text_input("請輸入股票代號 (例如: 2330.TW)", "").strip().upper()
 
 if ticker_input:
@@ -35,8 +36,12 @@ if ticker_input:
                 st.markdown("---")
                 st.subheader("3. 籌碼面分析")
                 st.write("每日法人買賣超統計（近十日模擬）")
+                # 這裡顯示籌碼面統計的簡化版圖表或數據框
+                st.table(
+                    {"日期": ["2026-07-10", "2026-07-09"], "外資買賣超(張)": [1200, -350], "投信買賣超(張)": [450, 120]}
+                )
                 
-                # 4. 財務預估模型 (加入安全防護)
+                # 4. 財務預估模型
                 st.markdown("---")
                 st.subheader("4. 財務預估模型")
                 c1, c2 = st.columns(2)
