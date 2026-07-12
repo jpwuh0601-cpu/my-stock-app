@@ -8,7 +8,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 
 # ---------------------------------------------------------
-# 1. 頁面基本配置與台灣股市傳統「漲紅跌綠」CSS 樣式注入
+# 1. 頁面配置與台灣股市傳統「漲紅跌綠」CSS 樣式注入
 # ---------------------------------------------------------
 st.set_page_config(page_title="專業股市決策儀表板", layout="wide")
 
@@ -461,7 +461,7 @@ fig.update_layout(
     yaxis=dict(gridcolor='#eaeaea')
 )
 
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig)  # 已移除不相容且易引發轉圈掛起的 use_container_width=True
 
 st.divider()
 
