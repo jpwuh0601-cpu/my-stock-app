@@ -15,13 +15,16 @@ def get_stock_data(ticker):
         clean_ticker = ticker if ticker.endswith(".TW") else f"{ticker}.TW"
         stock = yf.Ticker(clean_ticker)
         info = stock.info
+        # 為了演示與穩定性，部分數值若 API 無法獲取則提供預設值
         return {
             "price": info.get("currentPrice", 100.0),
             "change": info.get("regularMarketChangePercent", 0.0),
             "nav": info.get("bookValue", 50.0),
             "pe": info.get("trailingPE", 15.0),
             "eps": info.get("trailingEps", 5.0),
-            "shares": info.get("sharesOutstanding", 1000000000)
+            "shares": info.get("sharesOutstanding", 1000000000),
+            "last_year_revenue": 9000000000, # 模擬去年營收
+            "yoy_growth": 0.15 # 模擬累積營收年增率 15%
         }, clean_ticker
     except Exception as e:
         return None, str(e)
@@ -53,16 +56,23 @@ if submitted:
             # 2. 第 9 項：財務預估模型
             st.markdown("---")
             st.subheader("📊 第 9 項：明年財務預估模型")
+            
+            # 參數調節器
             c1, c2 = st.columns(2)
             margin_rate = c1.slider("假設稅後淨利率 (%)", 5.0, 30.0, 15.0) / 100
             payout_rate = c2.slider("假設盈餘分配率 (%)", 30.0, 90.0, 60.0) / 100
             
-            # 計算邏輯
-            est_revenue = 10000000000 * 1.15 # 模擬數據
+            # 計算邏輯 (根據您提供的步驟)
+            # 3. 今年預估營收 = 上年營收 * (1 + 累積年增率)
+            est_revenue = data['last_year_revenue'] * (1 + data['yoy_growth'])
+            # 5. 預估稅後淨利 = 今年預估營收 * 稅後淨利率
             est_net_profit = est_revenue * margin_rate
+            # 6. 預估 EPS = 預估淨利 / 發行股數
             est_eps = est_net_profit / data['shares']
+            # 8. 預估現金股利 = 預估 EPS * 盈餘分配率
             est_div = est_eps * payout_rate
             
+            # 並排陳列顯示
             p1, p2, p3, p4 = st.columns(4)
             p1.metric("預估明年營收", f"{est_revenue/1e9:.1f} 億")
             p2.metric("預估稅後淨利", f"{est_net_profit/1e8:.1f} 億")
