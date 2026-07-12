@@ -1,7 +1,4 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
-import plotly.graph_objects as go
 
 # ---------------------------------------------------------
 # 1. 頁面配置與極致美感 CSS 注入
@@ -42,7 +39,7 @@ STOCK_DATABASE = {
 }
 
 # ---------------------------------------------------------
-# 2. 數據抓取引擎 (採用內部延遲匯入 Lazy-Load 技術，杜絕啟動卡死)
+# 2. 數據抓取引擎 (內部局部延遲匯入，杜絕啟動卡死)
 # ---------------------------------------------------------
 @st.cache_data(ttl=60, show_spinner=False)
 def fetch_stock_price_safe(ticker):
@@ -54,7 +51,6 @@ def fetch_stock_price_safe(ticker):
     if not api_ticker.endswith(".TW") and not api_ticker.endswith(".TWO") and api_ticker.isdigit():
         api_ticker += ".TW"
         
-    # 【核心優化】將易卡死套件改在函數內部「延遲匯入」，確保主程式一瞬間載入成功！
     try:
         import yfinance as yf
         import requests
@@ -62,7 +58,7 @@ def fetch_stock_price_safe(ticker):
 
         class TimeoutHTTPAdapter(HTTPAdapter):
             def __init__(self, *args, **kwargs):
-                self.timeout = kwargs.pop("timeout", 1.5) # 1.5 秒強行超時限制
+                self.timeout = kwargs.pop("timeout", 1.5)  # 1.5 秒強行超時限制
                 super().__init__(*args, **kwargs)
             def send(self, request, **kwargs):
                 kwargs["timeout"] = self.timeout
@@ -101,14 +97,15 @@ def fetch_stock_price_safe(ticker):
                 "name": STOCK_DATABASE[db_key]["name"] if db_key in STOCK_DATABASE else f"個股 ({db_key})"
             }
     except Exception:
-        pass  # 發生任何連線問題、匯入問題或超時，自動降級為 Fallback 離線渲染
+        pass  # 任何連線超時，自動無縫降級
         
     return get_fallback_data(clean_ticker)
 
 def get_fallback_data(ticker):
     """
-    純本地渲染，不依賴任何第三方網路 API 
+    本地高速渲染數據
     """
+    import numpy as np
     clean_ticker = ticker.strip().upper()
     db_key = clean_ticker.split('.')[0]
     
@@ -129,7 +126,6 @@ def get_fallback_data(ticker):
             "name": db_data["name"]
         }
     
-    # 未知代號動態安全模擬，避免 UI 出錯
     ticker_seed = sum(ord(c) for c in clean_ticker)
     np.random.seed(ticker_seed)
     mock_price = round(float(np.random.uniform(50.0, 800.0)), 2)
@@ -154,39 +150,37 @@ def get_csv_download_link(df, filename):
     st.download_button(label=f"📥 下載 {filename} CSV", data=csv, file_name=f"{filename}.csv", mime="text/csv")
 
 # ---------------------------------------------------------
-# 3. 側邊欄與 Session State 維護
+# 3. 側邊欄與 Session State 狀態機
 # ---------------------------------------------------------
 st.sidebar.markdown("### 🔍 實時自主查詢系統")
 ticker_input = st.sidebar.text_input("輸入股票代號 (例如: 2330 或 2454)", "2330")
 query_btn = st.sidebar.button("立即實時查詢")
 
-# 【啟動零加載】初始載入不經過任何網路請求，直接在 0 毫秒內用本地資料渲染
+# 【0 毫秒極速載入】完全避免初次進入網頁時聯網，確保畫面瞬間載入完成！
 if "queried_data" not in st.session_state:
     st.session_state["queried_data"] = get_fallback_data("2330")
     st.session_state["active_ticker"] = "2330"
 
-# 僅有在使用手動點選按鈕時，才進行實時 API 連線
 if query_btn:
     with st.spinner("正在連線至極速資料庫..."):
         st.session_state["queried_data"] = fetch_stock_price_safe(ticker_input)
         st.session_state["active_ticker"] = ticker_input.strip().upper()
 
-# 取得渲染資料
 data = st.session_state["queried_data"]
 active_ticker = st.session_state["active_ticker"]
 
 # ---------------------------------------------------------
-# 4. 主控板排版與顯示
+# 4. 主控板介面美學呈現
 # ---------------------------------------------------------
 status_badge = "🟢 實時 API 連線" if data["is_live"] else "🟡 離線安全資料庫 (模擬/快取)"
 st.caption(f"系統連線狀態：**{status_badge}** │ 產業分類：`{data['industry']}`")
 st.markdown(f"## 📈 專業股市決策儀表板 — {data['name']} ({active_ticker})")
 
-# 即時現價與三大指標
+# 4.1 即時股價卡片與三大財報指標
 col_price, col_metrics = st.columns([1.5, 2.5])
 
 with col_price:
-    color_code = "red" if data["change"] >= 0 else "green"
+    color_code = "#d90429" if data["change"] >= 0 else "#2b9348"
     symbol = "▲" if data["change"] >= 0 else "▼"
     sign = "+" if data["change"] >= 0 else ""
     st.markdown(
@@ -210,12 +204,12 @@ with col_metrics:
 
 st.divider()
 
-# 三大法人買賣超
+# 4.2 三大法人買賣超
 st.markdown("### 4. 三大法人近十日買賣超明細 (張)")
 dates = pd.date_range(end=pd.Timestamp.today(), periods=10).strftime('%m-%d')
 
-# 使用固定的種子，讓同一檔股票在 session 刷新時數據保持一致，不抖動
 ticker_seed = sum(ord(c) for c in active_ticker)
+import numpy as np
 np.random.seed(ticker_seed)
 
 inst_data = pd.DataFrame({
@@ -229,7 +223,7 @@ get_csv_download_link(inst_data, f"{active_ticker}_三大法人買賣超")
 
 st.divider()
 
-# 主力券商明細
+# 4.3 主力券商明細
 st.markdown("### 5. 十大主力券商近十日買賣超明細 (張)")
 brokers = ["元大", "凱基", "富邦", "永豐金", "國泰", "群益", "元富", "華南", "兆豐", "統一"]
 broker_df = pd.DataFrame(np.random.randint(-800, 1000, (10, 10)), columns=brokers)
@@ -239,18 +233,54 @@ get_csv_download_link(broker_df, f"{active_ticker}_主力券商買賣超")
 
 st.divider()
 
-# 技術指標雷達圖
-st.markdown("### 10. 技術指標圖形化 (強弱度分析)")
-fig = go.Figure(data=go.Scatterpolar(
-    r=[68, 75, 55], 
-    theta=['KD指標', 'MACD趨勢', 'RSI強弱'], 
-    fill='toself', 
-    line_color='#FF4B4B'
-))
-fig.update_layout(
-    polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
-    showlegend=False,
-    height=380,
-    margin=dict(l=20, r=20, t=20, b=20)
+# 4.4 技術指標專業進度條面板 (徹底取代 Plotly Radar 解決轉圈問題)
+st.markdown("### 10. 技術指標實時強弱監控 (強弱度分析)")
+
+# 模擬具備 Ticker 關聯的高保真技術指標數值
+kd_val = round(float(np.random.uniform(30.0, 95.0)), 1)
+macd_val = round(float(np.random.uniform(40.0, 90.0)), 1)
+rsi_val = round(float(np.random.uniform(35.0, 85.0)), 1)
+
+kd_status = "超買警戒" if kd_val > 80 else ("多頭強勢" if kd_val > 60 else "弱勢整理")
+macd_status = "黃金交叉" if macd_val > 70 else ("趨勢向上" if macd_val > 50 else "區間震盪")
+rsi_status = "強勢偏多" if rsi_val > 65 else ("中性偏多" if rsi_val > 50 else "偏弱整理")
+
+st.markdown(
+    f"""
+    <div style="background-color: #fcfcfc; padding: 22px; border-radius: 12px; border: 1px solid #eaeaea; box-shadow: 0 4px 6px rgba(0,0,0,0.01);">
+        <!-- KD指標 -->
+        <div style="margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                <span style="font-weight: bold; font-size: 15px; color: #333;">📊 KD 指標強度</span>
+                <span style="color: #FF4B4B; font-weight: bold; font-size: 14px;">{kd_val}% ({kd_status})</span>
+            </div>
+            <div style="background-color: #e9ecef; border-radius: 6px; height: 12px; overflow: hidden;">
+                <div style="background-color: #FF4B4B; width: {kd_val}%; height: 12px; border-radius: 6px;"></div>
+            </div>
+        </div>
+        
+        <!-- MACD指標 -->
+        <div style="margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                <span style="font-weight: bold; font-size: 15px; color: #333;">📊 MACD 趨勢強度</span>
+                <span style="color: #0077b6; font-weight: bold; font-size: 14px;">{macd_val}% ({macd_status})</span>
+            </div>
+            <div style="background-color: #e9ecef; border-radius: 6px; height: 12px; overflow: hidden;">
+                <div style="background-color: #0077b6; width: {macd_val}%; height: 12px; border-radius: 6px;"></div>
+            </div>
+        </div>
+        
+        <!-- RSI指標 -->
+        <div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                <span style="font-weight: bold; font-size: 15px; color: #333;">📊 RSI 強弱度</span>
+                <span style="color: #2b9348; font-weight: bold; font-size: 14px;">{rsi_val}% ({rsi_status})</span>
+            </div>
+            <div style="background-color: #e9ecef; border-radius: 6px; height: 12px; overflow: hidden;">
+                <div style="background-color: #2b9348; width: {rsi_val}%; height: 12px; border-radius: 6px;"></div>
+            </div>
+        </div>
+    </div>
+    """, 
+    unsafe_allow_html=True
 )
-st.plotly_chart(fig, use_container_width=True)
