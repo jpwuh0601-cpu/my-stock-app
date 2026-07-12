@@ -1,4 +1,6 @@
 import streamlit as st
+import pandas as pd
+import numpy as np
 
 # ---------------------------------------------------------
 # 1. 頁面配置與極致美感 CSS 注入
@@ -105,7 +107,6 @@ def get_fallback_data(ticker):
     """
     本地高速渲染數據
     """
-    import numpy as np
     clean_ticker = ticker.strip().upper()
     db_key = clean_ticker.split('.')[0]
     
@@ -209,7 +210,6 @@ st.markdown("### 4. 三大法人近十日買賣超明細 (張)")
 dates = pd.date_range(end=pd.Timestamp.today(), periods=10).strftime('%m-%d')
 
 ticker_seed = sum(ord(c) for c in active_ticker)
-import numpy as np
 np.random.seed(ticker_seed)
 
 inst_data = pd.DataFrame({
