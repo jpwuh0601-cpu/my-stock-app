@@ -4,6 +4,26 @@ import numpy as np
 import plotly.graph_objects as go
 import yfinance as yf
 import requests
+from requests.adapters import HTTPAdapter
+
+# ---------------------------------------------------------
+# 0. 建立強制超時的 HTTP 運作階段，徹底防止 yfinance 鎖死伺服器
+# ---------------------------------------------------------
+class TimeoutSession(requests.Session):
+    """
+    自訂 Requests Session，強行對所有發出的 HTTP 請求注入 1.5 秒超時限制。
+    這是解決 Streamlit 雲端共用 IP 被阻擋導致無限轉圈的終極武器！
+    """
+    def __init__(self, timeout=1.5):
+        super().__init__()
+        self.timeout = timeout
+        adapter = HTTPAdapter(max_retries=1)
+        self.mount("https://", adapter)
+        self.mount("http://", adapter)
+
+    def request(self, method, url, *args, **kwargs):
+        kwargs['timeout'] = self.timeout
+        return super().request(method, url, *args, **kwargs)
 
 # ---------------------------------------------------------
 # 1. 頁面配置與台灣股市傳統「漲紅跌綠」CSS 樣式注入
@@ -154,7 +174,8 @@ def get_deterministic_stock_data(ticker):
 @st.cache_data(ttl=60, show_spinner=False)
 def fetch_stock_data_safely(ticker):
     """
-    帶有安全隔離的 API 爬取器，一旦連線超時，自動啟動演算法引擎兜底，保證 100% 成功。
+    帶有安全隔離與 1.5 秒超時機制的 API 爬取器，
+    一旦連線超時，自動啟動防鎖死演算法引擎兜底，保證 100% 成功秒開。
     """
     clean_id = ''.join(filter(str.isdigit, ticker))
     if not clean_id:
@@ -164,7 +185,9 @@ def fetch_stock_data_safely(ticker):
     
     try:
         full_ticker = f"{clean_id}.TW"
-        stock = yf.Ticker(full_ticker)
+        # 建立帶有 1.5 秒超時的 session
+        session = TimeoutSession(timeout=1.5)
+        stock = yf.Ticker(full_ticker, session=session)
         info = stock.info
         if info and "currentPrice" in info:
             fallback["price"] = float(info.get("currentPrice", fallback["price"]))
@@ -215,7 +238,7 @@ sub_color_class = "metric-sub-red" if change >= 0 else "metric-sub-green"
 symbol = "▲" if change >= 0 else "▼"
 sign = "+" if change >= 0 else ""
 
-st.caption(f"數據載入模式：{'🟢 雲端實時 API 連線' if data['is_live'] else '🟡 伺服器本地安全數據'}")
+st.caption(f"數據載入模式：{'🟢 雲端實時 API 連線 (1.5秒內成功)' if data['is_live'] else '🟡 伺服器本地安全備援模式 (已啟用防鎖死防護)'}")
 
 st.markdown(f"""
 <div class="card-container">
@@ -452,7 +475,7 @@ st.markdown("### 9. 財務預估模型推演與 6 步驟計算流程")
 
 st.markdown(f"""
 <div class="card-container" style="background-color: #f0f9ff; border-left: 5px solid #0284c7;">
-    <strong>📊 九步驟財務預估推演模型 (精準計算流程與即時資訊對接)</strong><br><br>
+    <strong>📊 九步驟財務預估推演 model (精準計算流程與即時資訊對接)</strong><br><br>
     <strong>步驟 1. 計算今年預估營收：</strong><br>
     上年度營收 (<strong>{data['last_year_rev'] / 1e8:,.1f} 億</strong>) &times; (1 + 最新累積營收年增率 {user_growth_rate*100:+.1f}%) = 今年預估營收 <strong>{est_rev / 1e8:,.1f} 億</strong><br><br>
     <strong>步驟 2 & 3. 假設合適的稅後淨利率 & 計算預估稅後淨利：</strong><br>
