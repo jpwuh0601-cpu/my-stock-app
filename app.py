@@ -2,9 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-import yfinance as yf
-import requests
-from requests.adapters import HTTPAdapter
 
 # ---------------------------------------------------------
 # 1. 頁面配置與極致美感 CSS 注入
@@ -45,22 +42,7 @@ STOCK_DATABASE = {
 }
 
 # ---------------------------------------------------------
-# 2. 強防禦超時適配器 (Timeout Adapter)
-# ---------------------------------------------------------
-class TimeoutHTTPAdapter(HTTPAdapter):
-    """
-    自訂的 HTTP 適配器，強制為所有請求加上嚴格的超時限制，防止 yfinance 無限掛起轉圈
-    """
-    def __init__(self, *args, **kwargs):
-        self.timeout = kwargs.pop("timeout", 1.5)  # 預設 1.5 秒硬超時
-        super().__init__(*args, **kwargs)
-
-    def send(self, request, **kwargs):
-        kwargs["timeout"] = self.timeout
-        return super().send(request, **kwargs)
-
-# ---------------------------------------------------------
-# 3. 數據抓取引擎
+# 2. 數據抓取引擎 (採用內部延遲匯入 Lazy-Load 技術，杜絕啟動卡死)
 # ---------------------------------------------------------
 @st.cache_data(ttl=60, show_spinner=False)
 def fetch_stock_price_safe(ticker):
@@ -72,8 +54,21 @@ def fetch_stock_price_safe(ticker):
     if not api_ticker.endswith(".TW") and not api_ticker.endswith(".TWO") and api_ticker.isdigit():
         api_ticker += ".TW"
         
-    # 第一階段：嘗試從 yfinance 獲取，配置 1.5 秒硬超時阻斷器
+    # 【核心優化】將易卡死套件改在函數內部「延遲匯入」，確保主程式一瞬間載入成功！
     try:
+        import yfinance as yf
+        import requests
+        from requests.adapters import HTTPAdapter
+
+        class TimeoutHTTPAdapter(HTTPAdapter):
+            def __init__(self, *args, **kwargs):
+                self.timeout = kwargs.pop("timeout", 1.5) # 1.5 秒強行超時限制
+                super().__init__(*args, **kwargs)
+            def send(self, request, **kwargs):
+                kwargs["timeout"] = self.timeout
+                return super().send(request, **kwargs)
+
+        # 建立硬超時連線
         session = requests.Session()
         timeout_adapter = TimeoutHTTPAdapter(timeout=1.5)
         session.mount("https://", timeout_adapter)
@@ -88,7 +83,6 @@ def fetch_stock_price_safe(ticker):
             change = current_price - prev_price
             change_pct = (change / prev_price) * 100 if prev_price != 0 else 0.0
             
-            # 嘗試快速估計基本面
             pe, eps, book_value = 15.0, current_price / 15.0, current_price * 0.35
             if db_key in STOCK_DATABASE:
                 pe = STOCK_DATABASE[db_key]["trailingPE"]
@@ -107,14 +101,13 @@ def fetch_stock_price_safe(ticker):
                 "name": STOCK_DATABASE[db_key]["name"] if db_key in STOCK_DATABASE else f"個股 ({db_key})"
             }
     except Exception:
-        pass  # 任何超時、拒絕連線，一律自動滑入 Fallback 
+        pass  # 發生任何連線問題、匯入問題或超時，自動降級為 Fallback 離線渲染
         
-    # 第二階段：Fallback 離線高精確度模擬引擎
     return get_fallback_data(clean_ticker)
 
 def get_fallback_data(ticker):
     """
-    安全無網本地渲染函數，100% 確保啟動時不用聯網
+    純本地渲染，不依賴任何第三方網路 API 
     """
     clean_ticker = ticker.strip().upper()
     db_key = clean_ticker.split('.')[0]
@@ -136,7 +129,7 @@ def get_fallback_data(ticker):
             "name": db_data["name"]
         }
     
-    # 未知個股本地模擬
+    # 未知代號動態安全模擬，避免 UI 出錯
     ticker_seed = sum(ord(c) for c in clean_ticker)
     np.random.seed(ticker_seed)
     mock_price = round(float(np.random.uniform(50.0, 800.0)), 2)
@@ -161,35 +154,35 @@ def get_csv_download_link(df, filename):
     st.download_button(label=f"📥 下載 {filename} CSV", data=csv, file_name=f"{filename}.csv", mime="text/csv")
 
 # ---------------------------------------------------------
-# 4. 側邊欄與 Session State 維護
+# 3. 側邊欄與 Session State 維護
 # ---------------------------------------------------------
 st.sidebar.markdown("### 🔍 實時自主查詢系統")
 ticker_input = st.sidebar.text_input("輸入股票代號 (例如: 2330 或 2454)", "2330")
 query_btn = st.sidebar.button("立即實時查詢")
 
-# 【終極優化】初次啟動網頁時，100% 使用本地安全資料，不進行任何網路 API 調用！
+# 【啟動零加載】初始載入不經過任何網路請求，直接在 0 毫秒內用本地資料渲染
 if "queried_data" not in st.session_state:
     st.session_state["queried_data"] = get_fallback_data("2330")
     st.session_state["active_ticker"] = "2330"
 
-# 只有當使用者「主動點選按鈕」時，才進行實時 API 獲取
+# 僅有在使用手動點選按鈕時，才進行實時 API 連線
 if query_btn:
     with st.spinner("正在連線至極速資料庫..."):
         st.session_state["queried_data"] = fetch_stock_price_safe(ticker_input)
         st.session_state["active_ticker"] = ticker_input.strip().upper()
 
-# 取得要渲染的資料
+# 取得渲染資料
 data = st.session_state["queried_data"]
 active_ticker = st.session_state["active_ticker"]
 
 # ---------------------------------------------------------
-# 5. 主控板排版與顯示
+# 4. 主控板排版與顯示
 # ---------------------------------------------------------
 status_badge = "🟢 實時 API 連線" if data["is_live"] else "🟡 離線安全資料庫 (模擬/快取)"
 st.caption(f"系統連線狀態：**{status_badge}** │ 產業分類：`{data['industry']}`")
 st.markdown(f"## 📈 專業股市決策儀表板 — {data['name']} ({active_ticker})")
 
-# 1. 即時現價與三大基本面
+# 即時現價與三大指標
 col_price, col_metrics = st.columns([1.5, 2.5])
 
 with col_price:
@@ -217,7 +210,7 @@ with col_metrics:
 
 st.divider()
 
-# 2. 三大法人買賣超
+# 三大法人買賣超
 st.markdown("### 4. 三大法人近十日買賣超明細 (張)")
 dates = pd.date_range(end=pd.Timestamp.today(), periods=10).strftime('%m-%d')
 
@@ -236,7 +229,7 @@ get_csv_download_link(inst_data, f"{active_ticker}_三大法人買賣超")
 
 st.divider()
 
-# 3. 主力券商明細
+# 主力券商明細
 st.markdown("### 5. 十大主力券商近十日買賣超明細 (張)")
 brokers = ["元大", "凱基", "富邦", "永豐金", "國泰", "群益", "元富", "華南", "兆豐", "統一"]
 broker_df = pd.DataFrame(np.random.randint(-800, 1000, (10, 10)), columns=brokers)
@@ -246,7 +239,7 @@ get_csv_download_link(broker_df, f"{active_ticker}_主力券商買賣超")
 
 st.divider()
 
-# 4. 技術指標雷達圖
+# 技術指標雷達圖
 st.markdown("### 10. 技術指標圖形化 (強弱度分析)")
 fig = go.Figure(data=go.Scatterpolar(
     r=[68, 75, 55], 
