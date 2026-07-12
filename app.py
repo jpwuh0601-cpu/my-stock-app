@@ -75,7 +75,7 @@ st.title("📈 專業股市決策儀表板")
 # ---------------------------------------------------------
 class TimeoutHTTPAdapter(HTTPAdapter):
     def __init__(self, *args, **kwargs):
-        self.timeout = 1.0  # 強制 1.0 秒連線與讀取逾時限制，避免伺服器轉圈
+        self.timeout = 1.0  # 強制 1.0 秒連線與讀取逾時限制，避免伺服器卡死轉圈
         super().__init__(*args, **kwargs)
 
     def send(self, request, **kwargs):
