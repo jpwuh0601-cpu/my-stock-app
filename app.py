@@ -38,6 +38,7 @@ if st.button("查詢分析數據"):
         if is_error:
             st.error(f"⚠️ 無法讀取 {used_ticker} 資料，請檢查輸入。")
         else:
+            # 1. 即時概況區塊
             st.markdown(f"### {used_ticker} 即時概況")
             col1, col2, col3, col4 = st.columns(4)
             col1.metric("即時股價", f"{data['currentPrice']:.2f}", f"{data['regularMarketChange']:.2f}%")
@@ -45,8 +46,10 @@ if st.button("查詢分析數據"):
             col3.metric("本益比", f"{data['trailingPE']:.2f}")
             col4.metric("EPS", f"{data['trailingEps']:.2f}")
 
-            # 4. 三大法人明細 (使用穩定版 dataframe 呈現)
+            # 2. 數據呈現區塊
             dates = pd.date_range(end=pd.Timestamp.today(), periods=10).strftime('%m-%d')
+            
+            # 法人數據
             inst_data = pd.DataFrame({
                 "日期": dates,
                 "外資": np.random.randint(-1500, 1500, 10),
@@ -57,16 +60,21 @@ if st.button("查詢分析數據"):
             st.dataframe(inst_data, use_container_width=True)
             get_csv_download_link(inst_data, "三大法人買賣超")
 
-            # 5. 主力券商明細 (修正報錯：直接傳入 dataframe，不傳入 Styler)
+            # 券商數據
             brokers = ["元大", "凱基", "富邦", "永豐金", "國泰", "群益", "元富", "華南", "兆豐", "統一"]
             broker_df = pd.DataFrame(np.random.randint(-800, 1000, (10, 10)), columns=brokers)
             broker_df.insert(0, "日期", dates)
-            
             st.markdown("### 5. 十大主力券商近十日買賣超明細 (張)")
             st.dataframe(broker_df, use_container_width=True)
             get_csv_download_link(broker_df, "主力券商買賣超")
 
-            # 10. 技術指標
+            # 3. 圖表區塊 (獨立顯示)
             st.markdown("### 10. 技術指標圖形化")
-            fig = go.Figure(data=go.Scatterpolar(r=[65, 72, 58], theta=['KD', 'MACD', 'RSI'], fill='toself', line_color='red'))
+            fig = go.Figure(data=go.Scatterpolar(
+                r=[65, 72, 58], 
+                theta=['KD', 'MACD', 'RSI'], 
+                fill='toself', 
+                line_color='#FF4B4B'
+            ))
+            fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100])), showlegend=False)
             st.plotly_chart(fig, use_container_width=True)
