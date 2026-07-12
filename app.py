@@ -1,28 +1,15 @@
 import streamlit as st
-import subprocess
-import sys
-
-# 1. 強制自動修復環境：如果套件沒裝，自動執行 pip 安裝
-def install_requirements():
-    try:
-        import yfinance
-        import pandas
-    except ImportError:
-        st.warning("正在自動安裝必要的系統元件，請稍候...")
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "yfinance", "pandas", "numpy", "plotly"])
-        st.rerun()
-
-install_requirements()
-
-# 2. 正式載入模組
 import yfinance as yf
 import pandas as pd
 
-# 頁面配置
-st.set_page_config(page_title="股市儀表板", layout="wide")
+# 強制將配置與執行分開，且只執行一次
+if "initialized" not in st.session_state:
+    st.set_page_config(page_title="股市儀表板", layout="wide")
+    st.session_state.initialized = True
+
 st.title("📈 專業股市決策儀表板")
 
-# 3. 功能區
+# 使用者輸入區
 ticker_input = st.text_input("請輸入股票代號 (例如: 2330.TW)", "").strip().upper()
 
 if ticker_input:
@@ -32,12 +19,12 @@ if ticker_input:
             info = stock.info
             
             if info.get("currentPrice"):
-                # 顯示核心指標
+                # 核心指標
                 col1, col2, col3, col4 = st.columns(4)
-                col1.metric("即時股價", info.get("currentPrice", 0))
-                col2.metric("每股淨值", info.get("bookValue", 0))
-                col3.metric("本益比", info.get("trailingPE", 0))
-                col4.metric("EPS", info.get("trailingEps", 0))
+                col1.metric("即時股價", f"{info.get('currentPrice', 0):.2f}")
+                col2.metric("每股淨值", f"{info.get('bookValue', 0):.2f}")
+                col3.metric("本益比", f"{info.get('trailingPE', 0):.2f}")
+                col4.metric("EPS", f"{info.get('trailingEps', 0):.2f}")
                 
                 # 財務預估模型
                 st.markdown("---")
