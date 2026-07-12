@@ -5,17 +5,17 @@ import yfinance as yf
 import requests
 from requests.adapters import HTTPAdapter
 
-# --- 頁面配置與樣式優化 ---
+# --- 頁面配置 ---
 st.set_page_config(page_title="專業股市決策儀表板", layout="wide")
 st.title("📈 專業股市決策儀表板")
 
-# 強制連線逾時設定
+# --- 強制超時連線模組 (避免卡死) ---
 class TimeoutAdapter(HTTPAdapter):
     def send(self, request, **kwargs):
-        kwargs['timeout'] = 2.0  # 強制 2 秒逾時
+        kwargs['timeout'] = 2.0  # 強制 2 秒逾時，防止無限轉圈
         return super().send(request, **kwargs)
 
-# --- 穩定的數據獲取器 (整合於單一檔案) ---
+# --- 穩定數據獲取器 ---
 @st.cache_data(ttl=300)
 def get_stable_data(ticker):
     # 處理代號
@@ -38,7 +38,7 @@ def get_stable_data(ticker):
     except:
         pass
     
-    # 兜底模擬數據 (確保不卡死)
+    # 兜底模擬數據 (確保網頁永遠有內容)
     np.random.seed(int(''.join(filter(str.isdigit, ticker)) or 0))
     return {
         "price": float(np.random.uniform(50, 800)),
@@ -48,23 +48,22 @@ def get_stable_data(ticker):
         "eps": float(np.random.uniform(1, 20))
     }, False
 
-# --- UI 邏輯 ---
+# --- UI 輸入 ---
 ticker_input = st.sidebar.text_input("輸入股票代號", "2330")
-
 if st.sidebar.button("查詢分析數據"):
     st.session_state['ticker'] = ticker_input
 
 current_ticker = st.session_state.get('ticker', "2330")
 data, is_live = get_stable_data(current_ticker)
 
-# 顯示概況
+# --- 顯示數據 ---
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("即時股價", f"{data['price']:.2f}", f"{data['change']:.2f}")
 col2.metric("每股淨值", f"{data['nav']:.2f}")
 col3.metric("本益比", f"{data['pe']:.2f}")
 col4.metric("EPS", f"{data['eps']:.2f}")
 
-# HTML 渲染主力券商 (穩定且不卡頓)
+# --- HTML 渲染主力券商 (穩定且不卡頓) ---
 st.markdown("### 5. 十大主力券商近十日買賣超明細")
 brokers = ["元大", "凱基", "富邦", "永豐金", "國泰", "群益", "元富", "華南", "兆豐", "統一"]
 html = "<table style='width:100%; border-collapse: collapse;'><tr><th>券商</th><th>買賣超(張)</th></tr>"
@@ -76,4 +75,4 @@ html += "</table>"
 st.markdown(html, unsafe_allow_html=True)
 
 if not is_live:
-    st.warning("⚠️ 目前顯示為模擬數據（API 連線未回應）")
+    st.warning("⚠️ 目前顯示為模擬數據（API 連線未回應，已啟動防鎖死保護機制）")
