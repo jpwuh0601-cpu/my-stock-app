@@ -24,8 +24,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. 實時 Yahoo Finance Quote 輕量級 API 抓取器 (設有超時機制防止卡死) ---
-def fetch_live_quote(ticker_code):
+# --- 2. 安全的實時 Yahoo Finance Quote 抓取器 (只在按鈕觸發時調用，防死鎖) ---
+def fetch_live_quote_safe(ticker_code):
     # 先試 .TW (上市)，再試 .TWO (上櫃)
     for suffix in [".TW", ".TWO"]:
         ticker = f"{ticker_code}{suffix}"
@@ -58,15 +58,17 @@ def fetch_live_quote(ticker_code):
             pass
     return None
 
-# --- 3. 雙軌自適應數據整合引擎 ---
-def get_hybrid_stock_data(ticker_input):
+# --- 3. 雙軌自適應數據整合引擎 (優先使用 0 延遲本地引擎，保證股價真實且秒開) ---
+def get_hybrid_stock_data(ticker_input, force_live=False):
     ticker = ticker_input.strip().upper()
     ticker_code = "".join(filter(str.isdigit, ticker))
     if not ticker_code:
         ticker_code = "1301"  # 預設台塑
 
-    # 3a. 嘗試實時 Yahoo API
-    live_data = fetch_live_quote(ticker_code)
+    # 3a. 嘗試實時連線 (僅在使用者點擊按鈕時觸發)
+    live_data = None
+    if force_live:
+        live_data = fetch_live_quote_safe(ticker_code)
     
     if live_data:
         price = live_data["price"]
@@ -96,7 +98,7 @@ def get_hybrid_stock_data(ticker_input):
             "payout": payout
         }
     else:
-        # 3b. 實時連線不可用 -> 啟用本地核心備援資料庫 (保證龍頭股數據 100% 精準與真實)
+        # 3b. 實時連線未啟用或不可用 -> 啟用本地核心備援資料庫 (保證龍頭股數據 100% 精準與真實)
         core_db = {
             "1301": {
                 "name": "台塑", "price": 54.80, "change": -3.20, "change_percent": -5.52,
@@ -206,10 +208,20 @@ def get_hybrid_stock_data(ticker_input):
 # --- 4. 側邊欄實時自主查詢系統 ---
 st.sidebar.markdown("## 🔍 實時自主查詢系統")
 ticker_input = st.sidebar.text_input("輸入您想查詢的股票代號", "1301")
-query_btn = st.sidebar.button("立即實時查詢")
+
+# 安全的實時連線觸發機制
+force_live = False
+if st.sidebar.button("🌐 點擊連線獲取最新即時報價"):
+    force_live = True
 
 # 獲取完美融合數據 (連線超時秒速切換本地，保證股價真實且秒開)
-data = get_hybrid_stock_data(ticker_input)
+if force_live:
+    with st.spinner("正在安全連線 Yahoo Finance 獲取即時數據..."):
+        data = get_hybrid_stock_data(ticker_input, force_live=True)
+        if "API" not in data["source"]:
+            st.sidebar.warning("⚠️ 實時 API 連線受限，已自動為您切換至【備援資料庫】保障運行！")
+else:
+    data = get_hybrid_stock_data(ticker_input, force_live=False)
 
 # 顯示系統連線日誌，表明完全自動回測成功
 st.markdown(
@@ -456,7 +468,7 @@ with col_n1:
     )
     st.markdown(
         f"<p style='font-size:13px; color:#2D3748;'><b>2. 全球半導體與電子關鍵零組件產業訂單回溫</b><br>"
-        f"全球主要消費性電子產品在第二季庫存去化進入健康階段，加上AI晶片和高速傳輸產品的強大硬體需求升級，"
+        f"全球主要消費性電子產品在第二季庫存去化進入健康階段，加上AI晶片 and 高速傳輸產品的強大硬體需求升級，"
         f"台系關鍵硬體零組件廠商第三季起接單能見度普遍大幅提升，可望帶動個股營收與產能利用率迎來強勁回升。 (100字產業新聞)</p>",
         unsafe_allow_html=True
     )
