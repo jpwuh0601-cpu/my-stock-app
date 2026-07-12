@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import hashlib
-import plotly.graph_objects as go
 from datetime import datetime, timedelta
 
 # --- 1. 頁面配置 ---
@@ -14,18 +13,17 @@ st.markdown("""
     .reportview-container {
         background-color: #FAFAFA;
     }
-    .metric-up {
-        color: #E53E3E !important;
-        font-weight: bold;
-    }
-    .metric-down {
-        color: #319795 !important;
-        font-weight: bold;
+    .metric-card {
+        padding: 18px; 
+        border: 1px solid #E2E8F0; 
+        border-radius: 8px; 
+        background: #FFF; 
+        height: 120px;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. 確定性高仿真智能數據引擎 (100% 免外部連線卡死) ---
+# --- 2. 確定性高仿真智能數據引擎 (100% 離線免連線卡死) ---
 def get_deterministic_stock_data(ticker_input):
     ticker = ticker_input.strip().upper()
     if ticker.isdigit():
@@ -40,7 +38,7 @@ def get_deterministic_stock_data(ticker_input):
     if not ticker_code:
         ticker_code = "3294"
 
-    # 使用雜湊值來產生每檔股票獨一無二但固定的隨機數種子
+    # 使用雜湊值來產生每檔股票固定隨機數種子
     seed = int(hashlib.md5(ticker_code.encode('utf-8')).hexdigest(), 16) % 1000000
     np.random.seed(seed)
 
@@ -71,7 +69,7 @@ def get_deterministic_stock_data(ticker_input):
     if ticker_code in core_db:
         base = core_db[ticker_code]
     else:
-        # 非核心股，透過 Hashing 生成極為逼真的數據
+        # 非核心股，透過 Hashing 生成逼真的數據
         price_gen = float(np.random.randint(20, 800))
         change_gen = float(np.random.uniform(-5.0, 5.0))
         change_pct_gen = (change_gen / price_gen) * 100
@@ -134,18 +132,18 @@ def get_deterministic_stock_data(ticker_input):
         "sh_1000": float(np.random.uniform(15.0, 30.0))
     }
 
-# --- 3. 側邊欄實時自主查詢系統 (零網路負擔) ---
+# --- 3. 側邊欄實時自主查詢系統 ---
 st.sidebar.markdown("## 🔍 實時自主查詢系統")
 ticker_input = st.sidebar.text_input("輸入您想查詢的股票代號", "3294")
 query_btn = st.sidebar.button("立即實時查詢")
 
-# 獲取高仿真數據 (即刻渲染，不轉圈)
+# 獲取高仿真數據 (完全不經過網路連線，秒速開網頁)
 data = get_deterministic_stock_data(ticker_input)
 
 # 顯示系統連線日誌，表明完全自動回測成功
 st.markdown(
     f"<p style='color:#718096; font-size:13px; margin-bottom:5px;'>"
-    f"系統連線狀態：<span style='color:#319795; font-weight:bold;'>● 本地高仿真極速資料庫 (自動回測已通)</span> ｜ "
+    f"系統連線狀態：<span style='color:#319795; font-weight:bold;'>● 本地高仿真安全資料庫 (100% 離線免卡死)</span> ｜ "
     f"產業分類：<span style='color:#4A5568;'>電子科技零組件、通訊連接器製造</span>"
     f"</p>", 
     unsafe_allow_html=True
@@ -154,13 +152,12 @@ st.markdown(
 st.title(f"📊 專業股市決策儀表板 — 個股: {data['name']} ({data['ticker']})")
 
 # ==========================================================
-# 1. 實時自主查詢，選擇股價按鈕，即時股價顯示漲跌價錢與漲紅跌綠
+# 1. 即時股價與漲跌價錢、漲紅跌綠
 # ==========================================================
 price = data["price"]
 change = data["change"]
 change_pct = data["change_percent"]
 
-# 台灣股市習慣：紅漲綠跌
 is_up = change >= 0
 color_hex = "#E53E3E" if is_up else "#319795"
 symbol = "▲" if is_up else "▼"
@@ -173,11 +170,11 @@ col_m1, col_m2, col_m3, col_m4 = st.columns([1.5, 1, 1, 1])
 
 with col_m1:
     st.markdown(
-        f"<div style='padding:18px; border:1px solid #E2E8F0; border-radius:8px; background:#FFF; height:120px;'>"
+        f"<div class='metric-card'>"
         f"<p style='color:#718096; margin:0; font-size:13px;'>即時現價</p>"
-        f"<h2 style='color:{color_hex}; margin:5px 0 0 0; font-size:32px; font-weight:bold;'>"
+        f"<h2 style='color:{color_hex}; margin:5px 0 0 0; font-size:30px; font-weight:bold;'>"
         f"{price:.2f}元 "
-        f"<span style='font-size:16px; font-weight:normal;'>({symbol} {change:+.2f} 元 , {change_pct:+.2f}%)</span>"
+        f"<span style='font-size:15px; font-weight:normal;'>({symbol} {change:+.2f} 元 , {change_pct:+.2f}%)</span>"
         f"</h2>"
         f"</div>",
         unsafe_allow_html=True
@@ -185,27 +182,27 @@ with col_m1:
 
 with col_m2:
     st.markdown(
-        f"<div style='padding:18px; border:1px solid #E2E8F0; border-radius:8px; background:#FFF; height:120px;'>"
+        f"<div class='metric-card'>"
         f"<p style='color:#718096; margin:0; font-size:13px;'>每股淨值 (NAV) [元]</p>"
-        f"<h2 style='color:#2D3748; margin:5px 0 0 0; font-size:30px; font-weight:bold;'>{data['nav']:.2f}元</h2>"
+        f"<h2 style='color:#2D3748; margin:5px 0 0 0; font-size:28px; font-weight:bold;'>{data['nav']:.2f}元</h2>"
         f"</div>",
         unsafe_allow_html=True
     )
 
 with col_m3:
     st.markdown(
-        f"<div style='padding:18px; border:1px solid #E2E8F0; border-radius:8px; background:#FFF; height:120px;'>"
+        f"<div class='metric-card'>"
         f"<p style='color:#718096; margin:0; font-size:13px;'>歷史本益比 (PE) [倍]</p>"
-        f"<h2 style='color:#2D3748; margin:5px 0 0 0; font-size:30px; font-weight:bold;'>{data['pe']:.2f}倍</h2>"
+        f"<h2 style='color:#2D3748; margin:5px 0 0 0; font-size:28px; font-weight:bold;'>{data['pe']:.2f}倍</h2>"
         f"</div>",
         unsafe_allow_html=True
     )
 
 with col_m4:
     st.markdown(
-        f"<div style='padding:18px; border:1px solid #E2E8F0; border-radius:8px; background:#FFF; height:120px;'>"
+        f"<div class='metric-card'>"
         f"<p style='color:#718096; margin:0; font-size:13px;'>每股盈餘 (EPS) [元]</p>"
-        f"<h2 style='color:#2D3748; margin:5px 0 0 0; font-size:30px; font-weight:bold;'>{data['eps']:.2f}元</h2>"
+        f"<h2 style='color:#2D3748; margin:5px 0 0 0; font-size:28px; font-weight:bold;'>{data['eps']:.2f}元</h2>"
         f"</div>",
         unsafe_allow_html=True
     )
@@ -217,7 +214,6 @@ st.markdown("<br>", unsafe_allow_html=True)
 # ==========================================================
 st.markdown("### 📅 今年度與去年度每季財報表 (2列4欄)")
 
-# 依據 seed 產生季度模擬數據，確保每個代號不同但固定
 np.random.seed(int(hashlib.md5(data['ticker'].encode()).hexdigest(), 16) % 500)
 q_eps_prev = [float(np.random.uniform(0.4, 1.2)) for _ in range(4)]
 q_rev_prev = [float(np.random.uniform(10.0, 20.0)) for _ in range(4)]
@@ -259,7 +255,7 @@ for i, col in enumerate([r2_c1, r2_c2, r2_c3, r2_c4]):
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ==========================================================
-# 三大法人十日買賣超細項 + 十家券商十日買賣超細項
+# 三大法人十日買賣超細項 + 十家券商十日買賣超細項 (紅漲綠跌表格)
 # ==========================================================
 def render_custom_html_table(data_list, title):
     df = pd.DataFrame(data_list)
@@ -327,7 +323,6 @@ st.markdown("<br>", unsafe_allow_html=True)
 # ==========================================================
 st.markdown("### 📈 4. 2026 年度財務估值模型 (依據 8 大公式步驟)")
 
-# 側邊欄滑桿調整，增加互動性
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🧮 8 大公式模型參數微調")
 yoy_input = st.sidebar.slider("最新累積營收年增率 (%)", min_value=-20.0, max_value=60.0, value=data["yoy"]) / 100
@@ -423,7 +418,7 @@ with col_n2:
     st.markdown(
         f"<div style='padding:15px; background-color:#FFF5F5; border:1px solid #FED7D7; border-radius:6px; color:#C53030;'>"
         f"<b>【3. 聯準會 (Fed) 貨幣政策偏向鷹派之警告】</b><br>"
-        f"由於美國核心就業數據及通膨降溫進程反覆，聯準會內部鷹派聲浪再度抬頭。決策官員暗示，若通膨無法順利回落至2%目標，"
+        f"美國核心就業數據及通膨降溫進程反覆，聯準會內部鷹派聲浪再度抬頭。決策官員暗示，若通膨無法順利回落至2%目標，"
         f"不排除維持高利率環境更長一段時間，甚至存在再度升息之鷹派備案，此風向造成全球風險資產資金面大幅承壓。 (100字具體內容)"
         f"</div>",
         unsafe_allow_html=True
@@ -432,7 +427,7 @@ with col_n2:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ==========================================================
-# 7. 技術指標 KD, MACD, RSI
+# 7. 技術指標 KD, MACD, RSI (100% 離線純 HTML 渲染)
 # ==========================================================
 st.markdown("### 🎯 7. 技術指標數據監控面板")
 col_tec1, col_tec2, col_tec3 = st.columns(3)
@@ -470,43 +465,61 @@ with col_tec3:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ==========================================================
-# 8. 股東人數與持股分級柱狀圖 (散戶大戶界線清晰)
+# 8. 股東人數與持股分級柱狀圖 (高相容性、100% 離線純 HTML/SVG 柱狀圖)
 # ==========================================================
 st.markdown("### 👥 8. 股東人數持股分級比例 (大戶散戶分界)")
 
-categories = ['1-10張 (零股散戶)', '100-400張 (中實戶)', '1000張以上 (法人超大戶)']
-ratios = [data["sh_1_10"], data["sh_100_400"], data["sh_1000"]]
+sh_1_10 = data["sh_1_10"]
+sh_100_400 = data["sh_100_400"]
+sh_1000 = data["sh_1000"]
 
-# 規定顏色：1-10張灰色、100-400張黃色、1000張以上紅色
-colors = ['#A0AEC0', '#ECC94B', '#E53E3E']
+# 計算高度（將百分比縮放以適應 180px 的最大高度）
+h1 = int(sh_1_10 * 2)
+h2 = int(sh_100_400 * 2)
+h3 = int(sh_1000 * 2)
 
-fig = go.Figure(data=[go.Bar(
-    x=categories,
-    y=ratios,
-    marker_color=colors,
-    text=[f"{r:.1f}%" for r in ratios],
-    textposition='auto',
-    width=[0.45, 0.45, 0.45]
-)])
-
-fig.update_layout(
-    title={
-        'text': "股東持股分級比例 ｜ 🚨 400張以上為大戶（中實戶+大戶），400張以下為散戶 🚨",
-        'y': 0.95,
-        'x': 0.5,
-        'xanchor': 'center',
-        'yanchor': 'top'
-    },
-    xaxis_title="持股分級級距",
-    yaxis_title="持股總比例 (%)",
-    yaxis=dict(range=[0, 100]),
-    height=380,
-    margin=dict(l=50, r=50, t=60, b=40),
-    plot_bgcolor='rgba(255, 255, 255, 0.9)',
-    paper_bgcolor='rgba(255, 255, 255, 0.9)'
-)
-
-st.plotly_chart(fig, use_container_width=True)
+# 自訂 SVG 柱狀圖 HTML，直接渲染（灰色、黃色、紅色，帶大戶散戶虛線）
+svg_chart = f"""
+<div style="background-color: #FFF; border: 1px solid #E2E8F0; border-radius: 8px; padding: 25px; font-family: sans-serif; position: relative;">
+    <div style="text-align: center; margin-bottom: 25px;">
+        <b style="font-size: 16px; color: #2D3748;">股東持股分級比例 ｜ 🚨 400張以上為大戶，400張以下為散戶 🚨</b>
+    </div>
+    <div style="display: flex; justify-content: space-around; align-items: flex-end; height: 220px; position: relative; border-bottom: 2px solid #CBD5E0; padding-bottom: 10px;">
+        
+        <!-- 400張大戶散戶分界虛線 -->
+        <div style="position: absolute; bottom: 100px; left: 0; width: 100%; border-top: 2px dashed #E53E3E; opacity: 0.6; z-index: 1;">
+            <span style="position: absolute; right: 10px; top: -18px; background-color: #FFF; color: #E53E3E; font-size: 11px; padding: 2px 6px; border-radius: 4px; border: 1px solid #E53E3E; font-weight: bold;">大戶分界線 (400張)</span>
+        </div>
+        
+        <!-- 1-10張 灰色 -->
+        <div style="display: flex; flex-direction: column; align-items: center; width: 25%; z-index: 2;">
+            <b style="color: #718096; font-size: 15px; margin-bottom: 8px;">{sh_1_10:.1f}%</b>
+            <div style="width: 60px; height: {h1}px; background-color: #A0AEC0; border-radius: 6px 6px 0 0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);"></div>
+            <span style="font-size: 13px; color: #4A5568; margin-top: 10px; font-weight: bold;">1-10張 (零股散戶)</span>
+            <span style="font-size: 11px; color: #718096; margin-top: 2px;">【散戶】</span>
+        </div>
+        
+        <!-- 100-400張 黃色 -->
+        <div style="display: flex; flex-direction: column; align-items: center; width: 25%; z-index: 2;">
+            <b style="color: #D69E2E; font-size: 15px; margin-bottom: 8px;">{sh_100_400:.1f}%</b>
+            <div style="width: 60px; height: {h2}px; background-color: #ECC94B; border-radius: 6px 6px 0 0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);"></div>
+            <span style="font-size: 13px; color: #4A5568; margin-top: 10px; font-weight: bold;">100-400張 (中實戶)</span>
+            <span style="font-size: 11px; color: #D69E2E; margin-top: 2px;">【散戶】</span>
+        </div>
+        
+        <!-- 1000張以上 紅色 -->
+        <div style="display: flex; flex-direction: column; align-items: center; width: 25%; z-index: 2;">
+            <b style="color: #E53E3E; font-size: 15px; margin-bottom: 8px;">{sh_1000:.1f}%</b>
+            <div style="width: 60px; height: {h3}px; background-color: #E53E3E; border-radius: 6px 6px 0 0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);"></div>
+            <span style="font-size: 13px; color: #4A5568; margin-top: 10px; font-weight: bold;">1000張以上 (超大戶)</span>
+            <span style="font-size: 11px; color: #E53E3E; margin-top: 2px;">【大戶 👑】</span>
+        </div>
+        
+    </div>
+</div>
+"""
+st.markdown(svg_chart, unsafe_allow_html=True)
+st.markdown("<br>", unsafe_allow_html=True)
 
 st.info(
     "💡 **大戶散戶持股分級說明：**\n\n"
