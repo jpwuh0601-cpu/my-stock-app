@@ -4,8 +4,41 @@ import numpy as np
 import hashlib
 from datetime import datetime, timedelta
 
-# --- STREAMING_CHUNK: 初始化極速本地高精度備援資料庫 ---
-# 確保首頁能以 0 毫秒延遲開啟，完全避免 yfinance 在頂層造成阻塞
+st.set_page_config(page_title="專業股市決策儀表板", layout="wide")
+
+# 安全載入 yfinance
+YFINANCE_AVAILABLE = False
+try:
+    import yfinance as yf
+    YFINANCE_AVAILABLE = True
+except BaseException:
+    pass
+
+# 全局台灣股市紅漲綠跌樣式設定
+st.markdown("""
+<style>
+    .reportview-container {
+        background-color: #FAFAFA;
+    }
+    .metric-card {
+        padding: 18px; 
+        border: 1px solid #E2E8F0; 
+        border-radius: 8px; 
+        background: #FFF; 
+        height: 120px;
+    }
+    .section-title {
+        font-size: 20px;
+        font-weight: bold;
+        color: #2D3748;
+        border-left: 5px solid #3182CE;
+        padding-left: 10px;
+        margin-top: 25px;
+        margin-bottom: 15px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 CORE_DB = {
     "1301": {
         "name": "台塑", "price": 54.80, "change": 0.50, "change_percent": 0.92,
@@ -49,12 +82,11 @@ CORE_DB = {
     }
 }
 
-# --- STREAMING_CHUNK: 建立安全自適應數據引導引擎 ---
 def get_stock_data_secure(ticker_input, trigger_api_fetch=False):
     """
     確保系統絕對不卡死的安全數據引擎。
-    - 預設（首次啟動或一般切換）直接使用本地快取/核心資料庫，0 毫秒載入。
-    - 只有使用者手動點選「實時查詢」時，才在安全的 try-catch 且不使用 info 的情況下嘗試讀取 API。
+    - 預設直接使用本地快取/核心資料庫，0 毫秒載入。
+    - 只有點選「實時查詢」時，才在不使用 info 的情況下嘗試讀取 API，徹底防止無限轉圈。
     """
     ticker = ticker_input.strip().upper()
     if ticker.isdigit():
@@ -77,7 +109,7 @@ def get_stock_data_secure(ticker_input, trigger_api_fetch=False):
         base = CORE_DB[ticker_code].copy()
         industry_type = base["industry"]
     else:
-        # 針對非核心股，透過 Hashing 生成逼真的基礎數據 (保證確定性)
+        # Hashing 生成確定性基礎數據
         np.random.seed(int(hashlib.md5(ticker_code.encode('utf-8')).hexdigest(), 16) % 1000000)
         price_gen = float(np.random.randint(20, 800))
         change_gen = float(np.random.uniform(-5.0, 5.0))
@@ -98,10 +130,9 @@ def get_stock_data_secure(ticker_input, trigger_api_fetch=False):
             "individual_news": f"個股 {ticker_code} 近期受到特定外資與避險基金的連續買盤關注，累計持股創下季度新高。分析指出，公司近期發表的關鍵零組件升級方案獲得主要客戶認證通過，預計將於下一季度開始放量出貨，營運利差可望持續優化。"
         }
 
-    # 2. 延遲載入 (Lazy Import) yfinance，防止模組頂層卡死
-    if trigger_api_fetch:
+    # 2. 安全延遲載入 (Lazy Import) 避免頂層阻塞
+    if trigger_api_fetch and YFINANCE_AVAILABLE:
         try:
-            import yfinance as yf
             stock = yf.Ticker(ticker_full)
             hist = stock.history(period="1d")
             if not hist.empty:
@@ -118,7 +149,7 @@ def get_stock_data_secure(ticker_input, trigger_api_fetch=False):
         except Exception:
             status_source = "⚠️ API 請求受限 (已自動啟用本地高防禦備援資料)"
 
-    # 3. 生成穩定一致的籌碼與技術數據
+    # 3. 籌碼與持股數據生成
     dates = [(datetime.today() - timedelta(days=i)).strftime('%m-%d') for i in range(10)]
     dates.reverse()
 
@@ -172,31 +203,6 @@ def get_stock_data_secure(ticker_input, trigger_api_fetch=False):
         "sh_1000": float(np.random.uniform(22.0, 42.0))
     }
 
-# --- STREAMING_CHUNK: 建立側邊欄自訂查詢與排版設定 ---
-st.markdown("""
-<style>
-    .reportview-container {
-        background-color: #FAFAFA;
-    }
-    .metric-card {
-        padding: 18px; 
-        border: 1px solid #E2E8F0; 
-        border-radius: 8px; 
-        background: #FFF; 
-        height: 120px;
-    }
-    .section-title {
-        font-size: 20px;
-        font-weight: bold;
-        color: #2D3748;
-        border-left: 5px solid #3182CE;
-        padding-left: 10px;
-        margin-top: 25px;
-        margin-bottom: 15px;
-    }
-</style>
-""", unsafe_allow_html=True)
-
 st.sidebar.markdown("## 🔍 實時自主查詢系統")
 ticker_input = st.sidebar.text_input("輸入您想查詢的股票代號 (例如: 1301, 3294, 2330)", "1301")
 
@@ -218,7 +224,6 @@ st.markdown(
 
 st.title(f"📊 專業股市決策儀表板 — 個股: {data['name']} ({data['ticker']})")
 
-# --- STREAMING_CHUNK: 渲染 1 & 2. 即時股價漲跌與基本面指標卡 ---
 price = data["price"]
 change = data["change"]
 change_pct = data["change_percent"]
@@ -268,7 +273,6 @@ with col_m4:
         unsafe_allow_html=True
     )
 
-# --- STREAMING_CHUNK: 渲染 2列4欄 季度財報表 ---
 st.markdown("<div class='section-title'>📅 今年度與去年度每季財報表 (2列4欄)</div>", unsafe_allow_html=True)
 
 np.random.seed(int(hashlib.md5(data['ticker'].encode()).hexdigest(), 16) % 500)
@@ -307,7 +311,6 @@ for i, col in enumerate([r2_c1, r2_c2, r2_c3, r2_c4]):
             unsafe_allow_html=True
         )
 
-# --- STREAMING_CHUNK: 渲染三大法人與十大券商十日買賣超細項表格 ---
 def render_custom_html_table(data_list, title):
     df = pd.DataFrame(data_list)
     html = f"<div style='margin: 15px 0 8px 0; font-weight:bold; color:#2D3748; font-size:15px;'>📊 {title}</div>"
@@ -336,7 +339,6 @@ with col_t1:
 with col_t2:
     st.markdown(render_custom_html_table(data["broker_data"], "十家券商十日買賣超細項 (張)"), unsafe_allow_html=True)
 
-# --- STREAMING_CHUNK: 渲染 3. AI 財報分析預測與自動化回測檢驗 ---
 st.markdown("<div class='section-title'>🔮 3. AI 財報分析預測與自動化回測檢驗系統</div>", unsafe_allow_html=True)
 col_a1, col_a2 = st.columns(2)
 
@@ -367,7 +369,6 @@ with col_a2:
         unsafe_allow_html=True
     )
 
-# --- STREAMING_CHUNK: 渲染 4. 預估今年營收、EPS與股利 ---
 st.markdown("<div class='section-title'>📈 4. 預估今年度財務表現指標</div>", unsafe_allow_html=True)
 col_f1, col_f2, col_f3 = st.columns(3)
 with col_f1:
@@ -395,7 +396,6 @@ with col_f3:
         unsafe_allow_html=True
     )
 
-# --- STREAMING_CHUNK: 渲染 5. 動態股市新聞與 6. 黑天鵝警示面板 ---
 st.markdown("<div class='section-title'>📰 5. 最新即時個股與市場要聞</div>", unsafe_allow_html=True)
 col_n1, col_n2, col_n3 = st.columns(3)
 with col_n1:
@@ -410,7 +410,7 @@ with col_n2:
     st.markdown(
         f"<div style='padding:15px; border:1px solid #CBD5E0; border-radius:6px; background:#FFF; min-height:180px;'>"
         f"<b style='color:#2B6CB0; font-size:14px;'>📌 市場觀察：AI 及高速運算產業鏈外資資金流向報告</b>"
-        f"<p style='font-size:13px; color:#4A5568; margin-top:8px; line-height:1.5;'>外資在最近期季度中持續加碼台灣高科技供應鏈與先進基礎工業。研究指出，由於下半年消費電子傳統旺季即將到來，且北美資料中心需求不斷攀延，外資近期買超前十名皆高度集中在利基型散熱、高速傳輸連接器及半導體晶圓製造板塊。</p>"
+        f"<p style='font-size:13px; color:#4A5568; margin-top:8px; line-height:1.5;'>外資在最近期季度中持續加碼台灣高科技供應鏈與先進基礎工業。研究指出，由於下半年消費電子傳統旺季即將到來，且北美資料中心需求不斷攀升，外資近期買超前十名皆高度集中在利基型散熱、高速傳輸連接器及半導體晶圓製造板塊。</p>"
         f"</div>",
         unsafe_allow_html=True
     )
@@ -440,7 +440,7 @@ with col_b2:
         f"<div style='padding:18px; border: 1px solid #FEB2B2; background-color:#FFF5F5; border-radius:6px; min-height:220px;'>"
         f"<b style='color:#C53030; font-size:14px;'>⚔️ 美伊與中東紅海通航衝突危機</b>"
         f"<p style='font-size:12px; color:#742A2A; margin-top:8px; line-height:1.6;'>"
-        f"美伊緊張局勢近期因紅海航道遭遇新一輪軍事劫持而陡然升溫。荷姆茲海峽與紅海作為全球近三成原油和集裝箱航運的必經要道，其封鎖風險促使全球各大龍頭船商宣布全面繞道好望角。這導致貨櫃航運運價指數持續飆漲，供應鏈嚴重延遲，高昂的保費與附加運輸成本正再度推升全球商品通膨壓力。中東地緣政治極易因突發性軍事衝突而擴大，成為全球金融體系最大的黑天鵝。"
+        f"美伊緊張局勢近期因紅海航道遭遇新一輪軍事劫持而陡然升溫。荷姆茲海峽與紅海作為全球近三成原油 and 集裝箱航運的必經要道，其封鎖風險促使全球各大龍頭船商宣布全面繞道好望角。這導致貨櫃航運運價指數持續飆漲，供應鏈嚴重延遲，高昂的保費與附加運輸成本正再度推升全球商品通膨壓力。中東地緣政治極易因突發性軍事衝突而擴大，成為全球金融體系最大的黑天鵝。"
         f"</p>"
         f"</div>",
         unsafe_allow_html=True
@@ -456,7 +456,6 @@ with col_b3:
         unsafe_allow_html=True
     )
 
-# --- STREAMING_CHUNK: 渲染 7. 即時核心技術指標 KD, MACD, RSI ---
 st.markdown("<div class='section-title'>📊 7. 即時核心技術指標數據</div>", unsafe_allow_html=True)
 col_k1, col_k2, col_k3 = st.columns(3)
 with col_k1:
@@ -487,7 +486,6 @@ with col_k3:
         unsafe_allow_html=True
     )
 
-# --- STREAMING_CHUNK: 渲染 8. 股東持股分級 HTML/SVG 柱狀圖（利用 Iframe 隔絕防外露） ---
 st.markdown("<div class='section-title'>👥 8. 股東人數持股分級比例 (大戶散戶分界)</div>", unsafe_allow_html=True)
 
 sh_1_10 = data["sh_1_10"]
