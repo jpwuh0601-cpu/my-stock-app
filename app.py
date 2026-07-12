@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import yfinance as yf
+import io
 
 # 頁面配置
 st.set_page_config(page_title="專業股市決策儀表板", layout="wide")
@@ -45,6 +46,16 @@ def render_html_table(data_df, title):
     html += "</table>"
     st.markdown(html, unsafe_allow_html=True)
 
+# CSV 下載按鈕處理函數
+def get_csv_download_link(df, filename):
+    csv = df.to_csv(index=False).encode('utf-8-sig')
+    return st.download_button(
+        label=f"📥 下載 {filename}",
+        data=csv,
+        file_name=f"{filename}.csv",
+        mime="text/csv",
+    )
+
 # 輸入區
 ticker = st.text_input("輸入股票代號 (例如: 2330)", "2330")
 
@@ -72,12 +83,14 @@ if st.button("查詢分析數據"):
                 "自營商": np.random.randint(-400, 400, 10)
             })
             render_html_table(inst_data, "4. 三大法人近十日買賣超明細 (張)")
+            get_csv_download_link(inst_data, "三大法人買賣超")
 
             # 5. 主力券商明細
             brokers = ["元大", "凱基", "富邦", "永豐金", "國泰", "群益", "元富", "華南", "兆豐", "統一"]
             broker_df = pd.DataFrame(np.random.randint(-800, 1000, (10, 10)), columns=brokers)
             broker_df.insert(0, "日期", dates)
             render_html_table(broker_df, "5. 十大主力券商近十日買賣超明細 (張)")
+            get_csv_download_link(broker_df, "主力券商買賣超")
 
             # 10. 技術指標
             st.markdown("### 10. 技術指標圖形化")
