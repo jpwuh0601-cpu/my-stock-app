@@ -8,20 +8,15 @@ import yfinance as yf
 st.set_page_config(page_title="專業股市決策儀表板", layout="wide")
 st.title("📈 專業股市決策儀表板")
 
-@st.cache_data(ttl=60) # 縮短快取時間以利測試
+@st.cache_data(ttl=60)
 def get_data(ticker):
-    # 確保代號正確格式
     clean_ticker = ticker.strip()
     if not clean_ticker.endswith(".TW") and clean_ticker.isdigit():
         clean_ticker += ".TW"
         
     try:
-        # 加入 proxy 設定或逾時處理 (若環境限制存取)
         stock = yf.Ticker(clean_ticker)
-        # 嘗試讀取 info，設定一個合理的嘗試次數
         info = stock.info
-        
-        # 若 info 為空或讀取失敗
         if not info or "currentPrice" not in info:
             return None, True, clean_ticker
             
@@ -36,14 +31,16 @@ def get_data(ticker):
     except Exception as e:
         return {"error": str(e)}, True, clean_ticker
 
-ticker = st.text_input("輸入股票代號 (例如: 2330)", "2330")
+# 確保在按鈕區塊外先定義 ticker
+ticker_input = st.text_input("輸入股票代號 (例如: 2330)", "2330")
 
 if st.button("查詢分析數據"):
+    # 使用正確的變數名稱 ticker_input
     with st.spinner("正在連線至市場資料庫..."):
-        data, is_error, used_ticker = get_data(ticker)
+        data, is_error, used_ticker = get_data(ticker_input)
         
         if is_error:
-            st.error(f"⚠️ 無法取得 {used_ticker} 的資料。請檢查：\n1. 網路連線是否受限\n2. 股票代號是否正確 (例如 2330.TW)\n錯誤訊息: {data.get('error', '未知錯誤')}")
+            st.error(f"⚠️ 無法取得 {used_ticker} 的資料。錯誤訊息: {data.get('error', '未知錯誤')}")
         else:
             st.success(f"成功取得 {used_ticker} 資料！")
             col1, col2, col3, col4 = st.columns(4)
@@ -52,7 +49,7 @@ if st.button("查詢分析數據"):
             col3.metric("本益比", f"{data['trailingPE']:.2f}")
             col4.metric("EPS", f"{data['trailingEps']:.2f}")
             
-            # 其他資料呈現區塊 (法人與主力數據同前)
+            # 數據表格
             dates = pd.date_range(end=pd.Timestamp.today(), periods=5).strftime('%m-%d')
             inst_data = pd.DataFrame({"日期": dates, "外資": np.random.randint(-1000, 1000, 5)})
             st.markdown("### 4. 三大法人買賣超 (模擬)")
