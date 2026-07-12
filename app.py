@@ -1,8 +1,10 @@
 import streamlit as st
 import yfinance as yf
 
-# 強制設定頁面，且只在初始化時執行
-st.set_page_config(page_title="股市儀表板", layout="wide")
+# 使用 session_state 來確保 set_page_config 只執行一次，徹底解決錯誤
+if 'page_config_set' not in st.session_state:
+    st.set_page_config(page_title="專業股市決策儀表板", layout="wide")
+    st.session_state.page_config_set = True
 
 st.title("📈 專業股市決策儀表板")
 
@@ -15,8 +17,9 @@ if ticker_input:
             stock = yf.Ticker(ticker_input)
             info = stock.info
             
-            if "currentPrice" in info:
-                # 核心指標 (只取已知必定存在的鍵值)
+            # 檢查是否有獲取到關鍵資料
+            if info and "currentPrice" in info:
+                # 核心指標
                 col1, col2, col3, col4 = st.columns(4)
                 col1.metric("即時股價", f"{info.get('currentPrice', 0):.2f}")
                 col2.metric("每股淨值", f"{info.get('bookValue', 0):.2f}")
@@ -31,7 +34,7 @@ if ticker_input:
                 margin_rate = c1.slider("假設稅後淨利率 (%)", 5.0, 30.0, 15.0) / 100
                 payout_rate = c2.slider("假設盈餘分配率 (%)", 30.0, 90.0, 60.0) / 100
                 
-                # 計算
+                # 計算邏輯
                 est_revenue = info.get("totalRevenue", 1e9) * 1.12
                 est_net_profit = est_revenue * margin_rate
                 est_eps = est_net_profit / info.get("sharesOutstanding", 1e9)
@@ -45,4 +48,4 @@ if ticker_input:
             else:
                 st.error("找不到代號數據，請確認代號是否包含 .TW 或 .TWO (若為台股)。")
         except Exception as e:
-            st.error(f"查詢錯誤: {e}")
+            st.error(f"連線查詢錯誤，請稍後再試: {e}")
