@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import hashlib
 from datetime import datetime, timedelta
+import textwrap  # 導入此模組以清除多行字串的縮排，防止 Markdown 誤將其解析為程式碼區塊
 
 # --- 1. 頁面配置 (必須為 Streamlit 指令的第一行，以確保啟動不崩潰) ---
 st.set_page_config(page_title="專業股市決策儀表板", layout="wide")
@@ -340,7 +341,8 @@ h1 = int(sh_1_10 * 2)
 h2 = int(sh_100_400 * 2)
 h3 = int(sh_1000 * 2)
 
-svg_chart = f"""
+# 使用 textwrap.dedent 自動清理行首縮排，確保 markdown 引擎可以正確識別並渲染 HTML
+svg_chart = textwrap.dedent(f"""
 <div style="background-color: #FFF; border: 1px solid #E2E8F0; border-radius: 8px; padding: 25px; font-family: sans-serif; position: relative;">
     <div style="text-align: center; margin-bottom: 25px;">
         <b style="font-size: 16px; color: #2D3748;">股東持股分級比例 ｜ 🚨 400張以上為大戶，400張以下為散戶 🚨</b>
@@ -378,6 +380,7 @@ svg_chart = f"""
         
     </div>
 </div>
-"""
+""")
+
 st.markdown(svg_chart, unsafe_allow_html=True)
 st.markdown("<br>", unsafe_allow_html=True)
