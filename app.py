@@ -1,72 +1,41 @@
 import streamlit as st
+import json
 import pandas as pd
-import numpy as np
 import plotly.graph_objects as go
 
-# 必須放在最前方的配置
 st.set_page_config(page_title="專業股市決策儀表板", layout="wide")
 
-# 將數據邏輯封裝並使用懶加載
-def get_stock_data(ticker):
-    import yfinance as yf
+# 讀取本地靜態檔案，確保永不卡死
+@st.cache_data
+def load_data():
     try:
-        # 自動處理 TW 代號
-        symbol = ticker if ticker.endswith(".TW") else f"{ticker}.TW"
-        stock = yf.Ticker(symbol)
-        info = stock.info
-        
-        return {
-            "price": info.get("currentPrice", 0.0),
-            "change": info.get("regularMarketChangePercent", 0.0) * 100,
-            "nav": info.get("bookValue", 0.0),
-            "pe": info.get("trailingPE", 0.0),
-            "eps": info.get("trailingEps", 0.0),
-            "shares": info.get("sharesOutstanding", 1000000000),
-            "last_year_revenue": 9000000000,
-            "yoy_growth": 0.15
-        }, symbol
-    except Exception as e:
-        return None, str(e)
+        with open("market_data.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return {}
 
 st.title("📈 專業股市決策儀表板")
+data = load_data()
 
-# 穩定輸入區
-with st.sidebar:
-    st.header("股票查詢")
-    user_ticker = st.text_input("輸入股票代號 (例: 2330)", "2330")
-    btn_run = st.button("查詢分析")
+# 選擇器
+ticker = st.selectbox("選擇監控股票", list(data.keys()) if data else ["2330.TW"])
 
-if btn_run:
-    with st.spinner("正在安全連線獲取數據..."):
-        data, ticker_res = get_stock_data(user_ticker)
-        
-        if not data:
-            st.error(f"無法獲取資料: {ticker_res}")
-        else:
-            # 核心數值顯示
-            cols = st.columns(5)
-            cols[0].metric("股價", f"{data['price']:.2f}", f"{data['change']:.2f}%")
-            cols[1].metric("每股淨值", f"{data['nav']:.2f}")
-            cols[2].metric("本益比", f"{data['pe']:.2f}")
-            cols[3].metric("EPS", f"{data['eps']:.2f}")
-            cols[4].metric("發行股數", f"{data['shares']/1e8:.1f} 億")
-
-            # 財務預估模型
-            st.subheader("📊 財務預估面板")
-            c1, c2 = st.columns(2)
-            margin = c1.slider("稅後淨利率 (%)", 5, 30, 15) / 100
-            payout = c2.slider("盈餘分配率 (%)", 30, 90, 60) / 100
-            
-            est_rev = data['last_year_revenue'] * (1 + data['yoy_growth'])
-            est_net = est_rev * margin
-            est_eps = est_net / data['shares']
-            
-            p_cols = st.columns(4)
-            p_cols[0].metric("預估營收", f"{est_rev/1e9:.1f} 億")
-            p_cols[1].metric("預估淨利", f"{est_net/1e8:.1f} 億")
-            p_cols[2].metric("預估 EPS", f"{est_eps:.2f}")
-            p_cols[3].metric("預估股利", f"{(est_eps * payout):.2f}")
-            
-            st.success("數據讀取成功！")
+if ticker in data:
+    d = data[ticker]
+    # 數值顯示
+    cols = st.columns(5)
+    cols[0].metric("股價", f"{d.get('price', 0):.2f}")
+    cols[1].metric("每股淨值", f"{d.get('nav', 0):.2f}")
+    cols[2].metric("本益比", f"{d.get('pe', 0):.2f}")
+    cols[3].metric("EPS", f"{d.get('eps', 0):.2f}")
+    
+    # 預估模型
+    st.subheader("📊 財務預估模型")
+    st.write(d.get("revenue_forecast", "暫無數據"))
+    
+    # 圖表
+    if "institutional_data" in d:
+        df = pd.DataFrame(d["institutional_data"])
+        st.line_chart(df.set_index("日期"))
 else:
-    st.info("請在側邊欄輸入代號並點擊查詢。")
+    st.error("找不到市場數據，請檢查 main_task.py 是否已執行並生成 market_data.json。")
