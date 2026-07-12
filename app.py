@@ -7,10 +7,10 @@ import yfinance as yf
 # 設定頁面配置
 st.set_page_config(page_title="專業股市決策儀表板", layout="wide")
 
-# 清除所有殘留快取，確保函數定義是新的
+# 確保快取函數定義清晰
 @st.cache_data(ttl=300)
 def get_data_cached(ticker):
-    # 統一使用 ticker 作為變數名稱
+    # 統一使用 ticker
     clean_ticker = ticker if (ticker.endswith(".TW") or ticker.endswith(".TWO")) else f"{ticker}.TW"
     try:
         stock = yf.Ticker(clean_ticker)
@@ -26,7 +26,6 @@ def get_data_cached(ticker):
     except Exception as e:
         return {"error": str(e)}, True, clean_ticker
 
-# 顯示標題
 st.title("📈 專業股市決策儀表板")
 
 # 使用者輸入
@@ -34,7 +33,7 @@ ticker_input = st.text_input("輸入股票代號 (例如: 2330)", "2330")
 
 if st.button("查詢分析數據"):
     with st.spinner("正在讀取市場數據..."):
-        # 呼叫時明確傳遞變數
+        # 這裡呼叫時傳入 ticker_input，對應到上面的 ticker 參數
         data, is_error, used_ticker = get_data_cached(ticker_input)
         
         if is_error:
