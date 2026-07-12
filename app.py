@@ -17,8 +17,8 @@ if ticker_input:
             stock = yf.Ticker(ticker_input)
             info = stock.info
             
-            # 檢查是否有獲取到關鍵資料
-            if info and "currentPrice" in info:
+            # 增加更詳盡的檢查邏輯
+            if info and isinstance(info, dict) and "currentPrice" in info:
                 # 核心指標
                 col1, col2, col3, col4 = st.columns(4)
                 col1.metric("即時股價", f"{info.get('currentPrice', 0):.2f}")
@@ -34,10 +34,13 @@ if ticker_input:
                 margin_rate = c1.slider("假設稅後淨利率 (%)", 5.0, 30.0, 15.0) / 100
                 payout_rate = c2.slider("假設盈餘分配率 (%)", 30.0, 90.0, 60.0) / 100
                 
-                # 計算邏輯
-                est_revenue = info.get("totalRevenue", 1e9) * 1.12
+                # 計算邏輯 (使用安全獲取，避免 KeyError)
+                revenue = info.get("totalRevenue") or 1e9
+                shares = info.get("sharesOutstanding") or 1e9
+                
+                est_revenue = revenue * 1.12
                 est_net_profit = est_revenue * margin_rate
-                est_eps = est_net_profit / info.get("sharesOutstanding", 1e9)
+                est_eps = est_net_profit / shares
                 est_dividend = est_eps * payout_rate
                 
                 p1, p2, p3, p4 = st.columns(4)
@@ -46,6 +49,6 @@ if ticker_input:
                 p3.metric("預估 EPS", f"{est_eps:.2f}")
                 p4.metric("預估現金股利", f"{est_dividend:.2f}")
             else:
-                st.error("找不到代號數據，請確認代號是否包含 .TW 或 .TWO (若為台股)。")
+                st.error("找不到代號數據，請確認代號是否包含 .TW 或 .TWO (若為台股)。若錯誤持續發生，請確認 yfinance 套件是否安裝成功。")
         except Exception as e:
-            st.error(f"連線查詢錯誤，請稍後再試: {e}")
+            st.error(f"連線查詢錯誤，請確認網路連線或代號是否正確: {e}")
