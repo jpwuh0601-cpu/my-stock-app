@@ -4,7 +4,7 @@ import numpy as np
 import hashlib
 from datetime import datetime, timedelta
 
-# --- 安全匯入防禦機制：確保 yfinance 匯入失敗時程式絕不崩潰 ---
+# --- STREAMING_CHUNK: 安全載入 yfinance 模組 ---
 YFINANCE_AVAILABLE = False
 try:
     import yfinance as yf
@@ -12,9 +12,9 @@ try:
 except BaseException:
     pass
 
-# --- 全域防禦性包裝：確保任何執行期錯誤都能優雅呈現在畫面上，而非崩潰轉圈 ---
+# --- STREAMING_CHUNK: 設置全域防禦性異常攔截器 ---
 try:
-    # --- 1. 頁面配置 ---
+    # 1. 頁面配置
     st.set_page_config(page_title="專業股市決策儀表板", layout="wide")
 
     # 自訂網頁 CSS，確保紅綠配色與排版符合台灣股市習慣 (紅漲綠跌)
@@ -33,8 +33,42 @@ try:
     </style>
     """, unsafe_allow_html=True)
 
-    # --- 2. 確定性高仿真智能數據引擎 (API 實時抓取 + 本地極速備援) ---
-    def get_stock_data(ticker_input):
+    # --- STREAMING_CHUNK: 初始化極速本地備援資料庫 ---
+    # 核心個股高精度本地備援資料庫 (保證在 API 斷線或初次載入時 0 延遲呈現)
+    CORE_DB = {
+        "1301": {
+            "name": "台塑", "price": 54.80, "change": 0.50, "change_percent": 0.92,
+            "nav": 54.57, "pe": 18.20, "eps": 3.01, "shares": 6360000000,
+            "yoy": 5.2, "prev_rev": 199.4, "net_margin": 8.5, "payout": 70.0,
+            "industry": "塑膠工業、石化基礎原料"
+        },
+        "3294": {
+            "name": "中山", "price": 37.70, "change": -0.90, "change_percent": -2.33,
+            "nav": 16.97, "pe": 15.00, "eps": 2.51, "shares": 85000000,
+            "yoy": 12.5, "prev_rev": 55.4, "net_margin": 15.0, "payout": 60.0,
+            "industry": "電子科技零組件、通訊連接器製造"
+        },
+        "2330": {
+            "name": "台積電", "price": 945.00, "change": 12.00, "change_percent": 1.29,
+            "nav": 142.50, "pe": 28.50, "eps": 33.15, "shares": 25930000000,
+            "yoy": 22.8, "prev_rev": 22080.0, "net_margin": 38.5, "payout": 55.0,
+            "industry": "半導體製造、晶圓代工"
+        },
+        "2317": {
+            "name": "鴻海", "price": 185.50, "change": -1.50, "change_percent": -0.80,
+            "nav": 105.20, "pe": 18.20, "eps": 10.19, "shares": 13860000000,
+            "yoy": 8.5, "prev_rev": 61200.0, "net_margin": 2.8, "payout": 50.0,
+            "industry": "電腦系統整合、消費性電子代工"
+        }
+    }
+
+    # --- STREAMING_CHUNK: 建立不卡死、極速自適應數據引導引擎 ---
+    def get_stock_data_secure(ticker_input, trigger_api_fetch=False):
+        """
+        確保系統絕對不卡死的安全數據引擎。
+        - 預設（首次啟動或一般切換）直接使用本地快取/核心資料庫，0 毫秒載入。
+        - 只有使用者點選「實時查詢」時，才在安全的 try-catch 且不使用 info 的情況下嘗試讀取 API。
+        """
         ticker = ticker_input.strip().upper()
         if ticker.isdigit():
             ticker_code = ticker
@@ -48,43 +82,15 @@ try:
         if not ticker_code:
             ticker_code = "3294"
 
-        # 核心個股高精度本地備援資料庫 (防止 API 限制或斷線時資料錯誤)
-        core_db = {
-            "1301": {
-                "name": "台塑", "price": 54.80, "change": 0.50, "change_percent": 0.92,
-                "nav": 54.57, "pe": 18.20, "eps": 3.01, "shares": 6360000000,
-                "yoy": 5.2, "prev_rev": 199.4, "net_margin": 8.5, "payout": 70.0,
-                "industry": "塑膠工業、石化基礎原料"
-            },
-            "3294": {
-                "name": "中山", "price": 37.70, "change": -0.90, "change_percent": -2.33,
-                "nav": 16.97, "pe": 15.00, "eps": 2.51, "shares": 85000000,
-                "yoy": 12.5, "prev_rev": 55.4, "net_margin": 15.0, "payout": 60.0,
-                "industry": "電子科技零組件、通訊連接器製造"
-            },
-            "2330": {
-                "name": "台積電", "price": 945.00, "change": 12.00, "change_percent": 1.29,
-                "nav": 142.50, "pe": 28.50, "eps": 33.15, "shares": 25930000000,
-                "yoy": 22.8, "prev_rev": 22080.0, "net_margin": 38.5, "payout": 55.0,
-                "industry": "半導體製造、晶圓代工"
-            },
-            "2317": {
-                "name": "鴻海", "price": 185.50, "change": -1.50, "change_percent": -0.80,
-                "nav": 105.20, "pe": 18.20, "eps": 10.19, "shares": 13860000000,
-                "yoy": 8.5, "prev_rev": 61200.0, "net_margin": 2.8, "payout": 50.0,
-                "industry": "電腦系統整合、消費性電子代工"
-            }
-        }
-
         status_source = "🛡️ 本地備援核心資料庫"
         industry_type = "綜合板塊、上市櫃個股"
         
-        # 預設先讀取本地高精度資料
-        if ticker_code in core_db:
-            base = core_db[ticker_code].copy()
+        # 1. 載入本地基礎數據
+        if ticker_code in CORE_DB:
+            base = CORE_DB[ticker_code].copy()
             industry_type = base["industry"]
         else:
-            # 非核心股，透過 Hashing 生成逼真的基礎數據
+            # 針對非核心股，透過 Hashing 生成逼真的基礎數據 (保證確定性)
             np.random.seed(int(hashlib.md5(ticker_code.encode('utf-8')).hexdigest(), 16) % 1000000)
             price_gen = float(np.random.randint(20, 800))
             change_gen = float(np.random.uniform(-5.0, 5.0))
@@ -101,30 +107,33 @@ try:
                 "net_margin": float(np.random.uniform(5.0, 25.0)), "payout": float(np.random.uniform(40.0, 80.0))
             }
 
-        # 僅在 yfinance 可用時嘗試拉取 Yahoo Finance 最新報價
-        if YFINANCE_AVAILABLE:
+        # 2. 安全 API 連線機制：只有當明確點擊「實時查詢」且套件可用時，才嘗試連線，並改用極速 fast_info 避開 info 卡死
+        if trigger_api_fetch and YFINANCE_AVAILABLE:
             try:
                 stock = yf.Ticker(ticker_full)
-                info = stock.info
-                if info and "currentPrice" in info:
-                    base["price"] = info.get("currentPrice", base["price"])
-                    base["change"] = info.get("regularMarketChange", base["change"])
-                    base["change_percent"] = info.get("regularMarketChangePercent", 0.0) * 100
-                    base["nav"] = info.get("bookValue", base["nav"])
-                    base["pe"] = info.get("trailingPE", base["pe"])
-                    base["eps"] = info.get("trailingEps", base["eps"])
-                    status_source = "🟢 實時 API 連線"
+                # 使用極速輕量化的 fast_info 屬性，或使用 history 取得最新價格
+                hist = stock.history(period="1d")
+                if not hist.empty:
+                    base["price"] = float(hist['Close'].iloc[-1])
+                    if len(hist) > 0 and 'Open' in hist:
+                        base["change"] = base["price"] - float(hist['Open'].iloc[-1])
+                        base["change_percent"] = (base["change"] / float(hist['Open'].iloc[-1])) * 100
+                    
+                    # 嘗試快速獲取財務屬性，避免調用會卡死的 .info
+                    if hasattr(stock, 'fast_info'):
+                        base["nav"] = getattr(stock.fast_info, 'book_value', base["nav"])
+                        base["shares"] = getattr(stock.fast_info, 'shares_outstanding', base["shares"])
+                    
+                    status_source = "🟢 實時 API 連線成功 (輕量通道)"
+                else:
+                    status_source = "⚠️ 實時連線無回應 (已自動切換本地安全備援)"
             except Exception:
-                # 連線失敗或受限時自動保持本地備援數據
-                pass
-        else:
-            status_source = "🛡️ 本地備援核心資料庫 (API已停用)"
+                status_source = "⚠️ API 請求受限 (已自動啟用本地高防禦備援資料)"
 
-        # 產生十日日期
+        # 3. 生成穩定一致的籌碼與股東結構數據
         dates = [(datetime.today() - timedelta(days=i)).strftime('%m-%d') for i in range(10)]
         dates.reverse()
 
-        # 三大法人明細 (種子保證確定性)
         seed = int(hashlib.md5(ticker_code.encode('utf-8')).hexdigest(), 16) % 1000000
         np.random.seed(seed)
         
@@ -137,7 +146,6 @@ try:
                 "自營商(張)": int(np.random.randint(-400, 500))
             })
 
-        # 十家券商明細
         brokers = ["元大", "凱基", "富邦", "永豐金", "國泰", "群益", "元富", "華南", "兆豐", "統一"]
         broker_list = []
         for d in dates:
@@ -172,15 +180,25 @@ try:
             "sh_1000": float(np.random.uniform(15.0, 30.0))
         }
 
-    # --- 3. 側邊欄實時自主查詢系統 ---
+    # --- STREAMING_CHUNK: 建立側邊欄實時查詢面板 ---
     st.sidebar.markdown("## 🔍 實時自主查詢系統")
     ticker_input = st.sidebar.text_input("輸入您想查詢的股票代號", "1301")
-    query_btn = st.sidebar.button("立即實時查詢")
+    
+    # 初始化會話狀態 (Session State) 以便精準控制按鈕事件
+    if "api_clicked" not in st.session_state:
+        st.session_state.api_clicked = False
 
-    # 獲取高仿真數據
-    data = get_stock_data(ticker_input)
+    # 當使用者點擊按鈕時，啟動實時 API 抓取
+    if st.sidebar.button("立即實時查詢"):
+        st.session_state.api_clicked = True
 
-    # 顯示系統連線日誌
+    # 獲取高安全、防卡死數據
+    data = get_stock_data_secure(ticker_input, trigger_api_fetch=st.session_state.api_clicked)
+    
+    # 每次查詢完重置按鈕旗標，確保下次輸入時預設依然使用極速本地備份
+    st.session_state.api_clicked = False
+
+    # --- STREAMING_CHUNK: 渲染系統狀態日誌與頂部資訊 ---
     st.markdown(
         f"<p style='color:#718096; font-size:13px; margin-bottom:5px;'>"
         f"系統連線狀態：<span style='color:#319795; font-weight:bold;'>● {data['source']}</span> ｜ "
@@ -191,9 +209,7 @@ try:
 
     st.title(f"📊 專業股市決策儀表板 — 個股: {data['name']} ({data['ticker']})")
 
-    # ==========================================================
-    # 1. 即時股價與漲跌價錢、漲紅跌綠 (完全契合第二張圖的精緻感)
-    # ==========================================================
+    # --- STREAMING_CHUNK: 渲染 4 大即時基本面數據指標卡 ---
     price = data["price"]
     change = data["change"]
     change_pct = data["change_percent"]
@@ -201,7 +217,6 @@ try:
     is_up = change >= 0
     color_hex = "#E53E3E" if is_up else "#319795"
     symbol = "▲" if is_up else "▼"
-    sign = "+" if is_up else ""
 
     col_m1, col_m2, col_m3, col_m4 = st.columns([1.5, 1, 1, 1])
 
@@ -246,9 +261,7 @@ try:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ==========================================================
-    # 今年度與去年度每季財報表 (2列4欄完美契合第二張圖)
-    # ==========================================================
+    # --- STREAMING_CHUNK: 渲染 2列4欄 兩年度每季財報表 ---
     st.markdown("### 📅 今年度與去年度每季財報表 (2列4欄)")
 
     # 根據股票代號產生穩定的季度數據
@@ -292,9 +305,7 @@ try:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ==========================================================
-    # 三大法人十日買賣超細項 + 十家券商十日買賣超細項 (紅漲綠跌表格)
-    # ==========================================================
+    # --- STREAMING_CHUNK: 建立自適應紅綠配色 HTML 數據報表 ---
     def render_custom_html_table(data_list, title):
         df = pd.DataFrame(data_list)
         html = f"<div style='margin-bottom:15px;'><b style='font-size:16px; color:#2D3748;'>📊 {title}</b></div>"
@@ -325,9 +336,7 @@ try:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ==========================================================
-    # 4. 股東人數與持股分級柱狀圖 (100% 離線純 HTML/SVG 柱狀圖)
-    # ==========================================================
+    # --- STREAMING_CHUNK: 繪製純向量 HTML/SVG 股東持股分級柱狀圖 ---
     st.markdown("### 👥 股東人數持股分級比例 (大戶散戶分界)")
 
     sh_1_10 = data["sh_1_10"]
@@ -339,7 +348,6 @@ try:
     h2 = int(sh_100_400 * 2)
     h3 = int(sh_1000 * 2)
 
-    # 自訂 SVG 柱狀圖 HTML，直接渲染（灰色、黃色、紅色，帶大戶散戶虛線）
     svg_chart = f"""
     <div style="background-color: #FFF; border: 1px solid #E2E8F0; border-radius: 8px; padding: 25px; font-family: sans-serif; position: relative;">
         <div style="text-align: center; margin-bottom: 25px;">
@@ -347,7 +355,7 @@ try:
         </div>
         <div style="display: flex; justify-content: space-around; align-items: flex-end; height: 220px; position: relative; border-bottom: 2px solid #CBD5E0; padding-bottom: 10px;">
             
-            <!-- 400張大戶散戶分界虛線 -->
+            <!-- 大戶分界虛線 -->
             <div style="position: absolute; bottom: 100px; left: 0; width: 100%; border-top: 2px dashed #E53E3E; opacity: 0.6; z-index: 1;">
                 <span style="position: absolute; right: 10px; top: -18px; background-color: #FFF; color: #E53E3E; font-size: 11px; padding: 2px 6px; border-radius: 4px; border: 1px solid #E53E3E; font-weight: bold;">大戶分界線 (400張)</span>
             </div>
