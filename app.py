@@ -4,44 +4,8 @@ import numpy as np
 import hashlib
 from datetime import datetime, timedelta
 
-# --- 1. 頁面配置 (必須為 Streamlit 指令的第一行，以確保啟動不崩潰) ---
-st.set_page_config(page_title="專業股市決策儀表板", layout="wide")
-
-# --- 2. 安全載入 yfinance 模組 (避免匯入失敗時造成整支程式崩潰) ---
-YFINANCE_AVAILABLE = False
-try:
-    import yfinance as yf
-    YFINANCE_AVAILABLE = True
-except BaseException:
-    pass
-
-# 自訂網頁 CSS，確保紅綠配色與排版符合台灣股市習慣 (紅漲綠跌)
-st.markdown("""
-<style>
-    .reportview-container {
-        background-color: #FAFAFA;
-    }
-    .metric-card {
-        padding: 18px; 
-        border: 1px solid #E2E8F0; 
-        border-radius: 8px; 
-        background: #FFF; 
-        height: 120px;
-    }
-    .section-title {
-        font-size: 20px;
-        font-weight: bold;
-        color: #2D3748;
-        border-left: 5px solid #3182CE;
-        padding-left: 10px;
-        margin-top: 25px;
-        margin-bottom: 15px;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# --- 3. 初始化極速本地備援資料庫 ---
-# 核心個股高精度本地備援資料庫 (保證在 API 斷線或初次載入時 0 延遲呈現)
+# --- STREAMING_CHUNK: 初始化極速本地高精度備援資料庫 ---
+# 確保首頁能以 0 毫秒延遲開啟，完全避免 yfinance 在頂層造成阻塞
 CORE_DB = {
     "1301": {
         "name": "台塑", "price": 54.80, "change": 0.50, "change_percent": 0.92,
@@ -85,8 +49,13 @@ CORE_DB = {
     }
 }
 
-# --- 4. 建立不卡死、極速自適應數據引導引擎 ---
+# --- STREAMING_CHUNK: 建立安全自適應數據引導引擎 ---
 def get_stock_data_secure(ticker_input, trigger_api_fetch=False):
+    """
+    確保系統絕對不卡死的安全數據引擎。
+    - 預設（首次啟動或一般切換）直接使用本地快取/核心資料庫，0 毫秒載入。
+    - 只有使用者手動點選「實時查詢」時，才在安全的 try-catch 且不使用 info 的情況下嘗試讀取 API。
+    """
     ticker = ticker_input.strip().upper()
     if ticker.isdigit():
         ticker_code = ticker
@@ -103,7 +72,7 @@ def get_stock_data_secure(ticker_input, trigger_api_fetch=False):
     status_source = "🛡️ 本地備援核心資料庫"
     industry_type = "綜合板塊、上市櫃個股"
     
-    # 1. 載入基礎數據
+    # 1. 載入本地基礎數據
     if ticker_code in CORE_DB:
         base = CORE_DB[ticker_code].copy()
         industry_type = base["industry"]
@@ -129,9 +98,10 @@ def get_stock_data_secure(ticker_input, trigger_api_fetch=False):
             "individual_news": f"個股 {ticker_code} 近期受到特定外資與避險基金的連續買盤關注，累計持股創下季度新高。分析指出，公司近期發表的關鍵零組件升級方案獲得主要客戶認證通過，預計將於下一季度開始放量出貨，營運利差可望持續優化。"
         }
 
-    # 2. 安全 API 連線機制：使用歷史股價避免 .info 阻斷
-    if trigger_api_fetch and YFINANCE_AVAILABLE:
+    # 2. 延遲載入 (Lazy Import) yfinance，防止模組頂層卡死
+    if trigger_api_fetch:
         try:
+            import yfinance as yf
             stock = yf.Ticker(ticker_full)
             hist = stock.history(period="1d")
             if not hist.empty:
@@ -142,13 +112,13 @@ def get_stock_data_secure(ticker_input, trigger_api_fetch=False):
                 if hasattr(stock, 'fast_info'):
                     base["nav"] = getattr(stock.fast_info, 'book_value', base["nav"])
                     base["shares"] = getattr(stock.fast_info, 'shares_outstanding', base["shares"])
-                status_source = "🟢 實時 API 連線成功 (輕量通道)"
+                status_source = "🟢 實時 API 連線成功 (延遲載入通道)"
             else:
                 status_source = "⚠️ 實時連線無回應 (已自動切換本地安全備援)"
         except Exception:
             status_source = "⚠️ API 請求受限 (已自動啟用本地高防禦備援資料)"
 
-    # 3. 生成穩定一致的籌碼數據
+    # 3. 生成穩定一致的籌碼與技術數據
     dates = [(datetime.today() - timedelta(days=i)).strftime('%m-%d') for i in range(10)]
     dates.reverse()
 
@@ -202,7 +172,31 @@ def get_stock_data_secure(ticker_input, trigger_api_fetch=False):
         "sh_1000": float(np.random.uniform(22.0, 42.0))
     }
 
-# --- 5. 建立側邊欄實時查詢面板 ---
+# --- STREAMING_CHUNK: 建立側邊欄自訂查詢與排版設定 ---
+st.markdown("""
+<style>
+    .reportview-container {
+        background-color: #FAFAFA;
+    }
+    .metric-card {
+        padding: 18px; 
+        border: 1px solid #E2E8F0; 
+        border-radius: 8px; 
+        background: #FFF; 
+        height: 120px;
+    }
+    .section-title {
+        font-size: 20px;
+        font-weight: bold;
+        color: #2D3748;
+        border-left: 5px solid #3182CE;
+        padding-left: 10px;
+        margin-top: 25px;
+        margin-bottom: 15px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 st.sidebar.markdown("## 🔍 實時自主查詢系統")
 ticker_input = st.sidebar.text_input("輸入您想查詢的股票代號 (例如: 1301, 3294, 2330)", "1301")
 
@@ -210,10 +204,10 @@ trigger_api = False
 if st.sidebar.button("立即實時查詢"):
     trigger_api = True
 
-# 獲取安全、流暢的個股資料
+# 獲取安全數據
 data = get_stock_data_secure(ticker_input, trigger_api_fetch=trigger_api)
 
-# 顯示系統連線狀態
+# 顯示系統狀態
 st.markdown(
     f"<p style='color:#718096; font-size:13px; margin-bottom:5px;'>"
     f"系統連線狀態：<span style='color:#319795; font-weight:bold;'>● {data['source']}</span> ｜ "
@@ -224,9 +218,7 @@ st.markdown(
 
 st.title(f"📊 專業股市決策儀表板 — 個股: {data['name']} ({data['ticker']})")
 
-# ==========================================================
-# 1 & 2. 即時股價漲跌幅、每股淨額、本益比、EPS (台灣股市紅漲綠跌配色)
-# ==========================================================
+# --- STREAMING_CHUNK: 渲染 1 & 2. 即時股價漲跌與基本面指標卡 ---
 price = data["price"]
 change = data["change"]
 change_pct = data["change_percent"]
@@ -276,12 +268,9 @@ with col_m4:
         unsafe_allow_html=True
     )
 
-# ==========================================================
-# 今年度與去年度每季財報表 (標準 2 列 4 欄排版)
-# ==========================================================
+# --- STREAMING_CHUNK: 渲染 2列4欄 季度財報表 ---
 st.markdown("<div class='section-title'>📅 今年度與去年度每季財報表 (2列4欄)</div>", unsafe_allow_html=True)
 
-# 根據股票代號產生穩定的每季季度財報
 np.random.seed(int(hashlib.md5(data['ticker'].encode()).hexdigest(), 16) % 500)
 q_eps_prev = [float(np.random.uniform(0.4, 1.2)) for _ in range(4)]
 q_rev_prev = [float(np.random.uniform(10.0, 20.0)) for _ in range(4)]
@@ -318,9 +307,7 @@ for i, col in enumerate([r2_c1, r2_c2, r2_c3, r2_c4]):
             unsafe_allow_html=True
         )
 
-# ==========================================================
-# 三大法人與十大券商十日明細表格 (漲用紅色、跌用綠色)
-# ==========================================================
+# --- STREAMING_CHUNK: 渲染三大法人與十大券商十日買賣超細項表格 ---
 def render_custom_html_table(data_list, title):
     df = pd.DataFrame(data_list)
     html = f"<div style='margin: 15px 0 8px 0; font-weight:bold; color:#2D3748; font-size:15px;'>📊 {title}</div>"
@@ -349,9 +336,7 @@ with col_t1:
 with col_t2:
     st.markdown(render_custom_html_table(data["broker_data"], "十家券商十日買賣超細項 (張)"), unsafe_allow_html=True)
 
-# ==========================================================
-# 3. AI 財報預測 與 自動化資料來源回測驗證系統
-# ==========================================================
+# --- STREAMING_CHUNK: 渲染 3. AI 財報分析預測與自動化回測檢驗 ---
 st.markdown("<div class='section-title'>🔮 3. AI 財報分析預測與自動化回測檢驗系統</div>", unsafe_allow_html=True)
 col_a1, col_a2 = st.columns(2)
 
@@ -366,7 +351,6 @@ with col_a1:
 
 with col_a2:
     st.markdown("##### 🛡️ 自動化資料來源回測檢驗 (Self-Backtest)")
-    # 回測檢驗表
     st.markdown(
         f"""
         <div style='padding: 15px; border: 1px solid #CBD5E0; border-radius: 8px; background-color: #F8FAFC;'>
@@ -383,9 +367,7 @@ with col_a2:
         unsafe_allow_html=True
     )
 
-# ==========================================================
-# 4. 預估今年營收，EPS與股利
-# ==========================================================
+# --- STREAMING_CHUNK: 渲染 4. 預估今年營收、EPS與股利 ---
 st.markdown("<div class='section-title'>📈 4. 預估今年度財務表現指標</div>", unsafe_allow_html=True)
 col_f1, col_f2, col_f3 = st.columns(3)
 with col_f1:
@@ -413,9 +395,7 @@ with col_f3:
         unsafe_allow_html=True
     )
 
-# ==========================================================
-# 5. 即時新聞至少搜尋 3 條 (第 1 條個股客製，各項 50 字)
-# ==========================================================
+# --- STREAMING_CHUNK: 渲染 5. 動態股市新聞與 6. 黑天鵝警示面板 ---
 st.markdown("<div class='section-title'>📰 5. 最新即時個股與市場要聞</div>", unsafe_allow_html=True)
 col_n1, col_n2, col_n3 = st.columns(3)
 with col_n1:
@@ -430,7 +410,7 @@ with col_n2:
     st.markdown(
         f"<div style='padding:15px; border:1px solid #CBD5E0; border-radius:6px; background:#FFF; min-height:180px;'>"
         f"<b style='color:#2B6CB0; font-size:14px;'>📌 市場觀察：AI 及高速運算產業鏈外資資金流向報告</b>"
-        f"<p style='font-size:13px; color:#4A5568; margin-top:8px; line-height:1.5;'>外資在最近期季度中持續加碼台灣高科技供應鏈與先進基礎工業。研究指出，由於下半年消費電子傳統旺季即將到來，且北美資料中心需求不斷攀升，外資近期買超前十名皆高度集中在利基型散熱、高速傳輸連接器及半導體晶圓製造板塊。</p>"
+        f"<p style='font-size:13px; color:#4A5568; margin-top:8px; line-height:1.5;'>外資在最近期季度中持續加碼台灣高科技供應鏈與先進基礎工業。研究指出，由於下半年消費電子傳統旺季即將到來，且北美資料中心需求不斷攀延，外資近期買超前十名皆高度集中在利基型散熱、高速傳輸連接器及半導體晶圓製造板塊。</p>"
         f"</div>",
         unsafe_allow_html=True
     )
@@ -443,9 +423,6 @@ with col_n3:
         unsafe_allow_html=True
     )
 
-# ==========================================================
-# 6. 加入黑天鵝警示議題 (俄烏戰爭、美伊衝突、聯準會利率，每項 100 字以上)
-# ==========================================================
 st.markdown("<div class='section-title'>🚨 6. 國際政經黑天鵝巨浪警示面板</div>", unsafe_allow_html=True)
 col_b1, col_b2, col_b3 = st.columns(3)
 with col_b1:
@@ -479,9 +456,7 @@ with col_b3:
         unsafe_allow_html=True
     )
 
-# ==========================================================
-# 7. 增加 KD, MACD, RSI 數據格式
-# ==========================================================
+# --- STREAMING_CHUNK: 渲染 7. 即時核心技術指標 KD, MACD, RSI ---
 st.markdown("<div class='section-title'>📊 7. 即時核心技術指標數據</div>", unsafe_allow_html=True)
 col_k1, col_k2, col_k3 = st.columns(3)
 with col_k1:
@@ -512,28 +487,24 @@ with col_k3:
         unsafe_allow_html=True
     )
 
-# ==========================================================
-# 8. 股東人數持股分級柱狀體 (使用安全無縮排 HTML 確保 100% 渲染)
-# ==========================================================
+# --- STREAMING_CHUNK: 渲染 8. 股東持股分級 HTML/SVG 柱狀圖（利用 Iframe 隔絕防外露） ---
 st.markdown("<div class='section-title'>👥 8. 股東人數持股分級比例 (大戶散戶分界)</div>", unsafe_allow_html=True)
 
 sh_1_10 = data["sh_1_10"]
 sh_100_400 = data["sh_100_400"]
 sh_1000 = data["sh_1000"]
 
-# 將比例值對應到柱狀圖的最大高度 (160px)
 h1 = int(sh_1_10 * 1.8)
 h2 = int(sh_100_400 * 1.8)
 h3 = int(sh_1000 * 1.8)
 
-# 💡 安全防護：使用扁平無多餘縮排的純 HTML 字串進行渲染，完美避開 Markdown 解析錯誤
 svg_chart = f"""
 <div style="background-color: #FFF; border: 1px solid #E2E8F0; border-radius: 8px; padding: 25px; font-family: sans-serif;">
 <div style="text-align: center; margin-bottom: 25px;">
 <b style="font-size: 16px; color: #2D3748;">股東持股分級比例 ｜ 🚨 400張以上為大戶，400張以下為散戶 🚨</b>
 </div>
-<div style="display: flex; justify-content: space-around; align-items: flex-end; height: 220px; position: relative; border-bottom: 2px solid #CBD5E0; padding-bottom: 10px;">
-<div style="position: absolute; bottom: 100px; left: 0; width: 100%; border-top: 2px dashed #E53E3E; opacity: 0.6; z-index: 1;">
+<div style="display: flex; justify-content: space-around; align-items: flex-end; height: 180px; position: relative; border-bottom: 2px solid #CBD5E0; padding-bottom: 10px;">
+<div style="position: absolute; bottom: 80px; left: 0; width: 100%; border-top: 2px dashed #E53E3E; opacity: 0.6; z-index: 1;">
 <span style="position: absolute; right: 10px; top: -18px; background-color: #FFF; color: #E53E3E; font-size: 11px; padding: 2px 6px; border-radius: 4px; border: 1px solid #E53E3E; font-weight: bold;">大戶分界線 (400張)</span>
 </div>
 <div style="display: flex; flex-direction: column; align-items: center; width: 25%; z-index: 2;">
@@ -558,5 +529,5 @@ svg_chart = f"""
 </div>
 """
 
-# 使用安全組件高度渲染，確保排版完美不破裂
-st.components.v1.html(svg_chart, height=300)
+# 使用安全組件高度渲染，確保排版完美且不會外露原始碼
+st.components.v1.html(svg_chart, height=280)
