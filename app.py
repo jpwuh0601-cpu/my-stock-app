@@ -52,7 +52,7 @@ class TimeoutHTTPAdapter(HTTPAdapter):
     自訂的 HTTP 適配器，強制為所有請求加上嚴格的超時限制，防止 yfinance 無限掛起轉圈
     """
     def __init__(self, *args, **kwargs):
-        self.timeout = kwargs.pop("timeout", 1.5) # 預設 1.5 秒硬超時
+        self.timeout = kwargs.pop("timeout", 1.5)  # 預設 1.5 秒硬超時
         super().__init__(*args, **kwargs)
 
     def send(self, request, **kwargs):
@@ -74,7 +74,6 @@ def fetch_stock_price_safe(ticker):
         
     # 第一階段：嘗試從 yfinance 獲取，配置 1.5 秒硬超時阻斷器
     try:
-        # 建立具備 1.5 秒超時限制的連線 Session
         session = requests.Session()
         timeout_adapter = TimeoutHTTPAdapter(timeout=1.5)
         session.mount("https://", timeout_adapter)
@@ -108,9 +107,18 @@ def fetch_stock_price_safe(ticker):
                 "name": STOCK_DATABASE[db_key]["name"] if db_key in STOCK_DATABASE else f"個股 ({db_key})"
             }
     except Exception:
-        pass # 任何超時、拒絕連線或 404 錯誤，皆在一瞬間跳入 Fallback 機制
+        pass  # 任何超時、拒絕連線，一律自動滑入 Fallback 
         
     # 第二階段：Fallback 離線高精確度模擬引擎
+    return get_fallback_data(clean_ticker)
+
+def get_fallback_data(ticker):
+    """
+    安全無網本地渲染函數，100% 確保啟動時不用聯網
+    """
+    clean_ticker = ticker.strip().upper()
+    db_key = clean_ticker.split('.')[0]
+    
     if db_key in STOCK_DATABASE:
         db_data = STOCK_DATABASE[db_key]
         price = db_data["base_price"]
@@ -127,8 +135,8 @@ def fetch_stock_price_safe(ticker):
             "industry": db_data["industry"],
             "name": db_data["name"]
         }
-        
-    # 第三階段：若為未知代號且 API 失敗，依據 Ticker 哈希值生成穩定的高模擬數據，防止崩潰
+    
+    # 未知個股本地模擬
     ticker_seed = sum(ord(c) for c in clean_ticker)
     np.random.seed(ticker_seed)
     mock_price = round(float(np.random.uniform(50.0, 800.0)), 2)
@@ -159,13 +167,18 @@ st.sidebar.markdown("### 🔍 實時自主查詢系統")
 ticker_input = st.sidebar.text_input("輸入股票代號 (例如: 2330 或 2454)", "2330")
 query_btn = st.sidebar.button("立即實時查詢")
 
-# 如果 Session State 中沒有儲存的資料，或使用者按下查詢按鈕
-if "queried_data" not in st.session_state or query_btn:
+# 【終極優化】初次啟動網頁時，100% 使用本地安全資料，不進行任何網路 API 調用！
+if "queried_data" not in st.session_state:
+    st.session_state["queried_data"] = get_fallback_data("2330")
+    st.session_state["active_ticker"] = "2330"
+
+# 只有當使用者「主動點選按鈕」時，才進行實時 API 獲取
+if query_btn:
     with st.spinner("正在連線至極速資料庫..."):
         st.session_state["queried_data"] = fetch_stock_price_safe(ticker_input)
         st.session_state["active_ticker"] = ticker_input.strip().upper()
 
-# 取得目前要渲染的資料
+# 取得要渲染的資料
 data = st.session_state["queried_data"]
 active_ticker = st.session_state["active_ticker"]
 
