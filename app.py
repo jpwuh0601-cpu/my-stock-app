@@ -1,4 +1,6 @@
 import streamlit as st
+import pandas as pd
+import numpy as np
 
 # ---------------------------------------------------------
 # 1. 頁面配置與極致美感 CSS 注入 (頂層 0 依賴，保證瞬間加載)
@@ -39,33 +41,73 @@ STOCK_DATABASE = {
 }
 
 # ---------------------------------------------------------
-# 2. 數據抓取引擎 (所有科學套件全部內部延遲匯入，防禦力加滿)
+# 2. 數據抓取雙引擎 (優先使用官方實時證交所 API + yfinance 備用)
 # ---------------------------------------------------------
 @st.cache_data(ttl=60, show_spinner=False)
 def fetch_stock_price_safe(ticker):
     clean_ticker = ticker.strip().upper()
-    db_key = clean_ticker.split('.')[0]
+    raw_id = clean_ticker.split('.')[0]
     
-    # 支援台灣股市代號補完
+    # ─── 第一引擎：台灣證交所官方 API (極速、高頻免連線限制，專攻台灣股市) ───
+    if raw_id.isdigit():
+        try:
+            import requests
+            url = f"https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_{raw_id}.tw|otc_{raw_id}.tw"
+            resp = requests.get(url, timeout=1.5)
+            res_data = resp.json()
+            info_list = res_data.get('msgArray', [])
+            if info_list:
+                item = info_list[0]
+                # 優先抓取 z (當前成交價)，若無成交則抓 y (昨收) 作為基準
+                current_price = item.get('z', '-')
+                if current_price == '-' or not current_price:
+                    current_price = item.get('y', 0.0)
+                
+                current_price = float(current_price)
+                yesterday_close = float(item.get('y', 0.0))
+                
+                if current_price > 0:
+                    change = current_price - yesterday_close
+                    change_pct = (change / yesterday_close) * 100 if yesterday_close > 0 else 0.0
+                    
+                    pe, eps, book_value = 15.0, current_price / 15.0, current_price * 0.35
+                    if raw_id in STOCK_DATABASE:
+                        pe = STOCK_DATABASE[raw_id]["trailingPE"]
+                        eps = STOCK_DATABASE[raw_id]["eps"]
+                        book_value = STOCK_DATABASE[raw_id]["bookValue"]
+                        
+                    return {
+                        "is_live": True,
+                        "price": current_price,
+                        "change": change,
+                        "change_pct": change_pct,
+                        "bookValue": book_value,
+                        "trailingPE": pe,
+                        "trailingEps": eps,
+                        "industry": STOCK_DATABASE[raw_id]["industry"] if raw_id in STOCK_DATABASE else "電子科技業",
+                        "name": STOCK_DATABASE[raw_id]["name"] if raw_id in STOCK_DATABASE else item.get('n', f"個股 ({raw_id})")
+                    }
+        except Exception:
+            pass
+
+    # ─── 第二引擎：yfinance 備用 (支援美股及其他國際證券，配有 1.5 秒強行超時) ───
     api_ticker = clean_ticker
     if not api_ticker.endswith(".TW") and not api_ticker.endswith(".TWO") and api_ticker.isdigit():
         api_ticker += ".TW"
         
     try:
-        # 僅在執行時動態匯入，避免編譯期卡死
         import yfinance as yf
         import requests
         from requests.adapters import HTTPAdapter
 
         class TimeoutHTTPAdapter(HTTPAdapter):
             def __init__(self, *args, **kwargs):
-                self.timeout = kwargs.pop("timeout", 1.5)  # 1.5 秒強行超時
+                self.timeout = kwargs.pop("timeout", 1.5)
                 super().__init__(*args, **kwargs)
             def send(self, request, **kwargs):
                 kwargs["timeout"] = self.timeout
                 return super().send(request, **kwargs)
 
-        # 建立硬超時連線
         session = requests.Session()
         timeout_adapter = TimeoutHTTPAdapter(timeout=1.5)
         session.mount("https://", timeout_adapter)
@@ -81,10 +123,10 @@ def fetch_stock_price_safe(ticker):
             change_pct = (change / prev_price) * 100 if prev_price != 0 else 0.0
             
             pe, eps, book_value = 15.0, current_price / 15.0, current_price * 0.35
-            if db_key in STOCK_DATABASE:
-                pe = STOCK_DATABASE[db_key]["trailingPE"]
-                eps = STOCK_DATABASE[db_key]["eps"]
-                book_value = STOCK_DATABASE[db_key]["bookValue"]
+            if raw_id in STOCK_DATABASE:
+                pe = STOCK_DATABASE[raw_id]["trailingPE"]
+                eps = STOCK_DATABASE[raw_id]["eps"]
+                book_value = STOCK_DATABASE[raw_id]["bookValue"]
                 
             return {
                 "is_live": True,
@@ -94,17 +136,17 @@ def fetch_stock_price_safe(ticker):
                 "bookValue": book_value,
                 "trailingPE": pe,
                 "trailingEps": eps,
-                "industry": STOCK_DATABASE[db_key]["industry"] if db_key in STOCK_DATABASE else "電子科技業",
-                "name": STOCK_DATABASE[db_key]["name"] if db_key in STOCK_DATABASE else f"個股 ({db_key})"
+                "industry": STOCK_DATABASE[raw_id]["industry"] if raw_id in STOCK_DATABASE else "電子科技業",
+                "name": STOCK_DATABASE[raw_id]["name"] if raw_id in STOCK_DATABASE else f"個股 ({raw_id})"
             }
     except Exception:
-        pass  # 任何連線超時，自動無縫降級
+        pass
         
     return get_fallback_data(clean_ticker)
 
 def get_fallback_data(ticker):
     """
-    純本機安全資料讀取
+    本機離線極速安全資料庫
     """
     clean_ticker = ticker.strip().upper()
     db_key = clean_ticker.split('.')[0]
@@ -126,8 +168,7 @@ def get_fallback_data(ticker):
             "name": db_data["name"]
         }
     
-    # 動態安全模擬，確保輸入陌生代號也不崩潰
-    import numpy as np
+    # 未知代號本地高擬真模擬器
     ticker_seed = sum(ord(c) for c in clean_ticker)
     np.random.seed(ticker_seed)
     mock_price = round(float(np.random.uniform(50.0, 800.0)), 2)
@@ -155,10 +196,10 @@ def get_csv_download_link(df, filename):
 # 3. 側邊欄與 Session State 狀態機
 # ---------------------------------------------------------
 st.sidebar.markdown("### 🔍 實時自主查詢系統")
-ticker_input = st.sidebar.text_input("輸入股票代號 (例如: 2330 或 2454)", "2330")
+ticker_input = st.sidebar.text_input("輸入股票代號 (例如: 2330 或 2002)", "2330")
 query_btn = st.sidebar.button("立即實時查詢")
 
-# 【0 毫秒啟動】不經過任何網路請求，直接在 0 毫秒內用本地資料渲染，防止卡死
+# 【啟動 0 延遲機制】網頁初次加載不經過任何網路請求，防阻掛起轉圈
 if "queried_data" not in st.session_state:
     st.session_state["queried_data"] = get_fallback_data("2330")
     st.session_state["active_ticker"] = "2330"
@@ -206,10 +247,7 @@ with col_metrics:
 
 st.divider()
 
-# 4.2 三大法人與主力券商資料加載 (內部局部匯入 pandas / numpy)
-import pandas as pd
-import numpy as np
-
+# 4.2 三大法人與主力券商資料加載
 # 4.3 三大法人買賣超
 st.markdown("### 4. 三大法人近十日買賣超明細 (張)")
 dates = pd.date_range(end=pd.Timestamp.today(), periods=10).strftime('%m-%d')
@@ -238,7 +276,7 @@ get_csv_download_link(broker_df, f"{active_ticker}_主力券商買賣超")
 
 st.divider()
 
-# 4.5 技術指標專業進度條面板 (純 HTML/CSS 渲染，免去 Plotly 依賴)
+# 4.5 技術指標專業進度條面板 (移除多餘空白行以修正 Streamlit Markdown 渲染錯誤)
 st.markdown("### 10. 技術指標實時強弱監控 (強弱度分析)")
 
 kd_val = round(float(np.random.uniform(30.0, 95.0)), 1)
@@ -250,8 +288,7 @@ macd_status = "黃金交叉" if macd_val > 70 else ("趨勢向上" if macd_val >
 rsi_status = "強勢偏多" if rsi_val > 65 else ("中性偏多" if rsi_val > 50 else "偏弱整理")
 
 st.markdown(
-    f"""
-    <div style="background-color: #fcfcfc; padding: 22px; border-radius: 12px; border: 1px solid #eaeaea; box-shadow: 0 4px 6px rgba(0,0,0,0.01);">
+    f"""<div style="background-color: #fcfcfc; padding: 22px; border-radius: 12px; border: 1px solid #eaeaea; box-shadow: 0 4px 6px rgba(0,0,0,0.01);">
         <div style="margin-bottom: 20px;">
             <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
                 <span style="font-weight: bold; font-size: 15px; color: #333;">📊 KD 指標強度</span>
@@ -261,7 +298,6 @@ st.markdown(
                 <div style="background-color: #FF4B4B; width: {kd_val}%; height: 12px; border-radius: 6px;"></div>
             </div>
         </div>
-        
         <div style="margin-bottom: 20px;">
             <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
                 <span style="font-weight: bold; font-size: 15px; color: #333;">📊 MACD 趨勢強度</span>
@@ -271,7 +307,6 @@ st.markdown(
                 <div style="background-color: #0077b6; width: {macd_val}%; height: 12px; border-radius: 6px;"></div>
             </div>
         </div>
-        
         <div>
             <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
                 <span style="font-weight: bold; font-size: 15px; color: #333;">📊 RSI 強弱度</span>
@@ -281,7 +316,6 @@ st.markdown(
                 <div style="background-color: #2b9348; width: {rsi_val}%; height: 12px; border-radius: 6px;"></div>
             </div>
         </div>
-    </div>
-    """, 
+    </div>""", 
     unsafe_allow_html=True
 )
