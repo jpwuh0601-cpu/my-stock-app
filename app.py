@@ -15,18 +15,31 @@ jobs:
         with:
           python-version: '3.12'
       
-      # 修正：使用 --upgrade 確保套件版本為最新，並處理相依性衝突
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install --upgrade yfinance requests pandas
-          
-      - run: python main_task.py
+          pip install yfinance requests pandas
+
+      - name: Run Data Task
+        run: python main_task.py
       
-      - name: 推送數據
+      - name: Push Data to Repository
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add market_data.json
-          git commit -m "chore: update market_data.json" || exit 0
-          git push origin main
+          
+          # 檢查檔案是否存在
+          if [ -f "market_data.json" ]; then
+            git add market_data.json
+            # 檢查是否有變更
+            if git diff-index --quiet HEAD --; then
+              echo "數據無變更，無需提交。"
+            else
+              # 加入重試機制與詳細日誌
+              git commit -m "chore: auto-update market data"
+              git push origin main || { echo "推送失敗，請檢查權限設定"; exit 1; }
+            fi
+          else
+            echo "錯誤：market_data.json 未產生，請檢查 main_task.py"
+            exit 1
+          fi
