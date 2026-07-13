@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import requests
 from datetime import datetime
 
 # ---------------------------------------------------------
@@ -75,7 +76,7 @@ st.sidebar.markdown("### 🛠️ 系統防卡死設定")
 # 預設使用智慧模擬引擎，防止 yfinance 多執行緒在 Linux 容器中引發 Segmentation fault
 engine_mode = st.sidebar.selectbox(
     "🔧 數據載入模式",
-    ["🚀 智慧自適應模擬引擎 (極速免轉圈、支援任意代號)", "📡 安全實時 API 連線引擎 (FinMind / yfinance)"]
+    ["🚀 智慧自適應模擬引擎 (極速免轉圈、支援任意代號)", "📡 安全實時 API 連線引擎 (FinMind / Yahoo JSON)"]
 )
 
 st.sidebar.divider()
@@ -186,7 +187,7 @@ def get_deterministic_stock_data(ticker):
     }
 
 def fetch_hybrid_stock_data(ticker):
-    """安全連線核心：封裝所有潛在的 Segmentation Fault 與連線阻塞風險"""
+    """安全連線核心：使用純 requests 介接 API，完全避開 yfinance 以防範 Segmentation fault 崩潰"""
     clean_id = ''.join(filter(str.isdigit, ticker))
     if not clean_id:
         clean_id = "2330"
@@ -196,16 +197,16 @@ def fetch_hybrid_stock_data(ticker):
     if "模擬引擎" in engine_mode:
         return fallback
 
-    # 📡 實時 API 連線引擎 (嚴格限時，隔離保護)
+    # 📡 實時 API 連線引擎 (使用純 requests，絕不崩潰)
+    # 1. 優先嘗試 FinMind API 獲取股價
     try:
-        # 1. 嘗試 FinMind API
         finmind_url = "https://api.finmindtrade.com/api/v4/data"
         params = {
             "dataset": "TaiwanStockPrice",
             "data_id": clean_id,
             "start_date": (pd.Timestamp.today() - pd.Timedelta(days=5)).strftime('%Y-%m-%d')
         }
-        resp = requests.get(finmind_url, params=params, timeout=1.0)
+        resp = requests.get(finmind_url, params=params, timeout=1.5)
         if resp.status_code == 200:
             fm_data = resp.json().get("data", [])
             if fm_data:
@@ -219,20 +220,25 @@ def fetch_hybrid_stock_data(ticker):
     except:
         pass
 
+    # 2. 備援：使用純 requests 請求 Yahoo Finance JSON Chart API (避開多執行緒崩潰)
     try:
-        # 2. 嘗試 yfinance 備援 (安全連線，設定讀取超時防止執行緒掛起)
-        session = requests.Session()
-        session.mount("https://", HTTPAdapter(max_retries=1))
-        
-        full_ticker = f"{clean_id}.TW"
-        stock = yf.Ticker(full_ticker, session=session)
-        # 僅獲取 fast_info 或特定欄位以避開完整的 info 連線掛起
-        fast_price = stock.fast_info.get('last_price', None)
-        if fast_price is not None:
-            fallback["price"] = float(fast_price)
-            fallback["change"] = float(stock.fast_info.get('regular_market_change', fallback["change"]))
-            fallback["engine_used"] = "🔵 yfinance 雲端防鎖死備援引擎"
-            return fallback
+        symbol = f"{clean_id}.TW"
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        }
+        resp = requests.get(url, headers=headers, timeout=1.5)
+        if resp.status_code == 200:
+            result = resp.json().get("chart", {}).get("result", [])
+            if result:
+                meta = result[0].get("meta", {})
+                price = meta.get("regularMarketPrice")
+                prev_close = meta.get("chartPreviousClose")
+                if price is not None:
+                    fallback["price"] = float(price)
+                    fallback["change"] = float(price - prev_close) if prev_close else 0.0
+                    fallback["engine_used"] = "🔵 Yahoo Finance 實時 JSON 備援引擎"
+                    return fallback
     except:
         pass
         
@@ -426,7 +432,7 @@ with cb2:
     <div class="card-container" style="border-top: 5px solid #e63946; height: 100%;">
         <strong>🚢 美伊戰爭 - 地緣衝突與航運保費</strong><br><br>
         <p style="font-size:13.5px; line-height:1.6; color:#475569;">
-        中東局勢以及美伊地緣政治衝突近期出現高度緊繃，紅海與波斯灣航線的軍事防衛壓力遽增。此黑天鵝事件造成全球遠洋貨運運價和保險溢價急遽攀升，對高階組件與終端電子產品的跨國運送時程與總體運輸成本構成顯著衝擊。若局勢失控，將引發新一波輸入型能源通膨與供應鏈交貨遲延。
+        中東局勢以及美伊地緣政治衝突近期出現高度緊繃，紅海與波斯灣航線的軍事防衛壓力遽增。此黑天鵝事件造成全球遠洋貨運運價和保險溢價急遽攀升，對高階組件與終端電子產品的跨國運送時程與總體運輸成本構成顯著衝擊。若局勢失控，將引發新一波輸入型能源通淹與供應鏈交貨遲延。
         </p>
     </div>
     """, unsafe_allow_html=True)
