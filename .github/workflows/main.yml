@@ -8,12 +8,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      # 必須明確聲明寫入權限，才能推送更新
       contents: write
     steps:
       - uses: actions/checkout@v3
         with:
-          # 確保能夠取得完整的 Git 歷史紀錄
           fetch-depth: 0
       
       - uses: actions/setup-python@v4
@@ -30,7 +28,6 @@ jobs:
       
       - name: Push Data to Repository
         env:
-          # 使用自動生成的 GITHUB_TOKEN，無須額外設定秘鑰
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.name "github-actions[bot]"
@@ -44,6 +41,15 @@ jobs:
             echo "數據無變更，無需提交。"
           else
             git commit -m "chore: auto-update market data"
-            # 確保使用 https 協議並帶入 token 進行認證
-            git push origin main
+            
+            # 使用 push 嘗試推送，若因保護分支失敗，改為建立新分支並發起 PR
+            # 此處先嘗試標準推送，若失敗則改用自動化 PR 邏輯
+            git push origin main || {
+              echo "推送至 main 失敗，嘗試發起 Pull Request..."
+              BRANCH_NAME="update-data-$(date +%Y%m%d-%H%M%S)"
+              git checkout -b $BRANCH_NAME
+              git push origin $BRANCH_NAME
+              # 這裡建議後續整合 gh pr create 指令以完成自動化
+              echo "已推送至分支: $BRANCH_NAME，請至 GitHub 手動建立 Pull Request。"
+            }
           fi
