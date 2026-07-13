@@ -2,9 +2,9 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import yfinance as yf
 import json
 import os
-from worker import fetch_stock_data
 
 # =========================================================
 # 1. 頁面配置與台灣股市傳統「漲紅跌綠」CSS 樣式注入
@@ -70,16 +70,16 @@ st.markdown("""
 st.title("📈 專業股市決策儀表板")
 
 # =========================================================
-# 2. 側邊欄控制面板 (狀態持久化刷新與自訂財務參數)
+# 2. 側邊欄控制面板 (狀態持久化與自訂參數)
 # =========================================================
 st.sidebar.markdown("### 🔍 實時自主查詢系統")
 
 if 'ticker' not in st.session_state:
     st.session_state['ticker'] = "2330"
 
-ticker_input = st.sidebar.text_input("輸入股票代號 (例如: 2330, 2317, 2454, 2002)", value=st.session_state['ticker']).strip()
+ticker_input = st.sidebar.text_input("輸入股票代號 (例如: 2330, 2317, 2454)", value=st.session_state['ticker']).strip()
 
-# 財務參數設定區 (與第 9 步驟計算公式完美連動)
+# 財務參數設定區 (與預估模型完美連動)
 st.sidebar.markdown("### ⚙️ 財務預估自訂參數")
 user_growth_rate = st.sidebar.number_input("最新累積營收年增率 (%)", -50.0, 100.0, 12.0, step=0.1) / 100
 user_net_margin = st.sidebar.number_input("假設合適的稅後淨利率 (%)", 0.0, 100.0, 15.0, step=0.1) / 100
@@ -92,7 +92,7 @@ if st.sidebar.button("查詢分析數據"):
 active_ticker = st.session_state['ticker']
 
 # =========================================================
-# 3. 智慧自適應數據整合中心 (快照 / API / 模擬 三重保險)
+# 3. 內建超強健核心數據獲取與整合模組 (替代原有 worker.py)
 # =========================================================
 def get_clean_id(ticker):
     if ticker is None:
@@ -101,9 +101,15 @@ def get_clean_id(ticker):
     clean = "".join([c for c in ticker_str if c.isdigit()])
     return clean if clean else "2330"
 
-def get_deterministic_stock_data(ticker):
-    """當所有數據抓取管道都不可用時的安全降級模擬"""
-    clean_id = get_clean_id(ticker)
+@st.cache_data(ttl=300)
+def fetch_stock_data_internal(ticker_raw):
+    """
+    整合原 worker.py 的實時抓取邏輯，若連線失敗或無資料，則動態生成高擬真基礎數據，確保不崩潰。
+    """
+    clean_id = get_clean_id(ticker_raw)
+    ticker_formatted = f"{clean_id}.TW"
+    
+    # 預設自適應模擬數據 (作為安全降級防線)
     try:
         seed = int(clean_id)
     except:
@@ -111,8 +117,7 @@ def get_deterministic_stock_data(ticker):
     rng = np.random.RandomState(seed)
     
     tw_names = {
-        "2330": "台積電", "2317": "鴻海", "2454": "聯發科", "2002": "中鋼",
-        "2303": "聯電", "2603": "長榮", "2882": "國泰金", "2881": "富邦金"
+        "2330": "台積電", "2317": "鴻海", "2454": "聯發科", "2002": "中鋼"
     }
     name = tw_names.get(clean_id, f"台{clean_id[-2:] if len(clean_id)>=2 else '股'}特選")
     
@@ -122,9 +127,9 @@ def get_deterministic_stock_data(ticker):
     pe = float(rng.uniform(10.0, 30.0))
     shares = int(rng.randint(10, 200) * 100000000)
     last_year_rev = int(shares * rng.uniform(2, 10))
-    change = float(rng.uniform(-0.06, 0.06) * base_price)
+    change = float(rng.uniform(-0.04, 0.04) * base_price)
     
-    return {
+    result = {
         "name": name,
         "price": round(base_price, 2),
         "change": round(change, 2),
@@ -133,14 +138,29 @@ def get_deterministic_stock_data(ticker):
         "eps": round(eps, 2),
         "shares": shares,
         "last_year_rev": last_year_rev,
-        "engine_used": "🚀 智慧自適應模擬引擎 (安全無延遲)"
+        "engine_used": "🚀 智慧自適應模擬引擎 (安全防護啟動)"
     }
+    
+    # 嘗試實時線上抓取
+    try:
+        stock = yf.Ticker(ticker_formatted)
+        info = stock.info
+        if info and isinstance(info, dict) and "currentPrice" in info:
+            result["price"] = float(info.get("currentPrice", result["price"]))
+            result["nav"] = float(info.get("bookValue", result["nav"]))
+            result["pe"] = float(info.get("trailingPE", result["pe"]))
+            result["eps"] = float(info.get("trailingEps", result["eps"]))
+            result["change"] = float(info.get("regularMarketChange", result["change"]))
+            result["engine_used"] = "📡 實時 API 連線引擎 (Yahoo Finance)"
+    except Exception:
+        pass # 抓取失敗則採用降級防線，確保畫面不崩潰
+        
+    return result
 
 def get_integrated_data(ticker):
     clean_id = get_clean_id(ticker)
-    fallback = get_deterministic_stock_data(clean_id)
     
-    # 1. 優先從 GitHub Actions 自動生成的 market_data.json 中讀取
+    # 1. 優先嘗試讀取由 GitHub Actions 每日自動生成的 market_data.json 快照
     if os.path.exists("market_data.json"):
         try:
             with open("market_data.json", "r", encoding="utf-8") as f:
@@ -148,33 +168,24 @@ def get_integrated_data(ticker):
                 full_key = f"{clean_id}.TW"
                 if full_key in saved_data:
                     info = saved_data[full_key]
-                    fallback["price"] = float(info.get("price", fallback["price"]))
-                    fallback["change"] = float(info.get("change", fallback["change"]))
-                    fallback["nav"] = float(info.get("nav", fallback["nav"]))
-                    fallback["pe"] = float(info.get("pe", fallback["pe"]))
-                    fallback["eps"] = float(info.get("eps", fallback["eps"]))
-                    fallback["engine_used"] = "📦 GitHub Actions 每日自動更新快照"
-                    return fallback
+                    return {
+                        "name": "台積電" if clean_id == "2330" else ("鴻海" if clean_id == "2317" else "聯發科"),
+                        "price": float(info.get("price", 0)),
+                        "change": float(info.get("change", 0)),
+                        "nav": float(info.get("nav", 0)),
+                        "pe": float(info.get("pe", 0)),
+                        "eps": float(info.get("eps", 0)),
+                        "shares": 25930000000 if clean_id == "2330" else 13860000000,
+                        "last_year_rev": 2200000000000 if clean_id == "2330" else 6600000000000,
+                        "engine_used": "📦 GitHub Actions 每日自動更新快照"
+                    }
         except Exception:
             pass
+            
+    # 2. 若快照不存在或查詢其他個股，則調用實時/自適應雙軌抓取引擎
+    return fetch_stock_data_internal(clean_id)
 
-    # 2. 次要嘗試呼叫 worker.py 獲取實時數據
-    try:
-        real_data = fetch_stock_data(clean_id)
-        if real_data and "error" not in real_data:
-            fallback["price"] = real_data.get("price", fallback["price"])
-            fallback["nav"] = real_data.get("nav", fallback["nav"])
-            fallback["pe"] = real_data.get("pe", fallback["pe"])
-            fallback["eps"] = real_data.get("eps", fallback["eps"])
-            fallback["change"] = real_data.get("change", fallback["change"])
-            fallback["engine_used"] = "📡 實時 API 連線引擎 (worker.py)"
-            return fallback
-    except Exception:
-        pass
-        
-    return fallback
-
-# 載入整合後的完美數據
+# 載入整合後的最終數據
 data = get_integrated_data(active_ticker)
 
 # =========================================================
