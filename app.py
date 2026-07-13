@@ -5,7 +5,6 @@ import plotly.graph_objects as go
 import requests
 import json
 import os
-from datetime import datetime
 
 # =========================================================
 # 1. 頁面配置與台灣股市傳統「漲紅跌綠」CSS 樣式注入
@@ -75,7 +74,6 @@ st.title("📈 專業股市決策儀表板")
 # =========================================================
 st.sidebar.markdown("### 🛠️ 系統防卡死設定")
 
-# 預設使用智慧自適應模擬引擎，避免 yfinance 連線超時或 C 語言函式庫引發 Segfault
 engine_mode = st.sidebar.selectbox(
     "🔧 數據載入模式",
     ["🚀 智慧自適應模擬引擎 (極速、防崩潰、支援任意代號)", "📡 安全實時 API 連線引擎 (FinMind / Yahoo JSON)"]
@@ -102,12 +100,12 @@ if st.sidebar.button("查詢分析數據"):
 active_ticker = st.session_state['ticker']
 
 # =========================================================
-# 3. 超強健核心數據轉換演算法 (完美預防 TypeError 崩潰)
+# 3. 超強健核心數據轉換與數據流清洗演算法
 # =========================================================
 def get_clean_id(ticker):
     """
     極致安全的代號提取器：
-    強制將任何類型的輸入轉為字串，並提取數字，若無效則安全降級預設為 '2330'
+    強制將任何類型的輸入轉為字串並只保留數字，防止 TypeError 崩潰。
     """
     if ticker is None:
         return "2330"
@@ -117,8 +115,8 @@ def get_clean_id(ticker):
 
 def get_deterministic_stock_data(ticker):
     """
-    台股自適應模擬算法：
-    當外部 API 異常、被限流或離線時，根據代號動態衍生高擬真的基礎數據。
+    台股自適應演算法：
+    當外部連線離線或超時，自動動態衍生高擬真的基本面與歷史特徵，解鎖任意代號查詢限制。
     """
     clean_id = get_clean_id(ticker)
     
@@ -127,7 +125,7 @@ def get_deterministic_stock_data(ticker):
     except:
         seed = 2330
         
-    # 使用獨立的 RandomState，避免與全域隨機狀態衝突
+    # 使用獨立的隨機產生器，防止與 Streamlit 主執行緒隨機狀態干擾
     rng = np.random.RandomState(seed)
     
     # 台灣主流個股特徵字典
@@ -146,7 +144,7 @@ def get_deterministic_stock_data(ticker):
         s_idx = (seed // len(prefixes)) % len(suffixes)
         name = f"{prefixes[p_idx]}{seed % 100 if seed % 100 > 10 else 99}{suffixes[s_idx]}"
     
-    # 基本面動態推算
+    # 基本面數據推算
     if clean_id == "2330":
         base_price = 1025.0
         eps = 42.50
@@ -200,13 +198,13 @@ def get_deterministic_stock_data(ticker):
 def fetch_local_and_api_data(ticker):
     """
     資料流分級載入核心：
-    1. 嘗試載入自動更新快照
-    2. 若失敗則根據模式提供安全 API 請求或自適應模擬，確保 0.1 秒瞬開不卡死
+    1. 優先嘗試載入 GitHub Actions 每日生成的快照 (market_data.json)
+    2. 若失敗或查詢其他代號，則採用純 requests 連線或智慧模擬，100% 防止轉圈
     """
     clean_id = get_clean_id(ticker)
     fallback = get_deterministic_stock_data(clean_id)
     
-    # 優先讀取 market_data.json
+    # 優先嘗試讀取 market_data.json 快照
     if os.path.exists("market_data.json"):
         try:
             with open("market_data.json", "r", encoding="utf-8") as f:
@@ -227,7 +225,7 @@ def fetch_local_and_api_data(ticker):
     if "模擬引擎" in engine_mode:
         return fallback
 
-    # 📡 實時 API 連線引擎 (使用純 requests，絕不導入 C 執行緒庫)
+    # 📡 實時 API 連線引擎 (使用純 requests，安全防 Segfault)
     try:
         finmind_url = "https://api.finmindtrade.com/api/v4/data"
         params = {
@@ -270,11 +268,11 @@ def fetch_local_and_api_data(ticker):
         
     return fallback
 
-# 安全載入數據
+# 載入並計算最終數據
 data = fetch_local_and_api_data(active_ticker)
 
 # =========================================================
-# 4. 畫面上半部分：個股即時行情顯示 (漲紅跌綠)
+# 4. 個股即時行情顯示 (漲紅跌綠)
 # =========================================================
 price = data["price"]
 change = data["change"]
