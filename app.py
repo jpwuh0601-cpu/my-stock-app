@@ -4,7 +4,7 @@ import numpy as np
 import plotly.graph_objects as go
 import requests
 from datetime import datetime
-from requests.adapters import HTTPAdapter  # 補全此關鍵導入，徹底解決 NameError 引發的轉圈卡死
+from requests.adapters import HTTPAdapter
 
 # ---------------------------------------------------------
 # 1. 頁面配置與台灣股市傳統「漲紅跌綠」CSS 樣式注入
@@ -117,7 +117,8 @@ def get_deterministic_stock_data(ticker):
     except:
         seed = 2330
         
-    np.random.seed(seed)
+    # 使用獨立的 RandomState，避免與全域隨機狀態衝突
+    rng = np.random.RandomState(seed)
     
     # 台灣主流個股特徵字典
     tw_names = {
@@ -165,15 +166,14 @@ def get_deterministic_stock_data(ticker):
         shares = 1599000000
         last_year_rev = 450000000000
     else:
-        # 動態派生演算法
-        base_price = float(np.random.uniform(15.0, 750.0))
-        eps = float(base_price / np.random.uniform(10.0, 25.0))
-        nav = float(base_price * np.random.uniform(0.25, 0.55))
-        pe = float(np.random.uniform(12.0, 35.0))
-        shares = int(np.random.randint(5, 80) * 100000000)
-        last_year_rev = int(shares * np.random.uniform(3, 15))
+        base_price = float(rng.uniform(15.0, 750.0))
+        eps = float(base_price / rng.uniform(10.0, 25.0))
+        nav = float(base_price * rng.uniform(0.25, 0.55))
+        pe = float(rng.uniform(12.0, 35.0))
+        shares = int(rng.randint(5, 80) * 100000000)
+        last_year_rev = int(shares * rng.uniform(3, 15))
         
-    change = float(np.random.uniform(-0.06, 0.06) * base_price)
+    change = float(rng.uniform(-0.06, 0.06) * base_price)
     
     return {
         "name": name,
@@ -306,20 +306,21 @@ for i, q in enumerate(quarters):
 col_table1, col_table2 = st.columns(2)
 
 dates = pd.date_range(end=pd.Timestamp.today(), periods=10).strftime('%m-%d')
-np.random.seed(sum(ord(c) for c in active_ticker))
+# 使用局部隨機生成器
+rng_tables = np.random.RandomState(sum(ord(c) for c in active_ticker))
 
 # 生成籌碼數據
 inst_df = pd.DataFrame({
     "日期": dates,
-    "外資 (張)": np.random.randint(-2500, 2500, 10),
-    "投信 (張)": np.random.randint(-1200, 1200, 10),
-    "自營商 (張)": np.random.randint(-800, 800, 10)
+    "外資 (張)": rng_tables.randint(-2500, 2500, 10),
+    "投信 (張)": rng_tables.randint(-1200, 1200, 10),
+    "自營商 (張)": rng_tables.randint(-800, 800, 10)
 })
 
 brokers = ["元大-台北", "凱基-信義", "富邦-建國", "永豐金-總部", "國泰-敦南", "群益-南京", "元富-松山", "華南永昌", "兆豐-東門", "統一-忠孝"]
 broker_data = {"日期": dates}
 for b in brokers:
-    broker_data[b] = np.random.randint(-800, 800, 10)
+    broker_data[b] = rng_tables.randint(-800, 800, 10)
 broker_df = pd.DataFrame(broker_data)
 
 def render_html_styled_table(df, title_text):
