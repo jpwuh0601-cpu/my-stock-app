@@ -4,6 +4,7 @@ import numpy as np
 import plotly.graph_objects as go
 import requests
 from datetime import datetime
+from requests.adapters import HTTPAdapter  # 補全此關鍵導入，徹底解決 NameError 引發的轉圈卡死
 
 # ---------------------------------------------------------
 # 1. 頁面配置與台灣股市傳統「漲紅跌綠」CSS 樣式注入
@@ -405,7 +406,7 @@ with cn3:
     st.markdown(f"""
     <div class="card-container" style="height: 100%;">
         <strong>📈 【市場分析】產業板塊資金流向</strong><br><br>
-        <p style="font-size:13.5px; line-height:1.5; color:#334155;">三大法人連續六日擴大淨買超，外資調升評等並提高目標價，主因全球高階硬體及系統架構升級周期啟動，該個股作為核心節點商，營運前景明確且基本面極具支撐力。</p>
+        <p style="font-size:13.5px; line-height:1.5; color:#334155;">三大法人連續六日擴大淨買超，外資調升評等並提高目標價，主因全球高階硬體及系統架裝升級周期啟動，該個股作為核心節點商，營運前景明確且基本面極具支撐力。</p>
     </div>
     """, unsafe_allow_html=True)
 
