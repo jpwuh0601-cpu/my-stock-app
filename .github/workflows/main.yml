@@ -1,8 +1,8 @@
 name: Daily Stock Analysis
 on:
   schedule:
-    - cron: '0 0 * * *'
-  workflow_dispatch:
+    - cron: '0 0 * * *'  # 每日國際標準時間 00:00 自動執行
+  workflow_dispatch:      # 允許在 GitHub 頁面上手動觸發執行
 
 jobs:
   build:
@@ -13,20 +13,20 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          fetch-depth: 0
-      
+          fetch-depth: 0  # 取得完整的 Git 歷史紀錄，以利線性推送
+
       - uses: actions/setup-python@v4
         with:
           python-version: '3.12'
-      
+
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install yfinance requests pandas
+          pip install yfinance requests pandas numpy plotly
 
       - name: Run Data Task
         run: python main_task.py
-      
+
       - name: Push Data to Repository
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -34,8 +34,17 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
+          # 強制清理所有本地臨時變更，避免 git 狀態不乾淨
+          git reset --hard HEAD
+          
+          # 線性拉取遠端最新變更，預防分支不對齊
+          git fetch origin main
+          git rebase origin/main || git rebase --abort
+          
+          # 將生成的數據檔案加入暫存區
           git add market_data.json
           
+          # 檢查是否有實際變更，有變更才進行分支推翻與 PR
           if git diff-index --quiet HEAD --; then
             echo "數據無變更，無需提交。"
           else
@@ -43,5 +52,7 @@ jobs:
             git checkout -b $BRANCH_NAME
             git commit -m "chore: auto-update market data"
             git push origin $BRANCH_NAME
-            gh pr create --title "自動更新數據: $BRANCH_NAME" --body "自動化任務更新 market_data.json" --base main --head $BRANCH_NAME
+            
+            # 使用 GitHub CLI 自動開立 Pull Request，繞過主分支保護限制
+            gh pr create --title "自動更新數據: $BRANCH_NAME" --body "自動化任務每日更新 market_data.json" --base main --head $BRANCH_NAME
           fi
