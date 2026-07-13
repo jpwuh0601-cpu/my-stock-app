@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v3
         with:
@@ -33,23 +34,17 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 將檔案放入暫存區
           git add market_data.json
           
-          # 檢查是否有變更
           if git diff-index --quiet HEAD --; then
             echo "數據無變更，無需提交。"
           else
+            # 建立一個時間戳記的分支，繞過 main 分支保護
+            BRANCH_NAME="data-update-$(date +'%Y%m%d-%H%M%S')"
+            git checkout -b $BRANCH_NAME
             git commit -m "chore: auto-update market data"
+            git push origin $BRANCH_NAME
             
-            # 使用 push 嘗試推送，若因保護分支失敗，改為建立新分支並發起 PR
-            # 此處先嘗試標準推送，若失敗則改用自動化 PR 邏輯
-            git push origin main || {
-              echo "推送至 main 失敗，嘗試發起 Pull Request..."
-              BRANCH_NAME="update-data-$(date +%Y%m%d-%H%M%S)"
-              git checkout -b $BRANCH_NAME
-              git push origin $BRANCH_NAME
-              # 這裡建議後續整合 gh pr create 指令以完成自動化
-              echo "已推送至分支: $BRANCH_NAME，請至 GitHub 手動建立 Pull Request。"
-            }
+            # 使用 GitHub CLI 自動發起 Pull Request (若需自動合併請額外設定)
+            gh pr create --title "自動更新數據: $BRANCH_NAME" --body "自動化任務更新 market_data.json" --base main --head $BRANCH_NAME
           fi
