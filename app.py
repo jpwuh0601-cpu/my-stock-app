@@ -2,9 +2,9 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-import requests
 import json
 import os
+from worker import fetch_stock_data
 
 # =========================================================
 # 1. 頁面配置與台灣股市傳統「漲紅跌綠」CSS 樣式注入
@@ -70,16 +70,8 @@ st.markdown("""
 st.title("📈 專業股市決策儀表板")
 
 # =========================================================
-# 2. 側邊欄控制面板 (狀態持久化刷新與安全模式切換)
+# 2. 側邊欄控制面板 (狀態持久化刷新與自訂財務參數)
 # =========================================================
-st.sidebar.markdown("### 🛠️ 系統防卡死設定")
-
-engine_mode = st.sidebar.selectbox(
-    "🔧 數據載入模式",
-    ["🚀 智慧自適應模擬引擎 (極速、防崩潰、支援任意代號)", "📡 安全實時 API 連線引擎 (FinMind / Yahoo JSON)"]
-)
-
-st.sidebar.divider()
 st.sidebar.markdown("### 🔍 實時自主查詢系統")
 
 if 'ticker' not in st.session_state:
@@ -100,13 +92,9 @@ if st.sidebar.button("查詢分析數據"):
 active_ticker = st.session_state['ticker']
 
 # =========================================================
-# 3. 超強健核心數據轉換與數據流清洗演算法
+# 3. 智慧自適應數據整合中心 (快照 / API / 模擬 三重保險)
 # =========================================================
 def get_clean_id(ticker):
-    """
-    極致安全的代號提取器：
-    強制將任何類型的輸入轉為字串並只保留數字，防止 TypeError 崩潰。
-    """
     if ticker is None:
         return "2330"
     ticker_str = str(ticker).strip()
@@ -114,73 +102,26 @@ def get_clean_id(ticker):
     return clean if clean else "2330"
 
 def get_deterministic_stock_data(ticker):
-    """
-    台股自適應演算法：
-    當外部連線離線或超時，自動動態衍生高擬真的基本面與歷史特徵，解鎖任意代號查詢限制。
-    """
+    """當所有數據抓取管道都不可用時的安全降級模擬"""
     clean_id = get_clean_id(ticker)
-    
     try:
         seed = int(clean_id)
     except:
         seed = 2330
-        
-    # 使用獨立的隨機產生器，防止與 Streamlit 主執行緒隨機狀態干擾
     rng = np.random.RandomState(seed)
     
-    # 台灣主流個股特徵字典
     tw_names = {
         "2330": "台積電", "2317": "鴻海", "2454": "聯發科", "2002": "中鋼",
-        "2303": "聯電", "2603": "長榮", "2882": "國泰金", "2881": "富邦金",
-        "3294": "中山", "1301": "台塑", "1504": "東元", "6770": "力積電"
+        "2303": "聯電", "2603": "長榮", "2882": "國泰金", "2881": "富邦金"
     }
+    name = tw_names.get(clean_id, f"台{clean_id[-2:] if len(clean_id)>=2 else '股'}特選")
     
-    if clean_id in tw_names:
-        name = tw_names[clean_id]
-    else:
-        prefixes = ["台", "聯", "國", "華", "元", "中", "亞", "新", "富", "兆", "建", "興", "鼎"]
-        suffixes = ["科技", "電子", "光電", "鋼鐵", "金控", "造紙", "化學", "航運", "精機", "能源"]
-        p_idx = seed % len(prefixes)
-        s_idx = (seed // len(prefixes)) % len(suffixes)
-        name = f"{prefixes[p_idx]}{seed % 100 if seed % 100 > 10 else 99}{suffixes[s_idx]}"
-    
-    # 基本面數據推算
-    if clean_id == "2330":
-        base_price = 1025.0
-        eps = 42.50
-        nav = 227.17
-        pe = 24.12
-        shares = 25930000000
-        last_year_rev = 2200000000000
-    elif clean_id == "2317":
-        base_price = 204.5
-        eps = 11.20
-        nav = 108.50
-        pe = 18.25
-        shares = 13860000000
-        last_year_rev = 6600000000000
-    elif clean_id == "2002":
-        base_price = 22.85
-        eps = 0.45
-        nav = 18.55
-        pe = 50.70
-        shares = 15770000000
-        last_year_rev = 380000000000
-    elif clean_id == "2454":
-        base_price = 1320.0
-        eps = 55.40
-        nav = 280.50
-        pe = 23.82
-        shares = 1599000000
-        last_year_rev = 450000000000
-    else:
-        base_price = float(rng.uniform(15.0, 750.0))
-        eps = float(base_price / rng.uniform(10.0, 25.0))
-        nav = float(base_price * rng.uniform(0.25, 0.55))
-        pe = float(rng.uniform(12.0, 35.0))
-        shares = int(rng.randint(5, 80) * 100000000)
-        last_year_rev = int(shares * rng.uniform(3, 15))
-        
+    base_price = float(rng.uniform(15.0, 1200.0))
+    eps = float(base_price / rng.uniform(12.0, 25.0))
+    nav = float(base_price * rng.uniform(0.2, 0.5))
+    pe = float(rng.uniform(10.0, 30.0))
+    shares = int(rng.randint(10, 200) * 100000000)
+    last_year_rev = int(shares * rng.uniform(2, 10))
     change = float(rng.uniform(-0.06, 0.06) * base_price)
     
     return {
@@ -192,19 +133,14 @@ def get_deterministic_stock_data(ticker):
         "eps": round(eps, 2),
         "shares": shares,
         "last_year_rev": last_year_rev,
-        "engine_used": "🚀 智慧自適應模擬引擎 (極速免轉圈、免疫類型崩潰)"
+        "engine_used": "🚀 智慧自適應模擬引擎 (安全無延遲)"
     }
 
-def fetch_local_and_api_data(ticker):
-    """
-    資料流分級載入核心：
-    1. 優先嘗試載入 GitHub Actions 每日生成的快照 (market_data.json)
-    2. 若失敗或查詢其他代號，則採用純 requests 連線或智慧模擬，100% 防止轉圈
-    """
+def get_integrated_data(ticker):
     clean_id = get_clean_id(ticker)
     fallback = get_deterministic_stock_data(clean_id)
     
-    # 優先嘗試讀取 market_data.json 快照
+    # 1. 優先從 GitHub Actions 自動生成的 market_data.json 中讀取
     if os.path.exists("market_data.json"):
         try:
             with open("market_data.json", "r", encoding="utf-8") as f:
@@ -217,59 +153,29 @@ def fetch_local_and_api_data(ticker):
                     fallback["nav"] = float(info.get("nav", fallback["nav"]))
                     fallback["pe"] = float(info.get("pe", fallback["pe"]))
                     fallback["eps"] = float(info.get("eps", fallback["eps"]))
-                    fallback["engine_used"] = "📦 GitHub Actions 預存快照數據"
+                    fallback["engine_used"] = "📦 GitHub Actions 每日自動更新快照"
                     return fallback
-        except:
+        except Exception:
             pass
 
-    if "模擬引擎" in engine_mode:
-        return fallback
-
-    # 📡 實時 API 連線引擎 (使用純 requests，安全防 Segfault)
+    # 2. 次要嘗試呼叫 worker.py 獲取實時數據
     try:
-        finmind_url = "https://api.finmindtrade.com/api/v4/data"
-        params = {
-            "dataset": "TaiwanStockPrice",
-            "data_id": clean_id,
-            "start_date": (pd.Timestamp.today() - pd.Timedelta(days=5)).strftime('%Y-%m-%d')
-        }
-        resp = requests.get(finmind_url, params=params, timeout=1.5)
-        if resp.status_code == 200:
-            fm_data = resp.json().get("data", [])
-            if fm_data:
-                latest_info = fm_data[-1]
-                prev_info = fm_data[-2] if len(fm_data) > 1 else latest_info
-                
-                fallback["price"] = float(latest_info.get("close", fallback["price"]))
-                fallback["change"] = float(latest_info.get("close", 0) - prev_info.get("close", 0))
-                fallback["engine_used"] = "🟢 FinMind 台灣金融實時 API"
-                return fallback
-    except:
-        pass
-
-    try:
-        symbol = f"{clean_id}.TW"
-        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
-        headers = {"User-Agent": "Mozilla/5.0"}
-        resp = requests.get(url, headers=headers, timeout=1.5)
-        if resp.status_code == 200:
-            result = resp.json().get("chart", {}).get("result", [])
-            if result:
-                meta = result[0].get("meta", {})
-                price = meta.get("regularMarketPrice")
-                prev_close = meta.get("chartPreviousClose")
-                if price is not None:
-                    fallback["price"] = float(price)
-                    fallback["change"] = float(price - prev_close) if prev_close else 0.0
-                    fallback["engine_used"] = "🔵 Yahoo Finance 實時 JSON 備援引擎"
-                    return fallback
-    except:
+        real_data = fetch_stock_data(clean_id)
+        if real_data and "error" not in real_data:
+            fallback["price"] = real_data.get("price", fallback["price"])
+            fallback["nav"] = real_data.get("nav", fallback["nav"])
+            fallback["pe"] = real_data.get("pe", fallback["pe"])
+            fallback["eps"] = real_data.get("eps", fallback["eps"])
+            fallback["change"] = real_data.get("change", fallback["change"])
+            fallback["engine_used"] = "📡 實時 API 連線引擎 (worker.py)"
+            return fallback
+    except Exception:
         pass
         
     return fallback
 
-# 載入並計算最終數據
-data = fetch_local_and_api_data(active_ticker)
+# 載入整合後的完美數據
+data = get_integrated_data(active_ticker)
 
 # =========================================================
 # 4. 個股即時行情顯示 (漲紅跌綠)
@@ -391,7 +297,6 @@ st.divider()
 # 7. 預估今年營收、EPS 與股利
 # =========================================================
 st.markdown("### 4. 財務模型年度指標預估")
-# 根據自訂或預設參數試算
 est_rev = data["last_year_rev"] * (1 + user_growth_rate)
 est_net = est_rev * user_net_margin
 est_eps = est_net / data["shares"]
