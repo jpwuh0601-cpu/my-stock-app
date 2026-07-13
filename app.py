@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import plotly.graph_objects as go
 from worker import fetch_stock_data
 
@@ -7,12 +8,12 @@ from worker import fetch_stock_data
 st.set_page_config(page_title="專業股市決策儀表板", layout="wide")
 st.title("📈 專業股市決策儀表板")
 
-# 2. 資料獲取與快取
+# 2. 資料獲取與快取 (防止重複呼叫)
 @st.cache_data(ttl=300)
 def get_data_cached(ticker):
     return fetch_stock_data(ticker)
 
-# 3. 穩定版表格呈現函式
+# 3. HTML 表格渲染函數 (避免 pandas 樣式相容性問題)
 def render_html_table(data_df, title):
     st.markdown(f"### {title}")
     if data_df.empty:
@@ -24,6 +25,7 @@ def render_html_table(data_df, title):
         html += "<tr>"
         for col in data_df.columns:
             val = row[col]
+            # 數值漲紅跌綠判斷
             if isinstance(val, (int, float)) and col != "日期":
                 color = "red" if val > 0 else "green"
                 html += f"<td style='padding:8px; border:1px solid #ddd; color:{color}; font-weight:bold;'>{val}</td>"
@@ -43,7 +45,7 @@ if st.sidebar.button("查詢分析數據"):
         if "error" in data:
             st.error(f"⚠️ {data['error']}")
         else:
-            # 股價資訊呈現
+            # 股價資訊顯示
             price = data.get('price', 0)
             change = data.get('change', 0)
             color_code = "red" if change >= 0 else "green"
@@ -58,14 +60,14 @@ if st.sidebar.button("查詢分析數據"):
             col2.metric("本益比", f"{data.get('pe', 0):.2f}")
             col3.metric("EPS", f"{data.get('eps', 0):.2f}")
 
-            # 數據表格
+            # 數據表格呈現
             if 'institutional_data' in data:
                 render_html_table(data['institutional_data'], "三大法人近十日買賣超明細 (張)")
 
             if 'broker_data' in data:
                 render_html_table(data['broker_data'], "十大主力券商近十日買賣超明細 (張)")
 
-            # 技術指標簡易圖表
+            # 技術指標圖形化
             st.markdown("### 技術指標趨勢")
             fig = go.Figure(data=go.Scatterpolar(r=[65, 72, 58], theta=['KD', 'MACD', 'RSI'], fill='toself', line_color='red'))
             st.plotly_chart(fig, use_container_width=True)
