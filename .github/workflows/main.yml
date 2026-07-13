@@ -1,10 +1,44 @@
 name: Daily Stock Analysis
 on:
+  schedule:
+    - cron: '0 0 * * *'
   workflow_dispatch:
 
 jobs:
-  check:
+  build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: 測試偵測
-        run: echo "Workflow 偵測成功"
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install yfinance requests pandas
+
+      - name: Run Data Task
+        run: python main_task.py
+      
+      - name: Push Data to Repository
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # 檢查檔案是否存在
+          if [ -f "market_data.json" ]; then
+            git add market_data.json
+            # 檢查是否有變更
+            if git diff-index --quiet HEAD --; then
+              echo "數據無變更，無需提交。"
+            else
+              git commit -m "chore: auto-update market data"
+              git push origin main
+            fi
+          else
+            echo "錯誤：market_data.json 未產生，請檢查 main_task.py"
+            exit 1
+          fi
