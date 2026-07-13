@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import plotly.graph_objects as go
 from worker import fetch_stock_data
 
@@ -8,12 +7,12 @@ from worker import fetch_stock_data
 st.set_page_config(page_title="專業股市決策儀表板", layout="wide")
 st.title("📈 專業股市決策儀表板")
 
-# 2. 資料獲取與快取 (防止重複呼叫)
+# 2. 資料獲取與快取 (防止重複呼叫 API)
 @st.cache_data(ttl=300)
 def get_data_cached(ticker):
     return fetch_stock_data(ticker)
 
-# 3. HTML 表格渲染函數 (避免 pandas 樣式相容性問題)
+# 3. HTML 表格渲染函數 (穩定呈現數據，避免樣式衝突)
 def render_html_table(data_df, title):
     st.markdown(f"### {title}")
     if data_df.empty:
