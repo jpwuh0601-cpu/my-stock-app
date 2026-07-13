@@ -39,12 +39,9 @@ jobs:
           if git diff-index --quiet HEAD --; then
             echo "數據無變更，無需提交。"
           else
-            # 建立一個時間戳記的分支，繞過 main 分支保護
             BRANCH_NAME="data-update-$(date +'%Y%m%d-%H%M%S')"
             git checkout -b $BRANCH_NAME
             git commit -m "chore: auto-update market data"
             git push origin $BRANCH_NAME
-            
-            # 使用 GitHub CLI 自動發起 Pull Request (若需自動合併請額外設定)
             gh pr create --title "自動更新數據: $BRANCH_NAME" --body "自動化任務更新 market_data.json" --base main --head $BRANCH_NAME
           fi
